@@ -1,1 +1,1 @@
-from .s3tools import s3tools
+from .s3tools import S3Tools

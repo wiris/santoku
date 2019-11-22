@@ -1,1 +1,6 @@
 .idea/
+src/build/
+src/wiris.egg-info/
+src/wiris/__pycache__/
+src/wiris/aws/__pycache__/
+test/__pycache__/

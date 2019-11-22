@@ -1,4 +1,5 @@
 import boto3
+import json
 from io import StringIO
 
 
@@ -26,22 +27,34 @@ class S3Tools:
             except KeyError:
                 break
 
-    '''
-    def paginate(self, method, **kwargs):
-    """
-    Same as get_keys_as_generator but not limited to 1k objects, generic syntax for other services other than s3 and
-    other methods other than list_objects_v2. Needs testing
-    :param method: method to list the objects, here it will usually be self.client.list_objects_v2
-    :param kwargs: arguments for the above method, e.g.
-    https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3.html#S3.Client.list_objects_v2
-    in this case, for list_objects_v2 kwargs would need Bucket, Prefix and possibly StartAfter
-    :return: yields an iterable with the objects in the s3
-    """
-    paginator = self.client.get_paginator(method.__name__)
-    for page in paginator.paginate(**kwargs).result_key_iters():
-        for result in page:
-            yield result
-    '''
+    def paginate(self, Bucket, **kwargs):
+        """
+        generates an iterable of objects within a bucket, following list_objects_v2 but without a 1k limit
+        :param Bucket: required since list-objects_v2 requires Bucket
+        :param kwargs: other arguments for list_objects_v2
+        """
+        '''
+        def paginate(self, method, **kwargs):
+        """
+        Same as get_keys_as_generator but not limited to 1k objects, generic syntax for other services other than s3
+        and methods other than list_objects_v2. Needs testing
+        :param method: method to list the objects, here it will usually be self.client.list_objects_v2
+        :param kwargs: arguments for the above method, e.g.
+        https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3.html#S3.Client.list_objects_v2
+        in this case, for list_objects_v2 kwargs would need Bucket and possibly Prefix, StartAfter, etc
+        :return: yields an iterable with the objects in the s3
+        """
+            paginator = self.client.get_paginator(method.__name__)
+            for page in paginator.paginate(**kwargs).result_key_iters():
+                for result in page:
+                    yield result
+        '''
+        args = {'Bucket': Bucket}
+        args.update(**kwargs)
+        paginator = self.client.get_paginator(self.client.list_objects_v2)
+        for page in paginator.paginate(**args).result_key_iters():
+            for result in page:
+                yield result
 
     # Read file at s3 bucket with given key. Use provided encoding
     def get_file_content(self, bucket, file_key, encoding='utf-8'):
@@ -75,11 +88,56 @@ class S3Tools:
 
         self.write_file(bytes_content, bucket, file_key)
 
-    def generate_quicksight_manifest(self, files, save_to):
+    def generate_quicksight_manifest(self, bucket, file_key, s3_path=None, s3_prefix=None, include_settings=False,
+                                     set_format=None, set_delimiter=None, set_qualifier=None, set_header=None):
         """
-        TO DO: generate and save a QS manifest from a list of file paths in S3
-        :param save_to:
-        :param files:
-        :return:
+        Generates a QS manifest JSON file from a list of files and/or prefixes and saves it to a specified S3 location
+        More info on format: https://docs.aws.amazon.com/quicksight/latest/user/supported-manifest-file-format.html
+        :param bucket: bucket to save the generated manifest
+        :param file_key: file key to save the manifest in the specified bucket (.json)
+        :param s3_path: list or tuple of S3 absolute paths to specific files. Check the link above for valid formats
+        :param s3_prefix: list or tuple of S3 prefixes. Check the link above for valid formats
+        :param include_settings: (optional) whether to include global upload settings
+        :param set_format: (optional) format of files to be imported (e.g. "CSV"). Check AWS docs link for valid formats
+        :param set_delimiter: (optional) file field delimiter (e.g. ","). Must map to the above format
+        :param set_qualifier: (optional) file text qualifier (e.g. "'").  Check AWS docs link for allowed values
+        :param set_header: (optional) whether the files have a header row. Valid values are True of False
         """
-        return
+        # check for files
+        if s3_prefix is None and s3_path is None:
+            raise Exception('no file nor prefix were specified')
+
+        # absolute paths of specific files
+        uri = {}
+        if s3_path is not None:
+            uri["URIs"] = list(s3_path)
+
+        # prefixes to include all files with that prefix
+        uri_prefixes = {}
+        if s3_prefix is not None:
+            uri_prefixes["URIPrefixes"] = list(s3_prefix)
+
+        # global upload settings
+        upload_settings = {}
+        if include_settings:
+            if set_format is not None:
+                upload_settings["format"] = set_format
+            if set_delimiter is not None:
+                upload_settings["delimiter"] = set_delimiter
+            if set_qualifier is not None:
+                upload_settings["textqualifier"] = set_delimiter
+            if set_header is not None:
+                upload_settings['containsHeader'] = set_header
+
+        # construct JSON file
+        data = {"fileLocations": []}
+        if s3_path is not None:
+            data["fileLocations"].append(uri)
+        if s3_prefix is not None:
+            data['fileLocations'].append(uri_prefixes)
+        if include_settings:
+            data["globalUploadSettings"] = upload_settings
+        json_content = json.dumps(data, indent=4, sort_keys=True)
+
+        # save to specified location
+        self.write_file(json_content, bucket, file_key)
