@@ -14,19 +14,6 @@ class S3Tools:
         self.client = boto3.client('s3')
         self.resource = boto3.resource('s3')
 
-    # Function to get all keys (files) from S3 bucket and prefix
-    def get_keys_as_generator(self, bucket, prefix, start_after='null'):
-        kwargs = {'Bucket': bucket, 'Prefix': prefix, 'StartAfter': start_after}
-        while True:
-            resp = self.client.list_objects_v2(**kwargs)
-            for obj in resp['Contents']:
-                yield obj['Key']
-
-            try:
-                kwargs['ContinuationToken'] = resp['NextContinuationToken']
-            except KeyError:
-                break
-
     @staticmethod
     def get_absolute_path(bucket, file_key, prefix=None, prefix_is_folder=True):
         """
@@ -39,13 +26,36 @@ class S3Tools:
         if prefix is not None:
             if prefix_is_folder:
                 if prefix[-1] == '/':
-                    return 's3://'+bucket+'/'+prefix+file_key
+                    return 's3://' + bucket + '/' + prefix + file_key
                 else:
-                    return 's3://'+bucket+'/'+prefix+'/'+file_key
+                    return 's3://' + bucket + '/' + prefix + '/' + file_key
             else:
-                return 's3://'+bucket+'/'+prefix+file_key
+                return 's3://' + bucket + '/' + prefix + file_key
         else:
-            return 's3://'+bucket+'/'+file_key
+            return 's3://' + bucket + '/' + file_key
+
+    def get_keys_as_generator(self, bucket, prefix, start_after=None):
+        """
+        returns a generator with all keys (files) given S3 bucket and prefix
+        :param bucket:
+        :param prefix:
+        :param start_after:
+        :return:
+        """
+        kwargs = {}
+        if start_after is None:
+            kwargs = {'Bucket': bucket, 'Prefix': prefix}
+        else:
+            kwargs = {'Bucket': bucket, 'Prefix': prefix, 'StartAfter': start_after}
+        while True:
+            resp = self.client.list_objects_v2(**kwargs)
+            for obj in resp['Contents']:
+                yield obj['Key']
+
+            try:
+                kwargs['ContinuationToken'] = resp['NextContinuationToken']
+            except KeyError:
+                break
 
     def paginate(self, Bucket, **kwargs):
         """
@@ -76,8 +86,14 @@ class S3Tools:
             for result in page:
                 yield result
 
-    # Read file at s3 bucket with given key. Use provided encoding
     def get_file_content(self, bucket, file_key, encoding='utf-8'):
+        """
+        Read file at s3 bucket with given key. Use provided encoding
+        :param bucket:
+        :param file_key:
+        :param encoding:
+        :return:
+        """
         file_obj = self.resource.Object(bucket, file_key)
         file_content = file_obj.get()['Body'].read().decode(encoding)
         return file_content
@@ -101,6 +117,14 @@ class S3Tools:
         # self.client.delete_objects(Bucket=bucket, Delete=delete_dict)
 
     def write_dataframe_to_csv_file(self, dataframe, bucket, file_key, encoding='utf-8'):
+        """
+        Write a pandas dataframe to an S3 location (bucket + key)
+        :param dataframe:
+        :param bucket:
+        :param file_key:
+        :param encoding: (optional)
+        :return:
+        """
         # Get pandas dataframe as CSV bytes
         csv_buffer = StringIO()
         dataframe.to_csv(csv_buffer)
