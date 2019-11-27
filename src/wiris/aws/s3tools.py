@@ -60,7 +60,8 @@ class S3Tools:
     def paginate(self, method, **kwargs):
         """
         Same as get_keys_as_generator but with generic syntax for other services other than s3 and methods other than
-        list_objects_v2. More information on paginators:
+        list_objects_v2. It returns objects rather than keys. To get keys use result['Key'].
+        More information on paginators:
         https://boto3.amazonaws.com/v1/documentation/api/latest/guide/paginators.html
         :param method: method used to list the objects, here it will usually be self.client.list_objects_v2
         :param kwargs: arguments for the specified method
@@ -73,7 +74,7 @@ class S3Tools:
 
     def list_objects(self, Bucket, Prefix=None, **kwargs):
         """
-        returns a generator of objects within a bucket, via list_objects_v2
+        returns a generator of object keys within a bucket, via list_objects_v2
         :param Bucket: S3 bucket to iterate in. Required since list-objects_v2 requires Bucket
         :param Prefix: (optional) prefix within the bucket
         :param kwargs: other arguments for list_objects_v2, e.g. StartAfter. More information:
@@ -84,7 +85,7 @@ class S3Tools:
             args.update({'Prefix': Prefix})
         args.update(**kwargs)
         for result in self.paginate(self.client.list_objects_v2, **args):
-            yield result
+            yield result['Key']
 
     def get_file_content(self, bucket, file_key, encoding='utf-8'):
         """

@@ -16,6 +16,9 @@ class TestS3Tools(unittest.TestCase):
     def test_paginate(self):
         self.assertEqual(True, True)
 
+    def test_list_objects(self):
+        self.assertEqual(True, True)
+
     def test_get_file_content(self):
         self.assertEqual(True, True)
 
