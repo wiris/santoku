@@ -57,34 +57,34 @@ class S3Tools:
             except KeyError:
                 break
 
-    def paginate(self, Bucket, **kwargs):
+    def paginate(self, method, **kwargs):
         """
-        generates an iterable of objects within a bucket, following list_objects_v2 but without a 1k limit
-        :param Bucket: required since list-objects_v2 requires Bucket
-        :param kwargs: other arguments for list_objects_v2
-        """
-        '''
-        def paginate(self, method, **kwargs):
-        """
-        Same as get_keys_as_generator but not limited to 1k objects, generic syntax for other services other than s3
-        and methods other than list_objects_v2. Needs testing
-        :param method: method to list the objects, here it will usually be self.client.list_objects_v2
-        :param kwargs: arguments for the above method, e.g.
-        https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3.html#S3.Client.list_objects_v2
-        in this case, for list_objects_v2 kwargs would need Bucket and possibly Prefix, StartAfter, etc
+        Same as get_keys_as_generator but with generic syntax for other services other than s3 and methods other than
+        list_objects_v2. More information on paginators:
+        https://boto3.amazonaws.com/v1/documentation/api/latest/guide/paginators.html
+        :param method: method used to list the objects, here it will usually be self.client.list_objects_v2
+        :param kwargs: arguments for the specified method
         :return: yields an iterable with the objects in the s3
         """
-            paginator = self.client.get_paginator(method.__name__)
-            for page in paginator.paginate(**kwargs).result_key_iters():
-                for result in page:
-                    yield result
-        '''
-        args = {'Bucket': Bucket}
-        args.update(**kwargs)
-        paginator = self.client.get_paginator(self.client.list_objects_v2)
-        for page in paginator.paginate(**args).result_key_iters():
+        paginator = self.client.get_paginator(method.__name__)
+        for page in paginator.paginate(**kwargs).result_key_iters():
             for result in page:
                 yield result
+
+    def list_objects(self, Bucket, Prefix=None, **kwargs):
+        """
+        returns a generator of objects within a bucket, via list_objects_v2
+        :param Bucket: S3 bucket to iterate in. Required since list-objects_v2 requires Bucket
+        :param Prefix: (optional) prefix within the bucket
+        :param kwargs: other arguments for list_objects_v2, e.g. StartAfter. More information:
+        https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3.html#S3.Client.list_objects_v2
+        """
+        args = {'Bucket': Bucket}
+        if Prefix is not None:
+            args.update({'Prefix': Prefix})
+        args.update(**kwargs)
+        for result in self.paginate(self.client.list_objects_v2, **args):
+            yield result
 
     def get_file_content(self, bucket, file_key, encoding='utf-8'):
         """
