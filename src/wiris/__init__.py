@@ -1,1 +1,1 @@
-import src.wiris.aws
+import wiris.aws
