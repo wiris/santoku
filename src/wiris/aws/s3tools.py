@@ -27,6 +27,26 @@ class S3Tools:
             except KeyError:
                 break
 
+    @staticmethod
+    def get_absolute_path(bucket, file_key, prefix=None, prefix_is_folder=True):
+        """
+        generates the absolute S3 path of a file from its bucket, prefix and key
+        :param bucket: S3 bucket
+        :param file_key: relative path inside the bucket. relative path within the prefix if a prefix is passed
+        :param prefix: (optional) S3 prefix within the bucket
+        :param prefix_is_folder: (optional) whether the prefix marks a folder
+        """
+        if prefix is not None:
+            if prefix_is_folder:
+                if prefix[-1] == '/':
+                    return 's3://'+bucket+'/'+prefix+file_key
+                else:
+                    return 's3://'+bucket+'/'+prefix+'/'+file_key
+            else:
+                return 's3://'+bucket+'/'+prefix+file_key
+        else:
+            return 's3://'+bucket+'/'+file_key
+
     def paginate(self, Bucket, **kwargs):
         """
         generates an iterable of objects within a bucket, following list_objects_v2 but without a 1k limit
