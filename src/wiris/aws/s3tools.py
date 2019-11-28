@@ -7,7 +7,7 @@ class S3Tools:
     """
     Class to handle input/output operations with Amazon's S3 storage service.
 
-    This class is intended to be run on AWS Glue job (Python Shell).
+    This class is intended to be run on AWS Glue jobs (Python Shell).
     """
 
     def __init__(self):
@@ -100,22 +100,42 @@ class S3Tools:
         return file_content
 
     def write_file(self, content, bucket, file_key):
+
         self.client.put_object(Body=content, Bucket=bucket, Key=file_key)
 
-    def delete_file(self, bucket, file_key):
-        # high level version
-        self.resource.Object(bucket, file_key).delete()
-        # low level version. needs the object to be null
-        # self.client.delete_object(Bucket=bucket, Key=file_key)
+    def delete_file(self, bucket, file_key, mode='resource'):
+        """
+        deletes an object from S3
+        :param bucket: S3 bucket
+        :param file_key: object key to delete
+        :param mode: use resource (high level API) or client (low level, only if you know what you are doing)
+        """
+        if mode == 'resource':
+            self.resource.Object(bucket, file_key).delete()
+        elif mode == 'client':
+            # low level version. needs the object to be null
+            self.client.delete_object(Bucket=bucket, Key=file_key)
+        else:
+            raise Exception('mode {} not recognised'.format(mode))
 
-    def delete_files(self, bucket, file_keys):
-        # high level version, might be inefficient
-        for key in file_keys:
-            self.delete_file(bucket, key)
-        # low level version, needs the objects to be null
-        # objects = [{'Key': key, 'VersionId': 'null'} for key in file_keys]
-        # delete_dict = {'Objects': objects, 'Quiet': True}
-        # self.client.delete_objects(Bucket=bucket, Delete=delete_dict)
+    def delete_files(self, bucket, file_keys, mode='resource'):
+        """
+        deletes a list of objects from S3
+        :param bucket: S3 bucket
+        :param file_keys: iterable of object keys to delete
+        :param mode: use resource (high level API) or client (low level, only if you know what you are doing)
+        """
+        if mode == 'resource':
+            # high level version, might be inefficient
+            for key in file_keys:
+                self.delete_file(bucket, key, mode=mode)
+        elif mode == 'client':
+            # low level version, needs the objects to be null
+            objects = [{'Key': key, 'VersionId': 'null'} for key in file_keys]
+            delete_dict = {'Objects': objects, 'Quiet': True}
+            self.client.delete_objects(Bucket=bucket, Delete=delete_dict)
+        else:
+            raise Exception('mode {} not recognised'.format(mode))
 
     def write_dataframe_to_csv_file(self, dataframe, bucket, file_key, encoding='utf-8'):
         """
@@ -133,7 +153,7 @@ class S3Tools:
 
         self.write_file(bytes_content, bucket, file_key)
 
-    def generate_quicksight_manifest(self, bucket, file_key, s3_path=None, s3_prefix=None, include_settings=False,
+    def generate_quicksight_manifest(self, bucket, file_key, s3_path=None, s3_prefix=None,
                                      set_format=None, set_delimiter=None, set_qualifier=None, set_header=None):
         """
         Generates a QS manifest JSON file from a list of files and/or prefixes and saves it to a specified S3 location
@@ -142,7 +162,6 @@ class S3Tools:
         :param file_key: file key to save the manifest in the specified bucket (.json)
         :param s3_path: list or tuple of S3 absolute paths to specific files. Check the link above for valid formats
         :param s3_prefix: list or tuple of S3 prefixes. Check the link above for valid formats
-        :param include_settings: (optional) whether to include global upload settings
         :param set_format: (optional) format of files to be imported (e.g. "CSV"). Check AWS docs link for valid formats
         :param set_delimiter: (optional) file field delimiter (e.g. ","). Must map to the above format
         :param set_qualifier: (optional) file text qualifier (e.g. "'").  Check AWS docs link for allowed values
@@ -162,17 +181,16 @@ class S3Tools:
         if s3_prefix is not None:
             uri_prefixes["URIPrefixes"] = list(s3_prefix)
 
-        # global upload settings
+        # global upload settings (if any)
         upload_settings = {}
-        if include_settings:
-            if set_format is not None:
-                upload_settings["format"] = set_format
-            if set_delimiter is not None:
-                upload_settings["delimiter"] = set_delimiter
-            if set_qualifier is not None:
-                upload_settings["textqualifier"] = set_delimiter
-            if set_header is not None:
-                upload_settings['containsHeader'] = set_header
+        if set_format is not None:
+            upload_settings["format"] = set_format
+        if set_delimiter is not None:
+            upload_settings["delimiter"] = set_delimiter
+        if set_qualifier is not None:
+            upload_settings["textqualifier"] = set_delimiter
+        if set_header is not None:
+            upload_settings['containsHeader'] = set_header
 
         # construct JSON file
         data = {"fileLocations": []}
@@ -180,7 +198,7 @@ class S3Tools:
             data["fileLocations"].append(uri)
         if s3_prefix is not None:
             data['fileLocations'].append(uri_prefixes)
-        if include_settings:
+        if upload_settings:
             data["globalUploadSettings"] = upload_settings
         json_content = json.dumps(data, indent=4, sort_keys=True)
 

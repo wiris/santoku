@@ -4,11 +4,44 @@ import unittest
 from src.wiris.aws.s3tools import S3Tools
 from moto import mock_s3
 
+"""
+TODO: this whole section might serve in the future as test suite for this library
+      The idea is to use moto to locally simulate the aws services so that the suite can run without actually
+      connecting to the aws cloud, thus saving $$ and reducing the latency of the tests
+"""
+
 
 @mock_s3
 class TestS3Tools(unittest.TestCase):
     def setUp(self):
         self.s3tools = S3Tools()
+
+    def test_get_absolute_path(self):
+        bucket = 'test_bucket'
+        file_key = 'test_file.test'
+
+        # test 1: file in a bucket, no prefix
+        true_path = 's3://test_bucket/test_file.test'
+        generated_path = self.s3tools.get_absolute_path(bucket, file_key)
+        self.assertEqual(true_path, generated_path)
+
+        # test 2: file in a folder, prefix is the folder with /
+        prefix = 'folder/'
+        true_path = 's3://test_bucket/folder/test_file.test'
+        generated_path = self.s3tools.get_absolute_path(bucket, file_key, prefix=prefix)
+        self.assertEqual(true_path, generated_path)
+
+        # test 3: file in folder, prefix is the folder without /
+        prefix = 'folder'
+        true_path = 's3://test_bucket/folder/test_file.test'
+        generated_path = self.s3tools.get_absolute_path(bucket, file_key, prefix=prefix)
+        self.assertEqual(true_path, generated_path)
+
+        # test 4: prefix is not the folder
+        prefix = 'some_'
+        true_path = 's3://test_bucket/some_test_file.test'
+        generated_path = self.s3tools.get_absolute_path(bucket, file_key, prefix=prefix, prefix_is_folder=False)
+        self.assertEqual(true_path, generated_path)
 
     def test_get_keys_as_generator(self):
         self.assertEqual(True, True)
