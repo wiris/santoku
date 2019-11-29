@@ -17,7 +17,7 @@ class S3Tools:
     @staticmethod
     def get_absolute_path(bucket, file_key, prefix=None, prefix_is_folder=True):
         """
-        generates the absolute S3 path of a file from its bucket, prefix and key
+        Absolute S3 path of a file from its bucket, prefix and key
         :param bucket: S3 bucket
         :param file_key: relative path inside the bucket. relative path within the prefix if a prefix is passed
         :param prefix: (optional) S3 prefix within the bucket
@@ -36,7 +36,7 @@ class S3Tools:
 
     def get_keys_as_generator(self, bucket, prefix, start_after=None):
         """
-        returns a generator with all keys (files) given S3 bucket and prefix
+        Generates all keys (files) given S3 bucket and prefix
         :param bucket:
         :param prefix:
         :param start_after:
@@ -74,7 +74,7 @@ class S3Tools:
 
     def list_objects(self, Bucket, Prefix=None, **kwargs):
         """
-        returns a generator of object keys within a bucket, via list_objects_v2
+        Generates all object keys within a bucket, via list_objects_v2
         :param Bucket: S3 bucket to iterate in. Required since list-objects_v2 requires Bucket
         :param Prefix: (optional) prefix within the bucket
         :param kwargs: other arguments for list_objects_v2, e.g. StartAfter. More information:
@@ -100,12 +100,18 @@ class S3Tools:
         return file_content
 
     def write_file(self, content, bucket, file_key):
-
+        """
+        Write the contents of a file into S3
+        :param content:
+        :param bucket:
+        :param file_key:
+        :return:
+        """
         self.client.put_object(Body=content, Bucket=bucket, Key=file_key)
 
     def delete_file(self, bucket, file_key, mode='resource'):
         """
-        deletes an object from S3
+        Deletes an object from S3
         :param bucket: S3 bucket
         :param file_key: object key to delete
         :param mode: use resource (high level API) or client (low level, only if you know what you are doing)
@@ -120,7 +126,7 @@ class S3Tools:
 
     def delete_files(self, bucket, file_keys, mode='resource'):
         """
-        deletes a list of objects from S3
+        Deletes a list of objects from S3
         :param bucket: S3 bucket
         :param file_keys: iterable of object keys to delete
         :param mode: use resource (high level API) or client (low level, only if you know what you are doing)
