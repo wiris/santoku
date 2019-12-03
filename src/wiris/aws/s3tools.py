@@ -143,18 +143,19 @@ class S3Tools:
         else:
             raise Exception('mode {} not recognised'.format(mode))
 
-    def write_dataframe_to_csv_file(self, dataframe, bucket, file_key, encoding='utf-8'):
+    def write_dataframe_to_csv_file(self, dataframe, bucket, file_key, encoding='utf-8', save_index=False):
         """
         Write a pandas dataframe to an S3 location (bucket + key)
-        :param dataframe:
-        :param bucket:
-        :param file_key:
-        :param encoding: (optional)
+        :param dataframe: pandas dataframe to save
+        :param bucket: S3 bucket where we wish to save
+        :param file_key: local path of the file where we wish to save the dataframe
+        :param encoding: (optional) save with a particular encoding, default is utf-8
+        :param save_index: (optional) whether so save the index as a column, defaults to False
         :return:
         """
         # Get pandas dataframe as CSV bytes
         csv_buffer = StringIO()
-        dataframe.to_csv(csv_buffer)
+        dataframe.to_csv(csv_buffer, index=save_index)
         bytes_content = csv_buffer.getvalue().encode(encoding)
 
         self.write_file(bytes_content, bucket, file_key)

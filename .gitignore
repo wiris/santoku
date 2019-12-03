@@ -5,3 +5,4 @@ src/wiris.egg-info/
 src/wiris/__pycache__/
 src/wiris/aws/__pycache__/
 test/__pycache__/
+build_on_docker.txt
