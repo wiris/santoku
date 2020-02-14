@@ -1,4 +1,7 @@
+import os
 import json
+import boto3
+import botocore
 import unittest
 
 from src.wiris.aws.s3tools import S3Tools
@@ -10,11 +13,36 @@ TODO: this whole section might serve in the future as test suite for this librar
       connecting to the aws cloud, thus saving $$ and reducing the latency of the tests
 """
 
+TEST_BUCKET = 'test_bucket'
+TEST_PREFIX = 'mock_prefix'
+
 
 @mock_s3
 class TestS3Tools(unittest.TestCase):
     def setUp(self):
-        self.s3tools = S3Tools()
+        self.s3t = S3Tools()
+        self.client = boto3.client('s3')
+        try:
+            self.s3 = boto3.resource('s3',
+                                     region_name='eu-west-1',
+                                     aws_access_key_id='fake_access_key',
+                                     aws_secret_access_key='fake_secret_key')
+            self.s3.meta.client.head_bucket(Bucket=TEST_BUCKET)
+        except botocore.exceptions.ClientError:
+            pass
+        else:
+            err = '{bucket} should not exist.'.format(bucket=TEST_BUCKET)
+            raise EnvironmentError(err)
+        self.client.create_bucket(Bucket=TEST_BUCKET)
+        current_dir = os.path.dirname(__file__)
+        fixture_dir = os.path.join(current_dir, 'test_s3tools_fixtures')
+        _upload_fixtures(TEST_BUCKET, fixture_dir)
+
+    def tearDown(self):
+        bucket = self.s3.Bucket(TEST_BUCKET)
+        for key in bucket.objects.all():
+            key.delete()
+        bucket.delete()
 
     def test_get_absolute_path(self):
         bucket = 'test_bucket'
@@ -59,7 +87,27 @@ class TestS3Tools(unittest.TestCase):
         self.assertEqual(True, True)
 
     def test_delete_file(self):
-        self.assertEqual(True, True)
+        # test resource mode
+        file_to_delete = 'test_delete_file/resource/delete.json'
+        self.s3t.delete_file(TEST_BUCKET, file_to_delete, mode='resource')
+        leftover = []
+        paginator = self.client.get_paginator(self.client.list_objects_v2.__name__)
+        for page in paginator.paginate(Bucket=TEST_BUCKET, Prefix='test_delete_file/resource').result_key_iters():
+            for result in page:
+                leftover.append(result['key'])
+        desired_leftover = ['do-not-delete.json']
+        self.assertCountEqual(leftover, desired_leftover)
+
+        # test client mode
+        file_to_delete = 'test_delete_file/client/delete.json'
+        self.s3t.delete_file(TEST_BUCKET, file_to_delete, mode='resource')
+        leftover = []
+        paginator = self.client.get_paginator(self.client.list_objects_v2.__name__)
+        for page in paginator.paginate(Bucket=TEST_BUCKET, Prefix='test_delete_file/client').result_key_iters():
+            for result in page:
+                leftover.append(result['key'])
+        desired_leftover = ['do-not-delete.json']
+        self.assertCountEqual(leftover, desired_leftover)
 
     def test_delete_files(self):
         self.assertEqual(True, True)
@@ -74,15 +122,30 @@ class TestS3Tools(unittest.TestCase):
 
         data = {"fileLocations": [{"URIs": file_paths}, {"URIPrefixes": folder_paths}],
                 "globalUploadSettings": upload_settings}
-        ground_truth_manifest = json.dumps(data, indent=4, sort_keys=True)
-
-        self.s3tools.generate_quicksight_manifest(bucket='bucket', file_key='manifest.json',
+        expected_manifest = json.dumps(data, indent=4, sort_keys=True)
+        manifest_key = 'test_generate_correct_qs_manifest/manifest.json'
+        self.s3tools.generate_quicksight_manifest(bucket=TEST_BUCKET,
+                                                  file_key=manifest_key,
                                                   s3_path=file_paths, s3_prefix=folder_paths, include_settings=True,
                                                   set_format=upload_settings['format'],
                                                   set_delimiter=upload_settings['delimiter'],
                                                   set_qualifier=upload_settings['textqualifier'],
                                                   set_header=upload_settings['containsHeader'])
-        generated_manifest = self.s3tools.get_file_content('bucket', 'manifest.json')
+
+        generated_manifest = self.resource.Object(TEST_BUCKET, manifest_key).get()['Body'].read()
+        # generated_manifest = self.s3tools.get_file_content('bucket', 'manifest.json')
         # generated_manifest = json.dumps(generated_content, indent=4, sort_keys=True)
 
-        self.assertEqual(ground_truth_manifest, generated_manifest)
+        self.assertEqual(expected_manifest, generated_manifest)
+
+
+def _upload_fixtures(bucket: str, fixture_dir: str) -> None:
+    client = boto3.client('s3')
+    fixture_paths = [
+        os.path.join(path, filename)
+        for path, _, files in os.walk(fixture_dir)
+        for filename in files
+    ]
+    for path in fixture_paths:
+        key = os.path.relpath(path, fixture_dir)
+        client.upload_file(Filename=path, Bucket=bucket, Key=key)

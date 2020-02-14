@@ -17,7 +17,7 @@ class S3Tools:
     @staticmethod
     def get_absolute_path(bucket, file_key, prefix=None, prefix_is_folder=True):
         """
-        Absolute S3 path of a file from its bucket, prefix and key
+        Absolute S3 path string (URI) of a file from its bucket, prefix and key
         :param bucket: S3 bucket
         :param file_key: relative path inside the bucket. relative path within the prefix if a prefix is passed
         :param prefix: (optional) S3 prefix within the bucket
@@ -72,24 +72,24 @@ class S3Tools:
             for result in page:
                 yield result
 
-    def list_objects(self, Bucket, Prefix=None, **kwargs):
+    def list_objects(self, bucket, prefix=None, **kwargs):
         """
-        Generates all object keys within a bucket, via list_objects_v2
-        :param Bucket: S3 bucket to iterate in. Required since list-objects_v2 requires Bucket
-        :param Prefix: (optional) prefix within the bucket
+        Generates all object keys within a bucket, via boto3.client('s3').list_objects_v2
+        :param bucket: S3 bucket to iterate in. Required since list-objects_v2 requires Bucket
+        :param prefix: (optional) prefix within the bucket
         :param kwargs: other arguments for list_objects_v2, e.g. StartAfter. More information:
         https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3.html#S3.Client.list_objects_v2
         """
-        args = {'Bucket': Bucket}
-        if Prefix is not None:
-            args.update({'Prefix': Prefix})
+        args = {'Bucket': bucket}
+        if prefix is not None:
+            args.update({'Prefix': prefix})
         args.update(**kwargs)
         for result in self.paginate(self.client.list_objects_v2, **args):
             yield result['Key']
 
     def get_file_content(self, bucket, file_key, encoding='utf-8'):
         """
-        Read file at s3 bucket with given key. Use provided encoding
+        Read file at S3 bucket with given key. Use provided encoding
         :param bucket:
         :param file_key:
         :param encoding:
@@ -122,11 +122,11 @@ class S3Tools:
             # low level version. needs the object to be null
             self.client.delete_object(Bucket=bucket, Key=file_key)
         else:
-            raise Exception('mode {} not recognised'.format(mode))
+            raise Exception('invalid mode value: {}'.format(mode))
 
     def delete_files(self, bucket, file_keys, mode='resource'):
         """
-        Deletes a list of objects from S3
+        Deletes a list of objects from a single bucket in S3
         :param bucket: S3 bucket
         :param file_keys: iterable of object keys to delete
         :param mode: use resource (high level API) or client (low level, only if you know what you are doing)
@@ -141,7 +141,7 @@ class S3Tools:
             delete_dict = {'Objects': objects, 'Quiet': True}
             self.client.delete_objects(Bucket=bucket, Delete=delete_dict)
         else:
-            raise Exception('mode {} not recognised'.format(mode))
+            raise Exception('invalid mode value: {}'.format(mode))
 
     def write_dataframe_to_csv_file(self, dataframe, bucket, file_key, encoding='utf-8', save_index=False):
         """
