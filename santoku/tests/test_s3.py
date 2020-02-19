@@ -15,22 +15,22 @@ TODO: this whole section might serve in the future as test suite for this librar
       connecting to the aws cloud, thus saving $$ and reducing the latency of the tests
 """
 
-TEST_BUCKET = 'wiris-stats-data'
+TEST_BUCKET = 'test_bucket'
 TEST_PREFIX = 'mock_prefix'
 
-
-
+@mock_s3
 class TestS3(unittest.TestCase):
-    """
+
     def setUp(self):
-        self.s3tools = S3Tools()
+        self.s3_handler = S3()
         self.client = boto3.client('s3')
+        self.resource = boto3.resource('s3')
         try:
-            self.s3 = boto3.resource('s3',
+            self.resource = boto3.resource('s3',
                                      region_name='eu-west-1',
                                      aws_access_key_id='fake_access_key',
                                      aws_secret_access_key='fake_secret_key')
-            self.s3.meta.client.head_bucket(Bucket=TEST_BUCKET)
+            self.resource.meta.client.head_bucket(Bucket=TEST_BUCKET)
         except botocore.exceptions.ClientError:
             pass
         else:
@@ -38,72 +38,43 @@ class TestS3(unittest.TestCase):
             raise EnvironmentError(err)
         self.client.create_bucket(Bucket=TEST_BUCKET)
         current_dir = os.path.dirname(__file__)
-        fixture_dir = os.path.join(current_dir, 'test_s3tools_fixtures')
+        fixture_dir = os.path.join(current_dir, 'test_s3_fixtures')
         _upload_fixtures(TEST_BUCKET, fixture_dir)
-    """
 
-    """
     def tearDown(self):
-        bucket = self.s3.Bucket(TEST_BUCKET)
+        bucket = self.resource.Bucket(TEST_BUCKET)
         for key in bucket.objects.all():
             key.delete()
         bucket.delete()
-    """
-
-    @mock_s3
-    def test_generate_quicksight_manifest(self):
-
-        s3 = S3()
-
-        client = boto3.client('s3', region_name='eu-west-1',
-                                    aws_access_key_id='fake_access_key',
-                                    aws_secret_access_key='fake_secret_key')
-        resource = boto3.resource('s3',
-                                     region_name='eu-west-1',
-                                     aws_access_key_id='fake_access_key',
-                                     aws_secret_access_key='fake_secret_key')
-        resource.meta.client.head_bucket(Bucket=TEST_BUCKET)
-        client.create_bucket(Bucket=TEST_BUCKET)
-        current_dir = os.path.dirname(__file__)
-        fixture_dir = os.path.join(current_dir, 'test_s3tools_fixtures')
-
-        """
-        s3_bucket = 'wiris-stats-data'
-        s3_prefix = 'mt_crash_dumps/processed_data/processed_dumps'
-
-        manifest_key = 'quicksight_manifests/mt_crash_dumps_manifest_test.json'
-        prefix = s3.get_absolute_path(s3_bucket, s3_prefix)
-        print(prefix)
-        s3.generate_quicksight_manifest(bucket=s3_bucket, file_key=manifest_key, s3_prefix=[prefix], set_format='CSV')
-        """
 
     def test_get_absolute_path(self):
         file_key = 'test_file.test'
 
         # test 1: file in a bucket, no prefix
         true_path = 's3://test_bucket/test_file.test'
-        generated_path = self.s3tools.get_absolute_path(TEST_BUCKET, file_key)
+        generated_path = self.s3_handler.get_absolute_path(TEST_BUCKET, file_key)
         self.assertEqual(true_path, generated_path)
 
         # test 2: file in a folder, prefix is the folder with /
         prefix = 'folder/'
         true_path = 's3://test_bucket/folder/test_file.test'
-        generated_path = self.s3tools.get_absolute_path(bucket, file_key, prefix=prefix)
+        generated_path = self.s3_handler.get_absolute_path(TEST_BUCKET, file_key, prefix)
         self.assertEqual(true_path, generated_path)
 
         # test 3: file in folder, prefix is the folder without /
         prefix = 'folder'
         true_path = 's3://test_bucket/folder/test_file.test'
-        generated_path = self.s3tools.get_absolute_path(bucket, file_key, prefix=prefix)
+        generated_path = self.s3_handler.get_absolute_path(TEST_BUCKET, file_key, prefix)
         self.assertEqual(true_path, generated_path)
 
         # test 4: prefix is not the folder
         prefix = 'some_'
         true_path = 's3://test_bucket/some_test_file.test'
-        generated_path = self.s3tools.get_absolute_path(bucket, file_key, prefix=prefix, prefix_is_folder=False)
+        generated_path = self.s3_handler.get_absolute_path(TEST_BUCKET, file_key, prefix, False)
         self.assertEqual(true_path, generated_path)
 
     def test_get_keys_as_generator(self):
+        self.s3_handler.get_keys_as_generator()
         self.assertEqual(True, True)
 
     def test_paginate(self):
@@ -171,7 +142,7 @@ class TestS3(unittest.TestCase):
         self.assertEqual(expected_manifest, generated_manifest)
 
 def _upload_fixtures(bucket: str, fixture_dir: str) -> None:
-    #client = boto3.client('s3')
+    client = boto3.client('s3')
     fixture_paths = [
         os.path.join(path, filename)
         for path, _, files in os.walk(fixture_dir)
@@ -179,4 +150,5 @@ def _upload_fixtures(bucket: str, fixture_dir: str) -> None:
     ]
     for path in fixture_paths:
         key = os.path.relpath(path, fixture_dir)
-        self.client.upload_file(Filename=path, Bucket=bucket, Key=key)
+        print(key)
+        client.upload_file(Filename=path, Bucket=bucket, Key=key)
