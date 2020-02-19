@@ -3,7 +3,7 @@ import base64
 import json
 
 
-class FirehoseTools:
+class Firehose:
     """
     Class to handle basic AWS Kinesis Firehose operations
     """

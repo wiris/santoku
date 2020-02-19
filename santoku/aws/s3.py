@@ -3,7 +3,7 @@ import json
 from io import StringIO
 
 
-class S3Tools:
+class S3:
     """
     Class to handle input/output operations with Amazon's S3 storage service.
 
@@ -11,8 +11,9 @@ class S3Tools:
     """
 
     def __init__(self):
-        self.client = boto3.client('s3')
+        self.client = boto3.client('s3', aws_access_key_id='AKIAYQXDKERZA5644OGN', aws_secret_access_key='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')
         self.resource = boto3.resource('s3')
+
 
     @staticmethod
     def get_absolute_path(bucket, file_key, prefix=None, prefix_is_folder=True):
