@@ -11,9 +11,8 @@ class S3:
     """
 
     def __init__(self):
-        self.client = boto3.client('s3', aws_access_key_id='AKIAYQXDKERZA5644OGN', aws_secret_access_key='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')
+        self.client = boto3.client('s3')
         self.resource = boto3.resource('s3')
-
 
     @staticmethod
     def get_absolute_path(bucket, file_key, prefix=None, prefix_is_folder=True):
