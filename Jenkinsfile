@@ -16,9 +16,14 @@ pipeline {
         AWS_SECRET_ACCESS_KEY=credentials('AWS_SECRET_ACCESS_KEY')
     }
     stages {
-        stage('build-wheel') {
+        stage('build') {
             steps {
                 sh 'python3 setup.py bdist_wheel'
+            }
+        }
+        stage('test') {
+            steps {
+                sh 'nose2'
             }
         }
     }
