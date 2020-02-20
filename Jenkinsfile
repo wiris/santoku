@@ -3,7 +3,7 @@ pipeline {
         label 'sre'
     }
     environment {
-        AWS_ACCESS_KEY_ID=credential('super-secret-credential')
+        AWS_ACCESS_KEY_ID=credentials('super-secret-credential')
     }
     stages {
         stage('build-wheel') {
