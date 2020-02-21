@@ -1,4 +1,7 @@
 pipeline {
+    // nice example of Jenkinsfile:
+    // https://github.com/jenkinsci/pipeline-examples/blob/master/declarative-examples/jenkinsfile-examples/mavenDocker.groovy
+
     //agent {
     //    label 'sre'
     //}
@@ -24,6 +27,14 @@ pipeline {
         stage('test') {
             steps {
                 sh 'nose2'
+            }
+        }
+        stage('cool-name') {
+            steps {
+                sh 'pip install santoku-*.py'
+                // instead of creating a python3 script we can use ansible to send it to s3
+                // https://github.com/jenkinsci/ansible-plugin
+                sh 'python3 script/move_to_s3.py'
             }
         }
     }
