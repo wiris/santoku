@@ -73,26 +73,48 @@ class TestS3(unittest.TestCase):
         generated_path = self.s3_handler.get_absolute_path(TEST_BUCKET, file_key, prefix, False)
         self.assertEqual(true_path, generated_path)
 
-    def test_get_keys_as_generator(self):
-        self.s3_handler.get_keys_as_generator()
-        self.assertEqual(True, True)
-
+    #Maybe should not be here
     def test_paginate(self):
+        args = {'Bucket': TEST_BUCKET}
+        for result in self.s3_handler.paginate(self.client.list_objects_v2, **args):
+            print(result['Key'])
         self.assertEqual(True, True)
 
+    #TODO: Pending of completion after fixtures generation method is done (check the file_keys that should appear).
     def test_list_objects(self):
+        for result in self.s3_handler.list_objects(TEST_BUCKET):
+            print(result)
         self.assertEqual(True, True)
 
-    def test_get_file_content(self):
+    #TODO: Pending of completion after fixtures generation method is done (fixtures json files should have some content).
+    def test_read_file_content(self):
+        #/workspaces/etl.python.toolkit/santoku/tests/test_s3_fixtures/test_delete_file/client/delete.json
+        file_to_read = "test_delete_file/client/delete.json"
+        content = self.s3_handler.read_file_content(TEST_BUCKET, file_to_read)
+        print(content)
         self.assertEqual(True, True)
 
+    #TODO: Pending of completion after fixtures generation method is done (change the file key to be read).
     def test_write_file(self):
-        self.assertEqual(True, True)
+        content_to_write = "{\"test_write_key\" = \"test_write_value\"}"
+        file_to_write = "test_delete_file/client/delete.json"
+        self.s3_handler.write_file(content_to_write, TEST_BUCKET, file_to_write)
+        read_content = self.s3_handler.read_file_content(TEST_BUCKET, file_to_write)
+        self.assertEqual(content_to_write, read_content)
 
     def test_delete_file(self):
         # test resource mode
         file_to_delete = 'test_delete_file/resource/delete.json'
-        self.s3t.delete_file(TEST_BUCKET, file_to_delete, mode='resource')
+
+        content = self.s3_handler.read_file_content(TEST_BUCKET, file_to_delete)
+        print(content)
+
+        self.s3_handler.delete_file(TEST_BUCKET, file_to_delete, mode='resource')
+
+        self.assertRaises(, self.s3_handler.read_file_content(TEST_BUCKET, file_to_delete))
+
+
+        """
         leftover = []
         paginator = self.client.get_paginator(self.client.list_objects_v2.__name__)
         for page in paginator.paginate(Bucket=TEST_BUCKET, Prefix='test_delete_file/resource').result_key_iters():
@@ -101,9 +123,11 @@ class TestS3(unittest.TestCase):
         desired_leftover = ['do-not-delete.json']
         self.assertCountEqual(leftover, desired_leftover)
 
+
+
         # test client mode
         file_to_delete = 'test_delete_file/client/delete.json'
-        self.s3t.delete_file(TEST_BUCKET, file_to_delete, mode='resource')
+        self.s3_handler.delete_file(TEST_BUCKET, file_to_delete, mode='resource')
         leftover = []
         paginator = self.client.get_paginator(self.client.list_objects_v2.__name__)
         for page in paginator.paginate(Bucket=TEST_BUCKET, Prefix='test_delete_file/client').result_key_iters():
@@ -111,6 +135,7 @@ class TestS3(unittest.TestCase):
                 leftover.append(result['key'])
         desired_leftover = ['do-not-delete.json']
         self.assertCountEqual(leftover, desired_leftover)
+        """
 
     def test_delete_files(self):
         self.assertEqual(True, True)

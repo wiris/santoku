@@ -18,10 +18,10 @@ class S3:
     def get_absolute_path(bucket, file_key, prefix=None, prefix_is_folder=True):
         """
         Absolute S3 path string (URI) of a file from its bucket, prefix and key
-        :param bucket: S3 bucket
-        :param file_key: relative path inside the bucket. relative path within the prefix if a prefix is passed
-        :param prefix: (optional) S3 prefix within the bucket
-        :param prefix_is_folder: (optional) whether the prefix marks a folder
+        :param bucket: S3 bucket to get the absolute path from.
+        :param file_key: relative path inside the bucket. relative path within the prefix if a prefix is passed.
+        :param prefix: (optional) S3 prefix within the bucket.
+        :param prefix_is_folder: (optional) whether the prefix marks a folder.
         """
         if prefix is not None:
             if prefix_is_folder:
@@ -34,6 +34,7 @@ class S3:
         else:
             return 's3://' + bucket + '/' + file_key
 
+    #To be deprecated
     def get_keys_as_generator(self, bucket, prefix, start_after=None):
         """
         Generates all keys (files) given S3 bucket and prefix
@@ -57,15 +58,16 @@ class S3:
             except KeyError:
                 break
 
+    #Maybe should not be here. This method can be shared by different services, not only s3.
     def paginate(self, method, **kwargs):
         """
         Same as get_keys_as_generator but with generic syntax for other services other than s3 and methods other than
         list_objects_v2. It returns objects rather than keys. To get keys use result['Key'].
         More information on paginators:
         https://boto3.amazonaws.com/v1/documentation/api/latest/guide/paginators.html
-        :param method: method used to list the objects, here it will usually be self.client.list_objects_v2
-        :param kwargs: arguments for the specified method
-        :return: yields an iterable with the objects in the s3
+        :param method: method used to list the objects, here it will usually be self.client.list_objects_v2.
+        :param kwargs: arguments for the specified method. Bucket property must be specified.
+        :return: yields an iterable with the objects in the s3.
         """
         paginator = self.client.get_paginator(method.__name__)
         for page in paginator.paginate(**kwargs).result_key_iters():
@@ -74,11 +76,12 @@ class S3:
 
     def list_objects(self, bucket, prefix=None, **kwargs):
         """
-        Generates all object keys within a bucket, via boto3.client('s3').list_objects_v2
-        :param bucket: S3 bucket to iterate in. Required since list-objects_v2 requires Bucket
-        :param prefix: (optional) prefix within the bucket
-        :param kwargs: other arguments for list_objects_v2, e.g. StartAfter. More information:
+        Generates all object keys within a bucket, via boto3.client('s3').list_objects_v2.
+        More information on list_objects_v2 method:
         https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3.html#S3.Client.list_objects_v2
+        :param bucket: S3 bucket to iterate in. Required since list-objects_v2 requires Bucket.
+        :param prefix: (optional) prefix within the bucket.
+        :param kwargs: other arguments for list_objects_v2, e.g. StartAfter.
         """
         args = {'Bucket': bucket}
         if prefix is not None:
@@ -87,14 +90,15 @@ class S3:
         for result in self.paginate(self.client.list_objects_v2, **args):
             yield result['Key']
 
-    def get_file_content(self, bucket, file_key, encoding='utf-8'):
+    def read_file_content(self, bucket, file_key, encoding='utf-8'):
         """
         Read file at S3 bucket with given key. Use provided encoding
-        :param bucket:
-        :param file_key:
-        :param encoding:
-        :return:
+        :param bucket: S3 bucket containing the file.
+        :param file_key: key of the file to be read.
+        :param encoding: encoding used in the content.
+        :return: the decoded content of the file.
         """
+
         file_obj = self.resource.Object(bucket, file_key)
         file_content = file_obj.get()['Body'].read().decode(encoding)
         return file_content
@@ -102,18 +106,17 @@ class S3:
     def write_file(self, content, bucket, file_key):
         """
         Write the contents of a file into S3
-        :param content:
-        :param bucket:
-        :param file_key:
-        :return:
+        :param content: content in bytes to be writen to the file.
+        :param bucket: S3 bucket containing the file.
+        :param file_key: key of the file to be writen.
         """
         self.client.put_object(Body=content, Bucket=bucket, Key=file_key)
 
     def delete_file(self, bucket, file_key, mode='resource'):
         """
         Deletes an object from S3
-        :param bucket: S3 bucket
-        :param file_key: object key to delete
+        :param bucket: S3 bucket containing the file.
+        :param file_key: object key to delete.
         :param mode: use resource (high level API) or client (low level, only if you know what you are doing)
         """
         if mode == 'resource':
