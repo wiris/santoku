@@ -15,7 +15,11 @@ class S3:
         self.resource = boto3.resource('s3')
 
     @staticmethod
-    def get_absolute_path(bucket, file_key, prefix=None, prefix_is_folder=True):
+    def get_absolute_path(
+            bucket,
+            file_key,
+            prefix=None,
+            prefix_is_folder=True):
         """
         Absolute S3 path string (URI) of a file from its bucket, prefix and key
         :param bucket: S3 bucket to get the absolute path from.
@@ -34,7 +38,8 @@ class S3:
         else:
             return 's3://' + bucket + '/' + file_key
 
-    # Maybe should not be here. This method can be shared by different services, not only s3.
+    # Maybe should not be here. This method can be shared by different
+    # services, not only s3.
     def paginate(self, method, **kwargs):
         """
         Same as get_keys_as_generator but with generic syntax for other services other than s3 and methods other than
@@ -106,7 +111,13 @@ class S3:
         for key in file_keys:
             self.delete_file(bucket, key)
 
-    def write_dataframe_to_csv_file(self, dataframe, bucket, file_key, encoding='utf-8', save_index=False):
+    def write_dataframe_to_csv_file(
+            self,
+            dataframe,
+            bucket,
+            file_key,
+            encoding='utf-8',
+            save_index=False):
         """
         Write a pandas dataframe to an S3 location (bucket + key)
         :param dataframe: pandas dataframe to save
@@ -122,8 +133,16 @@ class S3:
 
         self.write_file(bytes_content, bucket, file_key)
 
-    def generate_quicksight_manifest(self, bucket, file_key, s3_path=None, s3_prefix=None,
-                                     set_format=None, set_delimiter=None, set_qualifier=None, set_header=None):
+    def generate_quicksight_manifest(
+            self,
+            bucket,
+            file_key,
+            s3_path=None,
+            s3_prefix=None,
+            set_format=None,
+            set_delimiter=None,
+            set_qualifier=None,
+            set_header=None):
         """
         Generates a QS manifest JSON file from a list of files and/or prefixes and saves it to a specified S3 location
         More info on format: https://docs.aws.amazon.com/quicksight/latest/user/supported-manifest-file-format.html
