@@ -18,10 +18,10 @@ class S3:
     def get_absolute_path(bucket, file_key, prefix=None, prefix_is_folder=True):
         """
         Absolute S3 path string (URI) of a file from its bucket, prefix and key
-        :param bucket: S3 bucket
-        :param file_key: relative path inside the bucket. relative path within the prefix if a prefix is passed
-        :param prefix: (optional) S3 prefix within the bucket
-        :param prefix_is_folder: (optional) whether the prefix marks a folder
+        :param bucket: S3 bucket to get the absolute path from.
+        :param file_key: relative path inside the bucket. relative path within the prefix if a prefix is passed.
+        :param prefix: (optional) S3 prefix within the bucket.
+        :param prefix_is_folder: (optional) whether the prefix marks a folder.
         """
         if prefix is not None:
             if prefix_is_folder:
@@ -34,38 +34,16 @@ class S3:
         else:
             return 's3://' + bucket + '/' + file_key
 
-    def get_keys_as_generator(self, bucket, prefix, start_after=None):
-        """
-        Generates all keys (files) given S3 bucket and prefix
-        :param bucket:
-        :param prefix:
-        :param start_after:
-        :return:
-        """
-        kwargs = {}
-        if start_after is None:
-            kwargs = {'Bucket': bucket, 'Prefix': prefix}
-        else:
-            kwargs = {'Bucket': bucket, 'Prefix': prefix, 'StartAfter': start_after}
-        while True:
-            resp = self.client.list_objects_v2(**kwargs)
-            for obj in resp['Contents']:
-                yield obj['Key']
-
-            try:
-                kwargs['ContinuationToken'] = resp['NextContinuationToken']
-            except KeyError:
-                break
-
+    # Maybe should not be here. This method can be shared by different services, not only s3.
     def paginate(self, method, **kwargs):
         """
         Same as get_keys_as_generator but with generic syntax for other services other than s3 and methods other than
         list_objects_v2. It returns objects rather than keys. To get keys use result['Key'].
         More information on paginators:
         https://boto3.amazonaws.com/v1/documentation/api/latest/guide/paginators.html
-        :param method: method used to list the objects, here it will usually be self.client.list_objects_v2
-        :param kwargs: arguments for the specified method
-        :return: yields an iterable with the objects in the s3
+        :param method: method used to list the objects, here it will usually be self.client.list_objects_v2.
+        :param kwargs: arguments for the specified method. Bucket property must be specified.
+        :return: yields an iterable with the objects in the s3.
         """
         paginator = self.client.get_paginator(method.__name__)
         for page in paginator.paginate(**kwargs).result_key_iters():
@@ -74,11 +52,12 @@ class S3:
 
     def list_objects(self, bucket, prefix=None, **kwargs):
         """
-        Generates all object keys within a bucket, via boto3.client('s3').list_objects_v2
-        :param bucket: S3 bucket to iterate in. Required since list-objects_v2 requires Bucket
-        :param prefix: (optional) prefix within the bucket
-        :param kwargs: other arguments for list_objects_v2, e.g. StartAfter. More information:
+        Generates all object keys within a bucket, via boto3.client('s3').list_objects_v2.
+        More information on list_objects_v2 method:
         https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3.html#S3.Client.list_objects_v2
+        :param bucket: S3 bucket to iterate in. Required since list-objects_v2 requires Bucket.
+        :param prefix: (optional) prefix within the bucket.
+        :param kwargs: other arguments for list_objects_v2, e.g. StartAfter.
         """
         args = {'Bucket': bucket}
         if prefix is not None:
@@ -87,13 +66,13 @@ class S3:
         for result in self.paginate(self.client.list_objects_v2, **args):
             yield result['Key']
 
-    def get_file_content(self, bucket, file_key, encoding='utf-8'):
+    def read_file_content(self, bucket, file_key, encoding='utf-8'):
         """
         Read file at S3 bucket with given key. Use provided encoding
-        :param bucket:
-        :param file_key:
-        :param encoding:
-        :return:
+        :param bucket: S3 bucket containing the file.
+        :param file_key: key of the file to be read.
+        :param encoding: encoding used in the content.
+        :return: the decoded content of the file.
         """
         file_obj = self.resource.Object(bucket, file_key)
         file_content = file_obj.get()['Body'].read().decode(encoding)
@@ -102,46 +81,30 @@ class S3:
     def write_file(self, content, bucket, file_key):
         """
         Write the contents of a file into S3
-        :param content:
-        :param bucket:
-        :param file_key:
-        :return:
+        :param content: content in bytes to be writen to the file.
+        :param bucket: S3 bucket containing the file.
+        :param file_key: key of the file to be writen.
         """
         self.client.put_object(Body=content, Bucket=bucket, Key=file_key)
 
-    def delete_file(self, bucket, file_key, mode='resource'):
+    def delete_file(self, bucket, file_key):
         """
         Deletes an object from S3
-        :param bucket: S3 bucket
-        :param file_key: object key to delete
+        :param bucket: S3 bucket containing the file.
+        :param file_key: object key to delete.
         :param mode: use resource (high level API) or client (low level, only if you know what you are doing)
         """
-        if mode == 'resource':
-            self.resource.Object(bucket, file_key).delete()
-        elif mode == 'client':
-            # low level version. needs the object to be null
-            self.client.delete_object(Bucket=bucket, Key=file_key)
-        else:
-            raise Exception('invalid mode value: {}'.format(mode))
+        self.resource.Object(bucket, file_key).delete()
 
-    def delete_files(self, bucket, file_keys, mode='resource'):
+    def delete_files(self, bucket, file_keys):
         """
         Deletes a list of objects from a single bucket in S3
-        :param bucket: S3 bucket
-        :param file_keys: iterable of object keys to delete
+        :param bucket: S3 bucket containing the files.
+        :param file_keys: iterable of object keys to delete.
         :param mode: use resource (high level API) or client (low level, only if you know what you are doing)
         """
-        if mode == 'resource':
-            # high level version, might be inefficient
-            for key in file_keys:
-                self.delete_file(bucket, key, mode=mode)
-        elif mode == 'client':
-            # low level version, needs the objects to be null
-            objects = [{'Key': key, 'VersionId': 'null'} for key in file_keys]
-            delete_dict = {'Objects': objects, 'Quiet': True}
-            self.client.delete_objects(Bucket=bucket, Delete=delete_dict)
-        else:
-            raise Exception('invalid mode value: {}'.format(mode))
+        for key in file_keys:
+            self.delete_file(bucket, key)
 
     def write_dataframe_to_csv_file(self, dataframe, bucket, file_key, encoding='utf-8', save_index=False):
         """
@@ -151,7 +114,6 @@ class S3:
         :param file_key: local path of the file where we wish to save the dataframe
         :param encoding: (optional) save with a particular encoding, default is utf-8
         :param save_index: (optional) whether so save the index as a column, defaults to False
-        :return:
         """
         # Get pandas dataframe as CSV bytes
         csv_buffer = StringIO()
@@ -195,7 +157,7 @@ class S3:
         if set_delimiter is not None:
             upload_settings["delimiter"] = set_delimiter
         if set_qualifier is not None:
-            upload_settings["textqualifier"] = set_delimiter
+            upload_settings["textqualifier"] = set_qualifier
         if set_header is not None:
             upload_settings['containsHeader'] = set_header
 
