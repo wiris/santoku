@@ -28,10 +28,11 @@ class TestS3(unittest.TestCase):
         self.client = boto3.client('s3')
         self.resource = boto3.resource('s3')
         try:
-            self.resource = boto3.resource('s3',
-                                           region_name='eu-west-1',
-                                           aws_access_key_id='fake_access_key',
-                                           aws_secret_access_key='fake_secret_key')
+            self.resource = boto3.resource(
+                's3',
+                region_name='eu-west-1',
+                aws_access_key_id='fake_access_key',
+                aws_secret_access_key='fake_secret_key')
             self.resource.meta.client.head_bucket(Bucket=TEST_BUCKET)
         except botocore.exceptions.ClientError:
             pass
@@ -82,17 +83,20 @@ class TestS3(unittest.TestCase):
     # Maybe should not be here
     def test_paginate(self):
         args = {'Bucket': TEST_BUCKET}
-        for result in self.s3_handler.paginate(self.client.list_objects_v2, **args):
+        for result in self.s3_handler.paginate(
+                self.client.list_objects_v2, **args):
             print(result['Key'])
         self.assertEqual(True, True)
 
-    # TODO: Pending of completion after fixtures generation method is done (check the file_keys that should appear).
+    # TODO: Pending of completion after fixtures generation method is done
+    # (check the file_keys that should appear).
     def test_list_objects(self):
         for result in self.s3_handler.list_objects(TEST_BUCKET):
             print(result)
         self.assertEqual(True, True)
 
-    # TODO: Pending of completion after fixtures generation method is done (fixtures json files should have some content).
+    # TODO: Pending of completion after fixtures generation method is done
+    # (fixtures json files should have some content).
     def test_read_file_content(self):
         # /workspaces/etl.python.toolkit/santoku/tests/test_s3_fixtures/test_delete_file/client/delete.json
         file_to_read = "test_delete_file/client/delete.json"
@@ -100,7 +104,8 @@ class TestS3(unittest.TestCase):
         print(content)
         self.assertEqual(True, True)
 
-    # TODO: Pending of completion after fixtures generation method is done (change the file key to be read).
+    # TODO: Pending of completion after fixtures generation method is done
+    # (change the file key to be read).
     def test_write_file(self):
         content_to_write = "{\"test_write_key\" = \"test_write_value\"}"
         file_to_write = "test_delete_file/client/delete.json"
@@ -117,7 +122,9 @@ class TestS3(unittest.TestCase):
         leftover = []
         paginator = self.client.get_paginator(
             self.client.list_objects_v2.__name__)
-        for page in paginator.paginate(Bucket=TEST_BUCKET, Prefix='test_delete_file/resource').result_key_iters():
+        for page in paginator.paginate(
+                Bucket=TEST_BUCKET,
+                Prefix='test_delete_file/resource').result_key_iters():
             for result in page:
                 leftover.append(result['Key'])
         desired_leftover = ['test_delete_file/resource/do-not-delete.json']
@@ -130,7 +137,9 @@ class TestS3(unittest.TestCase):
         leftover = []
         paginator = self.client.get_paginator(
             self.client.list_objects_v2.__name__)
-        for page in paginator.paginate(Bucket=TEST_BUCKET, Prefix='test_delete_file/resource').result_key_iters():
+        for page in paginator.paginate(
+                Bucket=TEST_BUCKET,
+                Prefix='test_delete_file/resource').result_key_iters():
             for result in page:
                 leftover.append(result['Key'])
         desired_leftover = ['test_delete_file/resource/do-not-delete.json']
@@ -161,17 +170,20 @@ class TestS3(unittest.TestCase):
                            "textqualifier": "'",
                            "containsHeader": True}
 
-        data = {"fileLocations": [{"URIs": file_paths}, {"URIPrefixes": folder_paths}],
+        data = {"fileLocations": [{"URIs": file_paths},
+                                  {"URIPrefixes": folder_paths}],
                 "globalUploadSettings": upload_settings}
         expected_manifest = json.dumps(data, indent=4, sort_keys=True)
         manifest_key = 'test_generate_correct_qs_manifest/manifest.json'
-        self.s3_handler.generate_quicksight_manifest(bucket=TEST_BUCKET,
-                                                     file_key=manifest_key,
-                                                     s3_path=file_paths, s3_prefix=folder_paths,
-                                                     set_format=upload_settings['format'],
-                                                     set_delimiter=upload_settings['delimiter'],
-                                                     set_qualifier=upload_settings['textqualifier'],
-                                                     set_header=upload_settings['containsHeader'])
+        self.s3_handler.generate_quicksight_manifest(
+            bucket=TEST_BUCKET,
+            file_key=manifest_key,
+            s3_path=file_paths,
+            s3_prefix=folder_paths,
+            set_format=upload_settings['format'],
+            set_delimiter=upload_settings['delimiter'],
+            set_qualifier=upload_settings['textqualifier'],
+            set_header=upload_settings['containsHeader'])
         generated_manifest_bytes = self.resource.Object(
             TEST_BUCKET, manifest_key).get()['Body'].read()
         # Load the JSON to a Python list & dump it back out as formatted JSON
