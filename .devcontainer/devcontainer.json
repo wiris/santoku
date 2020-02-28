@@ -9,11 +9,14 @@
     // Set *default* container specific settings.json values on container create.
     "settings": {
         "terminal.integrated.shell.linux": null,
+        "python.formatting.provider": "black",
         "editor.formatOnSave": true,
-        "python.formatting.autopep8Args": [
-            "--aggressive",
-            "--aggressive"
-        ],
+        "python.linting.enabled": true,
+        "python.linting.pylintEnabled": false,
+        "python.linting.mypyEnabled": true,
+        "editor.rulers": [
+            100
+        ]
     },
     // Add the IDs of extensions you want installed when the container is created.
     "extensions": [
@@ -21,11 +24,13 @@
     ]
     // Use 'forwardPorts' to make a list of ports inside the container available locally.
     // "forwardPorts": [],
-    // Uncomment the next line to run commands after the container is created - for example installing git.
+    // Uncomment the next line to run commands after the container is created - for example
+    // installing git.
     // "postCreateCommand": "apt-get update && apt-get install -y git",
     // Uncomment when using a ptrace-based debugger like C++, Go, and Rust
     // "runArgs": [ "--cap-add=SYS_PTRACE", "--security-opt", "seccomp=unconfined" ],
-    // Uncomment to use the Docker CLI from inside the container. See https://aka.ms/vscode-remote/samples/docker-in-docker.
+    // Uncomment to use the Docker CLI from inside the container. See
+    // https://aka.ms/vscode-remote/samples/docker-in-docker.
     // "mounts": [ "source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind" ],
     // Uncomment to connect as a non-root user. See https://aka.ms/vscode-remote/containers/non-root.
     // "remoteUser": "vscode"
