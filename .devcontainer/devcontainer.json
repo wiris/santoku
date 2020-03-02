@@ -21,7 +21,7 @@
     // Add the IDs of extensions you want installed when the container is created.
     "extensions": [
         "ms-python.python"
-    ]
+    ],
     // Use 'forwardPorts' to make a list of ports inside the container available locally.
     // "forwardPorts": [],
     // Uncomment the next line to run commands after the container is created - for example
@@ -32,6 +32,9 @@
     // Uncomment to use the Docker CLI from inside the container. See
     // https://aka.ms/vscode-remote/samples/docker-in-docker.
     // "mounts": [ "source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind" ],
+    "mounts": [
+        "source=${localEnv:HOME}${localEnv:USERPROFILE}/.ssh,target=/root/.ssh,type=bind"
+    ],
     // Uncomment to connect as a non-root user. See https://aka.ms/vscode-remote/containers/non-root.
     // "remoteUser": "vscode"
 }
