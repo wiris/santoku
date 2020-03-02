@@ -32,17 +32,18 @@ pipeline {
         }
         stage('Merge to master & Tag') {
             steps {
-                script {
-                    // sshagent(credentials: ['bitbucket_jenkins_1704']) {
-                    //     git branch: 'master', url: 'git@bitbucket.org:wiris/plugins.git';
-                    //     sh(script: 'git fetch --all');
-                    //     sh(script: 'git checkout master');
-                    //     sh(script: 'git merge origin/develop --ff-only');
-                    //     sh(script: 'git push origin master');
-                    //     sh(script: 'git tag ${VERSION_NUMBER}')
-                    // }
-                    sh(script: 'echo git tag ${VERSION_NUMBER}')
-                }
+                // script {
+                //     // sshagent(credentials: ['bitbucket_jenkins_1704']) {
+                //     //     git branch: 'master', url: 'git@bitbucket.org:wiris/plugins.git';
+                //     //     sh(script: 'git fetch --all');
+                //     //     sh(script: 'git checkout master');
+                //     //     sh(script: 'git merge origin/develop --ff-only');
+                //     //     sh(script: 'git push origin master');
+                //     //     sh(script: 'git tag ${VERSION_NUMBER}')
+                //     // }
+                //     sh(script: 'echo git tag ${VERSION_NUMBER}')
+                // }
+                echo 'git tag ${VERSION_NUMBER}'
             }
         }
         stage('Wheel building') {
