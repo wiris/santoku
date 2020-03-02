@@ -19,12 +19,14 @@ pipeline {
     stages {
         stage('Testing Package') {
             steps {
-                // sh 'nose2'
+                sh(script: 'echo nose2')
             }
         }
         stage('Update version number'){
-            // update version number
-            VERSION_NUMBER = sh(script: 'echo 0.0.1', returnStdout: true)
+            steps {
+                // update version number
+                VERSION_NUMBER = sh(script: 'echo 0.0.1', returnStdout: true)
+            }
         }
         stage('Merge to master & Tag') {
             steps {
