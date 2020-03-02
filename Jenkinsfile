@@ -39,7 +39,7 @@ pipeline {
                     //     sh(script: 'git checkout master');
                     //     sh(script: 'git merge origin/develop --ff-only');
                     //     sh(script: 'git push origin master');
-                    //     sh(script: 'git tag ${VERSION_NUMBER}')
+                    //     sh(script: "git tag ${VERSION_NUMBER}")
                     // }
                     sh(script: "echo git tag ${VERSION_NUMBER}")
                 }
