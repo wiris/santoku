@@ -24,7 +24,7 @@ pipeline {
         }
         stage('Update version number'){
             // update version number
-            VERSION_NUMBER = = sh(script: 'echo 0.0.1', returnStdout: true)
+            VERSION_NUMBER = sh(script: 'echo 0.0.1', returnStdout: true)
         }
         stage('Merge to master & Tag') {
             steps {
