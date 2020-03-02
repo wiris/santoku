@@ -43,7 +43,7 @@ pipeline {
                 //     // }
                 //     sh(script: 'echo git tag ${VERSION_NUMBER}')
                 // }
-                echo 'git tag ${VERSION_NUMBER}'
+                echo "git tag ${VERSION_NUMBER}"
             }
         }
         stage('Wheel building') {
