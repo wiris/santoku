@@ -1,10 +1,6 @@
 pipeline {
     // nice example of Jenkinsfile:
     // https://github.com/jenkinsci/pipeline-examples/blob/master/declarative-examples/jenkinsfile-examples/mavenDocker.groovy
-
-    //agent {
-    //    label 'sre'
-    //}
     agent {
         dockerfile {
             // Jenkins passes .devcontainer as context. In the future
@@ -15,26 +11,25 @@ pipeline {
         }
     }
     environment {
-        AWS_ACCESS_KEY_ID=credentials('AWS_ACCESS_KEY_ID')
-        AWS_SECRET_ACCESS_KEY=credentials('AWS_SECRET_ACCESS_KEY')
+        // this creates AWS_ACCESS_CREDENTIALS_USR and AWS_ACCESS_CREDENTIALS_PSW
+        AWS_ACCESS_CREDENTIALS=credentials('aws_datascience_admin')
     }
     stages {
-        stage('build') {
-            steps {
-                sh 'python3 setup.py bdist_wheel'
-            }
-        }
         stage('test') {
             steps {
                 sh 'nose2'
             }
         }
-        stage('cool-name') {
+        stage('wheel-build') {
             steps {
-                sh 'pip install santoku-*.py'
+                sh 'python3 setup.py bdist_wheel'
+            }
+        }
+        stage('wheel-orchestration') {
+            steps {
+                sh 'echo "#TODO: Implement sending wheel to S3 with ansible"'
                 // instead of creating a python3 script we can use ansible to send it to s3
                 // https://github.com/jenkinsci/ansible-plugin
-                sh 'python3 script/move_to_s3.py'
             }
         }
     }
