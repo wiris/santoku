@@ -24,8 +24,10 @@ pipeline {
         }
         stage('Update version number'){
             steps {
-                // update version number
-                VERSION_NUMBER = sh(script: 'echo 0.0.1', returnStdout: true)
+                script {
+                    // update version number
+                    VERSION_NUMBER = sh(script: 'echo 0.0.1', returnStdout: true)
+                }
             }
         }
         stage('Merge to master & Tag') {
