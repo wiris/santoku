@@ -12,36 +12,36 @@ from ..aws.s3 import S3
 
 """
 TODO: this whole section might serve in the future as test suite for this library
-      The idea is to use moto to locally simulate the aws services so that the suite can run without actually
-      connecting to the aws cloud, thus saving $$ and reducing the latency of the tests
+      The idea is to use moto to locally simulate the aws services so that the suite can run without
+      actually connecting to the aws cloud, thus saving $$ and reducing the latency of the tests.
 """
 
-TEST_BUCKET = 'test_bucket'
-TEST_PREFIX = 'mock_prefix'
+TEST_BUCKET = "test_bucket"
+TEST_PREFIX = "mock_prefix"
 
 
 @mock_s3
 class TestS3(unittest.TestCase):
-
     def setUp(self):
         self.s3_handler = S3()
-        self.client = boto3.client('s3')
-        self.resource = boto3.resource('s3')
+        self.client = boto3.client("s3")
+        self.resource = boto3.resource("s3")
         try:
             self.resource = boto3.resource(
-                's3',
-                region_name='eu-west-1',
-                aws_access_key_id='fake_access_key',
-                aws_secret_access_key='fake_secret_key')
+                "s3",
+                region_name="eu-west-1",
+                aws_access_key_id="fake_access_key",
+                aws_secret_access_key="fake_secret_key",
+            )
             self.resource.meta.client.head_bucket(Bucket=TEST_BUCKET)
         except botocore.exceptions.ClientError:
             pass
         else:
-            err = '{bucket} should not exist.'.format(bucket=TEST_BUCKET)
+            err = "{bucket} should not exist.".format(bucket=TEST_BUCKET)
             raise EnvironmentError(err)
         self.client.create_bucket(Bucket=TEST_BUCKET)
         current_dir = os.path.dirname(__file__)
-        fixture_dir = os.path.join(current_dir, 'test_s3_fixtures')
+        fixture_dir = os.path.join(current_dir, "test_s3_fixtures")
         _upload_fixtures(TEST_BUCKET, fixture_dir)
 
     def tearDown(self):
@@ -51,41 +51,42 @@ class TestS3(unittest.TestCase):
         bucket.delete()
 
     def test_get_absolute_path(self):
-        file_key = 'test_file.test'
+        file_key = "test_file.test"
 
         # test 1: file in a bucket, no prefix
-        true_path = 's3://test_bucket/test_file.test'
-        generated_path = self.s3_handler.get_absolute_path(
-            TEST_BUCKET, file_key)
+        true_path = "s3://test_bucket/test_file.test"
+        generated_path = self.s3_handler.get_absolute_path(TEST_BUCKET, file_key)
         self.assertEqual(true_path, generated_path)
 
         # test 2: file in a folder, prefix is the folder with /
-        prefix = 'folder/'
-        true_path = 's3://test_bucket/folder/test_file.test'
+        prefix = "folder/"
+        true_path = "s3://test_bucket/folder/test_file.test"
         generated_path = self.s3_handler.get_absolute_path(
-            TEST_BUCKET, file_key, prefix)
+            TEST_BUCKET, file_key, prefix
+        )
         self.assertEqual(true_path, generated_path)
 
         # test 3: file in folder, prefix is the folder without /
-        prefix = 'folder'
-        true_path = 's3://test_bucket/folder/test_file.test'
+        prefix = "folder"
+        true_path = "s3://test_bucket/folder/test_file.test"
         generated_path = self.s3_handler.get_absolute_path(
-            TEST_BUCKET, file_key, prefix)
+            TEST_BUCKET, file_key, prefix
+        )
         self.assertEqual(true_path, generated_path)
 
         # test 4: prefix is not the folder
-        prefix = 'some_'
-        true_path = 's3://test_bucket/some_test_file.test'
+        prefix = "some_"
+        true_path = "s3://test_bucket/some_test_file.test"
         generated_path = self.s3_handler.get_absolute_path(
-            TEST_BUCKET, file_key, prefix, False)
+            TEST_BUCKET, file_key, prefix, False
+        )
         self.assertEqual(true_path, generated_path)
 
     # Maybe should not be here
     def test_paginate(self):
-        args = {'Bucket': TEST_BUCKET}
-        for result in self.s3_handler.paginate(
-                self.client.list_objects_v2, **args):
-            print(result['Key'])
+        args = {"Bucket": TEST_BUCKET}
+        for result in self.s3_handler.paginate(self.client.list_objects_v2, **args):
+            print(result["Key"])
         self.assertEqual(True, True)
 
     # TODO: Pending of completion after fixtures generation method is done
@@ -107,94 +108,100 @@ class TestS3(unittest.TestCase):
     # TODO: Pending of completion after fixtures generation method is done
     # (change the file key to be read).
     def test_write_file(self):
-        content_to_write = "{\"test_write_key\" = \"test_write_value\"}"
+        content_to_write = '{"test_write_key" = "test_write_value"}'
         file_to_write = "test_delete_file/client/delete.json"
-        self.s3_handler.write_file(
-            content_to_write, TEST_BUCKET, file_to_write)
+        self.s3_handler.write_file(content_to_write, TEST_BUCKET, file_to_write)
         file_obj = self.resource.Object(TEST_BUCKET, file_to_write)
-        content_read = file_obj.get()['Body'].read().decode('utf-8')
+        content_read = file_obj.get()["Body"].read().decode("utf-8")
 
         self.assertEqual(content_to_write, content_read)
 
     def test_delete_file(self):
-        file_to_delete = 'test_delete_file/resource/delete.json'
+        file_to_delete = "test_delete_file/resource/delete.json"
         self.s3_handler.delete_file(TEST_BUCKET, file_to_delete)
         leftover = []
-        paginator = self.client.get_paginator(
-            self.client.list_objects_v2.__name__)
+        paginator = self.client.get_paginator(self.client.list_objects_v2.__name__)
         for page in paginator.paginate(
-                Bucket=TEST_BUCKET,
-                Prefix='test_delete_file/resource').result_key_iters():
+            Bucket=TEST_BUCKET, Prefix="test_delete_file/resource"
+        ).result_key_iters():
             for result in page:
-                leftover.append(result['Key'])
-        desired_leftover = ['test_delete_file/resource/do-not-delete.json']
+                leftover.append(result["Key"])
+        desired_leftover = ["test_delete_file/resource/do-not-delete.json"]
         self.assertCountEqual(leftover, desired_leftover)
 
     def test_delete_files(self):
-        files_to_delete = ['test_delete_file/resource/delete.json',
-                           'test_delete_file/resource/delete-also.json']
+        files_to_delete = [
+            "test_delete_file/resource/delete.json",
+            "test_delete_file/resource/delete-also.json",
+        ]
         self.s3_handler.delete_files(TEST_BUCKET, files_to_delete)
         leftover = []
-        paginator = self.client.get_paginator(
-            self.client.list_objects_v2.__name__)
+        paginator = self.client.get_paginator(self.client.list_objects_v2.__name__)
         for page in paginator.paginate(
-                Bucket=TEST_BUCKET,
-                Prefix='test_delete_file/resource').result_key_iters():
+            Bucket=TEST_BUCKET, Prefix="test_delete_file/resource"
+        ).result_key_iters():
             for result in page:
-                leftover.append(result['Key'])
-        desired_leftover = ['test_delete_file/resource/do-not-delete.json']
+                leftover.append(result["Key"])
+        desired_leftover = ["test_delete_file/resource/do-not-delete.json"]
         self.assertCountEqual(leftover, desired_leftover)
 
     def test_write_dataframe_to_csv_file(self):
-        file_to_write = 'test_dataframe.csv'
-        data = {'Column1': ['Value11', 'Value21'],
-                'Column2': ['Value12', 'Value22']}
+        file_to_write = "test_dataframe.csv"
+        data = {"Column1": ["Value11", "Value21"], "Column2": ["Value12", "Value22"]}
         df = pd.DataFrame(data)
-        self.s3_handler.write_dataframe_to_csv_file(
-            df, TEST_BUCKET, file_to_write)
+        self.s3_handler.write_dataframe_to_csv_file(df, TEST_BUCKET, file_to_write)
         file_obj = self.resource.Object(TEST_BUCKET, file_to_write)
-        read_content = file_obj.get()['Body'].read().decode('utf-8')
-        desired_content = (
-            'Column1,Column2\n'
-            'Value11,Value12\n'
-            'Value21,Value22\n')
+        read_content = file_obj.get()["Body"].read().decode("utf-8")
+        desired_content = "Column1,Column2\n" "Value11,Value12\n" "Value21,Value22\n"
         self.assertEqual(read_content, desired_content)
 
     def test_generate_correct_qs_manifest(self):
-        file_paths = ["s3://bucket/file1.csv",
-                      "s3://bucket/file2.csv", "s3://bucket/file3.csv"]
-        folder_paths = ["s3://bucket/folder1/",
-                        "s3://bucket/folder2/", "s3://bucket/folder3/"]
-        upload_settings = {"format": "CSV",
-                           "delimiter": ",",
-                           "textqualifier": "'",
-                           "containsHeader": True}
+        file_paths = [
+            "s3://bucket/file1.csv",
+            "s3://bucket/file2.csv",
+            "s3://bucket/file3.csv",
+        ]
+        folder_paths = [
+            "s3://bucket/folder1/",
+            "s3://bucket/folder2/",
+            "s3://bucket/folder3/",
+        ]
+        upload_settings = {
+            "format": "CSV",
+            "delimiter": ",",
+            "textqualifier": "'",
+            "containsHeader": True,
+        }
 
-        data = {"fileLocations": [{"URIs": file_paths},
-                                  {"URIPrefixes": folder_paths}],
-                "globalUploadSettings": upload_settings}
+        data = {
+            "fileLocations": [{"URIs": file_paths}, {"URIPrefixes": folder_paths}],
+            "globalUploadSettings": upload_settings,
+        }
         expected_manifest = json.dumps(data, indent=4, sort_keys=True)
-        manifest_key = 'test_generate_correct_qs_manifest/manifest.json'
+        manifest_key = "test_generate_correct_qs_manifest/manifest.json"
         self.s3_handler.generate_quicksight_manifest(
             bucket=TEST_BUCKET,
             file_key=manifest_key,
             s3_path=file_paths,
             s3_prefix=folder_paths,
-            set_format=upload_settings['format'],
-            set_delimiter=upload_settings['delimiter'],
-            set_qualifier=upload_settings['textqualifier'],
-            set_header=upload_settings['containsHeader'])
-        generated_manifest_bytes = self.resource.Object(
-            TEST_BUCKET, manifest_key).get()['Body'].read()
+            set_format=upload_settings["format"],
+            set_delimiter=upload_settings["delimiter"],
+            set_qualifier=upload_settings["textqualifier"],
+            set_header=upload_settings["containsHeader"],
+        )
+        generated_manifest_bytes = (
+            self.resource.Object(TEST_BUCKET, manifest_key).get()["Body"].read()
+        )
         # Load the JSON to a Python list & dump it back out as formatted JSON
         generated_manifest_dictionary = json.loads(generated_manifest_bytes)
         generated_manifest = json.dumps(
-            generated_manifest_dictionary, indent=4, sort_keys=True)
+            generated_manifest_dictionary, indent=4, sort_keys=True
+        )
         self.assertEqual(expected_manifest, generated_manifest)
 
 
 def _upload_fixtures(bucket: str, fixture_dir: str) -> None:
-    client = boto3.client('s3')
+    client = boto3.client("s3")
     fixture_paths = [
         os.path.join(path, filename)
         for path, _, files in os.walk(fixture_dir)
