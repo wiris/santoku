@@ -1,5 +1,6 @@
 import boto3
 import json
+import botocore
 from typing import Any
 from typing import Generator
 from io import StringIO
@@ -49,7 +50,7 @@ class S3:
         :param kwargs: arguments for the specified method. Bucket property must be specified.
         :return: yields an iterable with the objects in the s3.
         """
-        paginator = self.client.get_paginator(method)
+        paginator = self.client.get_paginator(operation_name=method)
         for page in paginator.paginate(**kwargs).result_key_iters():
             for result in page:
                 yield result
@@ -80,9 +81,16 @@ class S3:
         :param bucket: S3 bucket to iterate in. Required since list-objects_v2 requires Bucket.
         :param key: (optional) prefix within the bucket.
         """
+        try:
+            self.resource.Object(bucket_name=bucket, key=key).load()
+        except botocore.exceptions.ClientError as e:
+            if e.response["Error"]["Code"] == "404":
+                return False
+            else:
+                raise
         return True
 
-    def read_file_content(self, bucket, file_key, encoding="utf-8"):
+    def read_key_content(self, bucket: str, key: str, encoding="utf-8"):
         """
         Read file at S3 bucket with given key. Use provided encoding
         :param bucket: S3 bucket containing the file.
@@ -90,18 +98,18 @@ class S3:
         :param encoding: encoding used in the content.
         :return: the decoded content of the file.
         """
-        file_obj = self.resource.Object(bucket, file_key)
+        file_obj = self.resource.Object(bucket_name=bucket, key=key)
         file_content = file_obj.get()["Body"].read().decode(encoding)
         return file_content
 
-    def write_file(self, content, bucket, file_key):
+    def put_key(self, bucket: str, key: str, content: bytes):
         """
         Write the contents of a file into S3
         :param content: content in bytes to be writen to the file.
         :param bucket: S3 bucket containing the file.
         :param file_key: key of the file to be writen.
         """
-        self.client.put_object(Body=content, Bucket=bucket, Key=file_key)
+        self.client.put_object(Body=content, Bucket=bucket, Key=key)
 
     def delete_file(self, bucket, file_key):
         """

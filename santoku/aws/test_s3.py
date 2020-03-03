@@ -53,12 +53,12 @@ class TestS3:
 
             # _upload_fixtures(TEST_BUCKET, fixture_dir)
 
-    # def tearDown(self):
-    #     with mock_s3():
-    #     bucket = self.resource.Bucket(TEST_BUCKET)
-    #     for key in bucket.objects.all():
-    #         key.delete()
-    #     bucket.delete()
+    def tearDown(self):
+        with mock_s3():
+            bucket = self.resource.Bucket(TEST_BUCKET)
+            for key in bucket.objects.all():
+                key.delete()
+            bucket.delete()
 
     def test_get_absolute_path(self):
         key = "test_file.test"
@@ -100,8 +100,8 @@ class TestS3:
         }
         generate_fixture_files(tmpdir, ["object1.json", "object2.json"], ["", ""])
 
-        expected_objects = ["object1.json"]
-        obtained_objects = []
+        expected_objects: List[str] = ["object1.json"]
+        obtained_objects: List[str] = []
         for result in self.s3_handler.paginate(
             method=self.client.list_objects_v2.__name__, **args
         ):
@@ -109,29 +109,48 @@ class TestS3:
         assert obtained_objects == expected_objects
 
     def test_list_objects(self, tmpdir):
-        expected_objects = ["object1.json", "object2.json"]
+        expected_objects: List[str] = ["object1.json", "object2.json"]
         generate_fixture_files(tmpdir, expected_objects, ["", ""])
 
         obtained_objects = list(self.s3_handler.list_objects(bucket=TEST_BUCKET))
         assert expected_objects == obtained_objects
 
-    def test_read_file_content(self):
-        # /workspaces/etl.python.toolkit/santoku/tests/test_s3_fixtures/test_delete_file/client/delete.json
-        file_to_read = "test_delete_file/client/delete.json"
-        content = self.s3_handler.read_file_content(TEST_BUCKET, file_to_read)
-        print(content)
-        self.assertEqual(True, True)
+    def test_key_exist(self, tmpdir):
+        generate_fixture_files(tmpdir, ["object1.json", "object2.json"], ["", ""])
 
-    # TODO: Pending of completion after fixtures generation method is done
-    # (change the file key to be read).
-    def test_write_file(self):
+        obtained_result = self.s3_handler.key_exist(
+            bucket=TEST_BUCKET, key="object2.json"
+        )
+        assert obtained_result == True
+
+    def test_read_key_content(self, tmpdir):
+        expected_content = "Content2"
+        generate_fixture_files(
+            tmpdir, ["read1.json", "read2.json"], ["Content1", expected_content]
+        )
+
+        obtained_content = self.s3_handler.read_key_content(
+            bucket=TEST_BUCKET, key="read2.json"
+        )
+        assert obtained_content == expected_content
+
+        # Test reading a key that does not exist.
+        with pytest.raises(botocore.exceptions.ClientError) as e:
+            obtained_content = self.s3_handler.read_key_content(
+                bucket=TEST_BUCKET, key="does-not-exist.json"
+            )
+
+    def test_put_key(self, tmpdir):
+        generate_fixture_files(tmpdir, [], [])
+        key_to_write = "write.json"
         content_to_write = '{"test_write_key" = "test_write_value"}'
-        file_to_write = "test_delete_file/client/delete.json"
-        self.s3_handler.write_file(content_to_write, TEST_BUCKET, file_to_write)
-        file_obj = self.resource.Object(TEST_BUCKET, file_to_write)
-        content_read = file_obj.get()["Body"].read().decode("utf-8")
+        self.s3_handler.put_key(
+            bucket=TEST_BUCKET, key=key_to_write, content=content_to_write
+        )
 
-        self.assertEqual(content_to_write, content_read)
+        read_object = self.resource.Object(bucket_name=TEST_BUCKET, key=key_to_write)
+        content_read = read_object.get()["Body"].read().decode("utf-8")
+        assert content_to_write == content_read
 
     def test_delete_file(self):
         file_to_delete = "test_delete_file/resource/delete.json"
