@@ -1,5 +1,7 @@
 import boto3
 import json
+from typing import Any
+from typing import Generator
 from io import StringIO
 
 
@@ -16,7 +18,7 @@ class S3:
 
     @staticmethod
     def get_absolute_path(
-        bucket: str, file_key: str, prefix: str = None, prefix_is_folder: bool = True
+        bucket: str, key: str, prefix: str = None, prefix_is_folder: bool = True
     ) -> str:
         """
         Absolute S3 path string (URI) of a file from its bucket, prefix and key
@@ -28,32 +30,33 @@ class S3:
         if prefix is not None:
             if prefix_is_folder:
                 if prefix[-1] == "/":
-                    return "s3://" + bucket + "/" + prefix + file_key
+                    return "s3://" + bucket + "/" + prefix + key
                 else:
-                    return "s3://" + bucket + "/" + prefix + "/" + file_key
+                    return "s3://" + bucket + "/" + prefix + "/" + key
             else:
-                return "s3://" + bucket + "/" + prefix + file_key
+                return "s3://" + bucket + "/" + prefix + key
         else:
-            return "s3://" + bucket + "/" + file_key
+            return "s3://" + bucket + "/" + key
 
-    # Maybe should not be here. This method can be shared by different
-    # services, not only s3.
-    def paginate(self, method, **kwargs):
+    # This method can be shared by different services, not only s3.
+    def paginate(self, method: str, **kwargs: Any):
         """
         Same as get_keys_as_generator but with generic syntax for other services other than s3 and methods other than
         list_objects_v2. It returns objects rather than keys. To get keys use result['Key'].
         More information on paginators:
         https://boto3.amazonaws.com/v1/documentation/api/latest/guide/paginators.html
-        :param method: method used to list the objects, here it will usually be self.client.list_objects_v2.
+        :param method: name of the method used to list the objects, here it will usually be self.client.list_objects_v2.
         :param kwargs: arguments for the specified method. Bucket property must be specified.
         :return: yields an iterable with the objects in the s3.
         """
-        paginator = self.client.get_paginator(method.__name__)
+        paginator = self.client.get_paginator(method)
         for page in paginator.paginate(**kwargs).result_key_iters():
             for result in page:
                 yield result
 
-    def list_objects(self, bucket, prefix=None, **kwargs):
+    def list_objects(
+        self, bucket: str, prefix: str = None, **kwargs: Any
+    ) -> Generator[str, None, None]:
         """
         Generates all object keys within a bucket, via boto3.client('s3').list_objects_v2.
         More information on list_objects_v2 method:
@@ -66,8 +69,18 @@ class S3:
         if prefix is not None:
             args.update({"Prefix": prefix})
         args.update(**kwargs)
-        for result in self.paginate(self.client.list_objects_v2, **args):
+        for result in self.paginate(
+            method=self.client.list_objects_v2.__name__, **args
+        ):
             yield result["Key"]
+
+    def key_exist(self, bucket: str, key: str) -> bool:
+        """
+        Check whether a key exist in the bucket.
+        :param bucket: S3 bucket to iterate in. Required since list-objects_v2 requires Bucket.
+        :param key: (optional) prefix within the bucket.
+        """
+        return True
 
     def read_file_content(self, bucket, file_key, encoding="utf-8"):
         """

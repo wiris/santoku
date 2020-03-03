@@ -4,7 +4,8 @@ import boto3
 import botocore
 import pytest
 import pandas as pd
-
+import py
+from typing import List
 from datetime import datetime
 from moto import mock_s3
 from ..aws.s3 import S3
@@ -22,7 +23,7 @@ TEST_PREFIX = "mock_prefix"
 @mock_s3
 class TestS3:
     @classmethod
-    def setup_class(self):
+    def setup_class(self,):
         # It seem that mock_s3 and classmethod decorators are not compatible, this is why context
         # manager of moto is used here.
         with mock_s3():
@@ -42,8 +43,14 @@ class TestS3:
                 err = "{bucket} should not exist.".format(bucket=TEST_BUCKET)
                 raise EnvironmentError(err)
             self.client.create_bucket(Bucket=TEST_BUCKET)
+
+            # current_testcase = (
+            #     os.environ.get("PYTEST_CURRENT_TEST").split(":")[-1].split(" ")[0]
+            # )
+
             current_dir = os.path.dirname(__file__)
             fixture_dir = os.path.join(current_dir, "test_s3_fixtures")
+
             # _upload_fixtures(TEST_BUCKET, fixture_dir)
 
     # def tearDown(self):
@@ -54,55 +61,60 @@ class TestS3:
     #     bucket.delete()
 
     def test_get_absolute_path(self):
-        file_key = "test_file.test"
+        key = "test_file.test"
 
         # Test 1: file in a bucket, no prefix
-        true_path = "s3://test_bucket/test_file.test"
-        generated_path = self.s3_handler.get_absolute_path(
-            bucket=TEST_BUCKET, file_key=file_key
-        )
-        assert true_path == generated_path
+        expected_path = "s3://test_bucket/test_file.test"
+        obtained_path = self.s3_handler.get_absolute_path(bucket=TEST_BUCKET, key=key)
+        assert obtained_path == expected_path
 
         # Test 2: file in a folder, prefix is the folder with /
         prefix = "folder/"
-        true_path = "s3://test_bucket/folder/test_file.test"
-        generated_path = self.s3_handler.get_absolute_path(
-            bucket=TEST_BUCKET, file_key=file_key, prefix=prefix
+        expected_path = "s3://test_bucket/folder/test_file.test"
+        obtained_path = self.s3_handler.get_absolute_path(
+            bucket=TEST_BUCKET, key=key, prefix=prefix
         )
-        assert true_path == generated_path
+        assert obtained_path == expected_path
 
         # Test 3: file in folder, prefix is the folder without /
         prefix = "folder"
-        true_path = "s3://test_bucket/folder/test_file.test"
-        generated_path = self.s3_handler.get_absolute_path(
-            bucket=TEST_BUCKET, file_key=file_key, prefix=prefix
+        expected_path = "s3://test_bucket/folder/test_file.test"
+        obtained_path = self.s3_handler.get_absolute_path(
+            bucket=TEST_BUCKET, key=key, prefix=prefix
         )
-        assert true_path == generated_path
+        assert obtained_path == expected_path
 
         # Test 4: prefix is not the folder
         prefix = "some_"
-        true_path = "s3://test_bucket/some_test_file.test"
-        generated_path = self.s3_handler.get_absolute_path(
-            bucket=TEST_BUCKET, file_key=file_key, prefix=prefix, prefix_is_folder=False
+        expected_path = "s3://test_bucket/some_test_file.test"
+        obtained_path = self.s3_handler.get_absolute_path(
+            bucket=TEST_BUCKET, key=key, prefix=prefix, prefix_is_folder=False
         )
-        assert true_path == generated_path
+        assert obtained_path == expected_path
 
-    # Maybe should not be here
-    def test_paginate(self):
-        args = {"Bucket": TEST_BUCKET}
-        for result in self.s3_handler.paginate(self.client.list_objects_v2, **args):
-            print(result["Key"])
-        self.assertEqual(True, True)
+    def test_paginate(self, tmpdir):
+        # Test setting limit to the number of returned element.
+        args: Dict[str, Any] = {
+            "Bucket": TEST_BUCKET,
+            "PaginationConfig": {"MaxItems": 1},
+        }
+        generate_fixture_files(tmpdir, ["object1.json", "object2.json"], ["", ""])
 
-    # TODO: Pending of completion after fixtures generation method is done
-    # (check the file_keys that should appear).
-    def test_list_objects(self):
-        for result in self.s3_handler.list_objects(TEST_BUCKET):
-            print(result)
-        self.assertEqual(True, True)
+        expected_objects = ["object1.json"]
+        obtained_objects = []
+        for result in self.s3_handler.paginate(
+            method=self.client.list_objects_v2.__name__, **args
+        ):
+            obtained_objects.append(result["Key"])
+        assert obtained_objects == expected_objects
 
-    # TODO: Pending of completion after fixtures generation method is done
-    # (fixtures json files should have some content).
+    def test_list_objects(self, tmpdir):
+        expected_objects = ["object1.json", "object2.json"]
+        generate_fixture_files(tmpdir, expected_objects, ["", ""])
+
+        obtained_objects = list(self.s3_handler.list_objects(bucket=TEST_BUCKET))
+        assert expected_objects == obtained_objects
+
     def test_read_file_content(self):
         # /workspaces/etl.python.toolkit/santoku/tests/test_s3_fixtures/test_delete_file/client/delete.json
         file_to_read = "test_delete_file/client/delete.json"
@@ -214,5 +226,19 @@ def _upload_fixtures(bucket: str, fixture_dir: str) -> None:
     ]
     for path in fixture_paths:
         key = os.path.relpath(path, fixture_dir)
-        print(key)
         client.upload_file(Filename=path, Bucket=bucket, Key=key)
+
+
+def generate_fixture_files(
+    tmpdir: py.path.local, keys_list: List[str], content_list: List[str]
+) -> None:
+    if len(keys_list) != len(content_list):
+        raise ValueError(
+            "Length of arguments keys_list and content_list must be equal."
+        )
+    for i in range(len(keys_list)):
+        key = keys_list[i]
+        fixture_file = tmpdir.join(key)
+        fixture_file.write(content_list[i])
+    _upload_fixtures(bucket=TEST_BUCKET, fixture_dir=tmpdir)
+
