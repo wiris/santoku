@@ -11,15 +11,13 @@ class S3:
     """
 
     def __init__(self):
-        self.client = boto3.client('s3')
-        self.resource = boto3.resource('s3')
+        self.client = boto3.client("s3")
+        self.resource = boto3.resource("s3")
 
     @staticmethod
     def get_absolute_path(
-            bucket,
-            file_key,
-            prefix=None,
-            prefix_is_folder=True):
+        bucket: str, file_key: str, prefix: str = None, prefix_is_folder: bool = True
+    ) -> str:
         """
         Absolute S3 path string (URI) of a file from its bucket, prefix and key
         :param bucket: S3 bucket to get the absolute path from.
@@ -29,14 +27,14 @@ class S3:
         """
         if prefix is not None:
             if prefix_is_folder:
-                if prefix[-1] == '/':
-                    return 's3://' + bucket + '/' + prefix + file_key
+                if prefix[-1] == "/":
+                    return "s3://" + bucket + "/" + prefix + file_key
                 else:
-                    return 's3://' + bucket + '/' + prefix + '/' + file_key
+                    return "s3://" + bucket + "/" + prefix + "/" + file_key
             else:
-                return 's3://' + bucket + '/' + prefix + file_key
+                return "s3://" + bucket + "/" + prefix + file_key
         else:
-            return 's3://' + bucket + '/' + file_key
+            return "s3://" + bucket + "/" + file_key
 
     # Maybe should not be here. This method can be shared by different
     # services, not only s3.
@@ -64,14 +62,14 @@ class S3:
         :param prefix: (optional) prefix within the bucket.
         :param kwargs: other arguments for list_objects_v2, e.g. StartAfter.
         """
-        args = {'Bucket': bucket}
+        args = {"Bucket": bucket}
         if prefix is not None:
-            args.update({'Prefix': prefix})
+            args.update({"Prefix": prefix})
         args.update(**kwargs)
         for result in self.paginate(self.client.list_objects_v2, **args):
-            yield result['Key']
+            yield result["Key"]
 
-    def read_file_content(self, bucket, file_key, encoding='utf-8'):
+    def read_file_content(self, bucket, file_key, encoding="utf-8"):
         """
         Read file at S3 bucket with given key. Use provided encoding
         :param bucket: S3 bucket containing the file.
@@ -80,7 +78,7 @@ class S3:
         :return: the decoded content of the file.
         """
         file_obj = self.resource.Object(bucket, file_key)
-        file_content = file_obj.get()['Body'].read().decode(encoding)
+        file_content = file_obj.get()["Body"].read().decode(encoding)
         return file_content
 
     def write_file(self, content, bucket, file_key):
@@ -112,12 +110,8 @@ class S3:
             self.delete_file(bucket, key)
 
     def write_dataframe_to_csv_file(
-            self,
-            dataframe,
-            bucket,
-            file_key,
-            encoding='utf-8',
-            save_index=False):
+        self, dataframe, bucket, file_key, encoding="utf-8", save_index=False
+    ):
         """
         Write a pandas dataframe to an S3 location (bucket + key)
         :param dataframe: pandas dataframe to save
@@ -134,15 +128,16 @@ class S3:
         self.write_file(bytes_content, bucket, file_key)
 
     def generate_quicksight_manifest(
-            self,
-            bucket,
-            file_key,
-            s3_path=None,
-            s3_prefix=None,
-            set_format=None,
-            set_delimiter=None,
-            set_qualifier=None,
-            set_header=None):
+        self,
+        bucket,
+        file_key,
+        s3_path=None,
+        s3_prefix=None,
+        set_format=None,
+        set_delimiter=None,
+        set_qualifier=None,
+        set_header=None,
+    ):
         """
         Generates a QS manifest JSON file from a list of files and/or prefixes and saves it to a specified S3 location
         More info on format: https://docs.aws.amazon.com/quicksight/latest/user/supported-manifest-file-format.html
@@ -157,7 +152,7 @@ class S3:
         """
         # check for files
         if s3_prefix is None and s3_path is None:
-            raise Exception('no file nor prefix were specified')
+            raise Exception("no file nor prefix were specified")
 
         # absolute paths of specific files
         uri = {}
@@ -178,14 +173,14 @@ class S3:
         if set_qualifier is not None:
             upload_settings["textqualifier"] = set_qualifier
         if set_header is not None:
-            upload_settings['containsHeader'] = set_header
+            upload_settings["containsHeader"] = set_header
 
         # construct JSON file
         data = {"fileLocations": []}
         if s3_path is not None:
             data["fileLocations"].append(uri)
         if s3_prefix is not None:
-            data['fileLocations'].append(uri_prefixes)
+            data["fileLocations"].append(uri_prefixes)
         if upload_settings:
             data["globalUploadSettings"] = upload_settings
         json_content = json.dumps(data, indent=4, sort_keys=True)

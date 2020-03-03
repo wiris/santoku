@@ -2,8 +2,7 @@ import os
 import json
 import boto3
 import botocore
-import unittest
-import nose2
+import pytest
 import pandas as pd
 
 from datetime import datetime
@@ -21,66 +20,72 @@ TEST_PREFIX = "mock_prefix"
 
 
 @mock_s3
-class TestS3(unittest.TestCase):
-    def setUp(self):
-        self.s3_handler = S3()
-        self.client = boto3.client("s3")
-        self.resource = boto3.resource("s3")
-        try:
+class TestS3:
+    @classmethod
+    def setup_class(self):
+        # It seem that mock_s3 and classmethod decorators are not compatible, this is why context
+        # manager of moto is used here.
+        with mock_s3():
+            self.s3_handler = S3()
+            self.client = boto3.client("s3")
             self.resource = boto3.resource(
                 "s3",
                 region_name="eu-west-1",
                 aws_access_key_id="fake_access_key",
                 aws_secret_access_key="fake_secret_key",
             )
-            self.resource.meta.client.head_bucket(Bucket=TEST_BUCKET)
-        except botocore.exceptions.ClientError:
-            pass
-        else:
-            err = "{bucket} should not exist.".format(bucket=TEST_BUCKET)
-            raise EnvironmentError(err)
-        self.client.create_bucket(Bucket=TEST_BUCKET)
-        current_dir = os.path.dirname(__file__)
-        fixture_dir = os.path.join(current_dir, "test_s3_fixtures")
-        _upload_fixtures(TEST_BUCKET, fixture_dir)
+            try:
+                self.resource.meta.client.head_bucket(Bucket=TEST_BUCKET)
+            except botocore.exceptions.ClientError:
+                pass
+            else:
+                err = "{bucket} should not exist.".format(bucket=TEST_BUCKET)
+                raise EnvironmentError(err)
+            self.client.create_bucket(Bucket=TEST_BUCKET)
+            current_dir = os.path.dirname(__file__)
+            fixture_dir = os.path.join(current_dir, "test_s3_fixtures")
+            # _upload_fixtures(TEST_BUCKET, fixture_dir)
 
-    def tearDown(self):
-        bucket = self.resource.Bucket(TEST_BUCKET)
-        for key in bucket.objects.all():
-            key.delete()
-        bucket.delete()
+    # def tearDown(self):
+    #     with mock_s3():
+    #     bucket = self.resource.Bucket(TEST_BUCKET)
+    #     for key in bucket.objects.all():
+    #         key.delete()
+    #     bucket.delete()
 
     def test_get_absolute_path(self):
         file_key = "test_file.test"
 
-        # test 1: file in a bucket, no prefix
+        # Test 1: file in a bucket, no prefix
         true_path = "s3://test_bucket/test_file.test"
-        generated_path = self.s3_handler.get_absolute_path(TEST_BUCKET, file_key)
-        self.assertEqual(true_path, generated_path)
+        generated_path = self.s3_handler.get_absolute_path(
+            bucket=TEST_BUCKET, file_key=file_key
+        )
+        assert true_path == generated_path
 
-        # test 2: file in a folder, prefix is the folder with /
+        # Test 2: file in a folder, prefix is the folder with /
         prefix = "folder/"
         true_path = "s3://test_bucket/folder/test_file.test"
         generated_path = self.s3_handler.get_absolute_path(
-            TEST_BUCKET, file_key, prefix
+            bucket=TEST_BUCKET, file_key=file_key, prefix=prefix
         )
-        self.assertEqual(true_path, generated_path)
+        assert true_path == generated_path
 
-        # test 3: file in folder, prefix is the folder without /
+        # Test 3: file in folder, prefix is the folder without /
         prefix = "folder"
         true_path = "s3://test_bucket/folder/test_file.test"
         generated_path = self.s3_handler.get_absolute_path(
-            TEST_BUCKET, file_key, prefix
+            bucket=TEST_BUCKET, file_key=file_key, prefix=prefix
         )
-        self.assertEqual(true_path, generated_path)
+        assert true_path == generated_path
 
-        # test 4: prefix is not the folder
+        # Test 4: prefix is not the folder
         prefix = "some_"
         true_path = "s3://test_bucket/some_test_file.test"
         generated_path = self.s3_handler.get_absolute_path(
-            TEST_BUCKET, file_key, prefix, False
+            bucket=TEST_BUCKET, file_key=file_key, prefix=prefix, prefix_is_folder=False
         )
-        self.assertEqual(true_path, generated_path)
+        assert true_path == generated_path
 
     # Maybe should not be here
     def test_paginate(self):
