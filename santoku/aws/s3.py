@@ -1,7 +1,9 @@
 import boto3
 import json
 import botocore
+import pandas as pd
 from typing import Any
+from typing import Dict
 from typing import Generator
 from io import StringIO
 
@@ -90,7 +92,7 @@ class S3:
                 raise
         return True
 
-    def read_key_content(self, bucket: str, key: str, encoding="utf-8"):
+    def read_key_content(self, bucket: str, key: str, encoding="utf-8") -> str:
         """
         Read file at S3 bucket with given key. Use provided encoding
         :param bucket: S3 bucket containing the file.
@@ -98,11 +100,11 @@ class S3:
         :param encoding: encoding used in the content.
         :return: the decoded content of the file.
         """
-        file_obj = self.resource.Object(bucket_name=bucket, key=key)
-        file_content = file_obj.get()["Body"].read().decode(encoding)
+        key_obj = self.resource.Object(bucket_name=bucket, key=key)
+        file_content = key_obj.get()["Body"].read().decode(encoding)
         return file_content
 
-    def put_key(self, bucket: str, key: str, content: bytes):
+    def put_key(self, bucket: str, key: str, content: bytes) -> None:
         """
         Write the contents of a file into S3
         :param content: content in bytes to be writen to the file.
@@ -111,28 +113,33 @@ class S3:
         """
         self.client.put_object(Body=content, Bucket=bucket, Key=key)
 
-    def delete_file(self, bucket, file_key):
+    def delete_key(self, bucket: str, key: str) -> None:
         """
         Deletes an object from S3
         :param bucket: S3 bucket containing the file.
         :param file_key: object key to delete.
         :param mode: use resource (high level API) or client (low level, only if you know what you are doing)
         """
-        self.resource.Object(bucket, file_key).delete()
+        self.resource.Object(bucket_name=bucket, key=key).delete()
 
-    def delete_files(self, bucket, file_keys):
+    def delete_keys(self, bucket: str, keys: list) -> None:
         """
         Deletes a list of objects from a single bucket in S3
         :param bucket: S3 bucket containing the files.
         :param file_keys: iterable of object keys to delete.
         :param mode: use resource (high level API) or client (low level, only if you know what you are doing)
         """
-        for key in file_keys:
-            self.delete_file(bucket, key)
+        for key in keys:
+            self.delete_key(bucket=bucket, key=key)
 
-    def write_dataframe_to_csv_file(
-        self, dataframe, bucket, file_key, encoding="utf-8", save_index=False
-    ):
+    def write_dataframe_to_csv_key(
+        self,
+        bucket: str,
+        key: str,
+        dataframe: pd.DataFrame,
+        encoding: str = "utf-8",
+        save_index: bool = False,
+    ) -> None:
         """
         Write a pandas dataframe to an S3 location (bucket + key)
         :param dataframe: pandas dataframe to save
@@ -145,19 +152,18 @@ class S3:
         csv_buffer = StringIO()
         dataframe.to_csv(csv_buffer, index=save_index)
         bytes_content = csv_buffer.getvalue().encode(encoding)
-
-        self.write_file(bytes_content, bucket, file_key)
+        self.put_key(bucket=bucket, key=key, content=bytes_content)
 
     def generate_quicksight_manifest(
         self,
-        bucket,
-        file_key,
-        s3_path=None,
-        s3_prefix=None,
-        set_format=None,
-        set_delimiter=None,
-        set_qualifier=None,
-        set_header=None,
+        bucket: str,
+        key: str,
+        s3_path: str = None,
+        s3_prefix: str = None,
+        set_format: str = None,
+        set_delimiter: str = None,
+        set_qualifier: str = None,
+        set_header: str = None,
     ):
         """
         Generates a QS manifest JSON file from a list of files and/or prefixes and saves it to a specified S3 location
@@ -171,22 +177,22 @@ class S3:
         :param set_qualifier: (optional) file text qualifier (e.g. "'").  Check AWS docs link for allowed values
         :param set_header: (optional) whether the files have a header row. Valid values are True of False
         """
-        # check for files
+        # Check for key.
         if s3_prefix is None and s3_path is None:
             raise Exception("no file nor prefix were specified")
 
-        # absolute paths of specific files
-        uri = {}
+        # Absolute paths of specific keys.
+        uri: Dict[str, Any] = {}
         if s3_path is not None:
             uri["URIs"] = list(s3_path)
 
-        # prefixes to include all files with that prefix
-        uri_prefixes = {}
+        # Prefixes to include all keys with that prefix.
+        uri_prefixes: Dict[str, Any] = {}
         if s3_prefix is not None:
             uri_prefixes["URIPrefixes"] = list(s3_prefix)
 
-        # global upload settings (if any)
-        upload_settings = {}
+        # Global upload settings (if any)
+        upload_settings: Dict[str, Any] = {}
         if set_format is not None:
             upload_settings["format"] = set_format
         if set_delimiter is not None:
@@ -196,8 +202,8 @@ class S3:
         if set_header is not None:
             upload_settings["containsHeader"] = set_header
 
-        # construct JSON file
-        data = {"fileLocations": []}
+        # Construct JSON file.
+        data: Dict[str, Any] = {"fileLocations": []}
         if s3_path is not None:
             data["fileLocations"].append(uri)
         if s3_prefix is not None:
@@ -205,6 +211,6 @@ class S3:
         if upload_settings:
             data["globalUploadSettings"] = upload_settings
         json_content = json.dumps(data, indent=4, sort_keys=True)
-
+        bytes_content = json_content.encode("utf-8")
         # save to specified location
-        self.write_file(json_content, bucket, file_key)
+        self.put_key(bucket=bucket, key=key, content=bytes_content)
