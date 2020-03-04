@@ -22,10 +22,10 @@ pipeline {
                 sh(script: 'pytest')
             }
         }
-        when {
-            branch 'develop'
-        }
         stage('Update version number'){
+            when {
+                branch 'develop'
+            }
             steps {
                 script {
                     // update version number
@@ -33,10 +33,10 @@ pipeline {
                 }
             }
         }
-        when {
-            branch 'develop'
-        }
         stage('Merge to master & Tag') {
+            when {
+                branch 'develop'
+            }
             steps {
                 // sshagent(credentials: ['bitbucket_jenkins_1704']) {
                 //     git branch: 'master', url: 'git@bitbucket.org:wiris/plugins.git';
@@ -49,18 +49,18 @@ pipeline {
                 sh(script: "echo git tag ${VERSION_NUMBER}")
             }
         }
-        when {
-            branch 'develop'
-        }
         stage('Wheel building') {
+            when {
+                branch 'develop'
+            }
             steps {
                 sh 'python3 setup.py bdist_wheel'
             }
         }
-        when {
-            branch 'develop'
-        }
         stage('Wheel orchestration to S3') {
+            when {
+                branch 'develop'
+            }
             steps {
                 sh 'echo "#TODO: Implement sending wheel to S3 with ansible"'
                 // instead of creating a python3 script we can use ansible to send it to s3
