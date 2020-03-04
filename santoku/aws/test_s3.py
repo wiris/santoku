@@ -57,12 +57,12 @@ class TestS3:
     def test_get_absolute_path(self):
         key = "test_file.test"
 
-        # Test 1: file in a bucket, no prefix
+        # Test 1: file in a bucket, no prefix.
         expected_path = "s3://test_bucket/test_file.test"
         obtained_path = self.s3_handler.get_absolute_path(bucket=TEST_BUCKET, key=key)
         assert obtained_path == expected_path
 
-        # Test 2: file in a folder, prefix is the folder with /
+        # Test 2: file in a folder, prefix is the folder with /.
         prefix = "folder/"
         expected_path = "s3://test_bucket/folder/test_file.test"
         obtained_path = self.s3_handler.get_absolute_path(
@@ -70,7 +70,7 @@ class TestS3:
         )
         assert obtained_path == expected_path
 
-        # Test 3: file in folder, prefix is the folder without /
+        # Test 3: file in folder, prefix is the folder without /.
         prefix = "folder"
         expected_path = "s3://test_bucket/folder/test_file.test"
         obtained_path = self.s3_handler.get_absolute_path(
@@ -78,7 +78,7 @@ class TestS3:
         )
         assert obtained_path == expected_path
 
-        # Test 4: prefix is not the folder
+        # Test 4: prefix is not the folder.
         prefix = "some_"
         expected_path = "s3://test_bucket/some_test_file.test"
         obtained_path = self.s3_handler.get_absolute_path(
