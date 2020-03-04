@@ -19,8 +19,11 @@ pipeline {
     stages {
         stage('Testing Package') {
             steps {
-                sh(script: 'echo nose2')
+                sh(script: 'pytest')
             }
+        }
+        when {
+            branch 'develop'
         }
         stage('Update version number'){
             steps {
@@ -29,6 +32,9 @@ pipeline {
                     VERSION_NUMBER = sh(script: 'echo 0.0.1', returnStdout: true)
                 }
             }
+        }
+        when {
+            branch 'develop'
         }
         stage('Merge to master & Tag') {
             steps {
@@ -43,10 +49,16 @@ pipeline {
                 sh(script: "echo git tag ${VERSION_NUMBER}")
             }
         }
+        when {
+            branch 'develop'
+        }
         stage('Wheel building') {
             steps {
                 sh 'python3 setup.py bdist_wheel'
             }
+        }
+        when {
+            branch 'develop'
         }
         stage('Wheel orchestration to S3') {
             steps {
