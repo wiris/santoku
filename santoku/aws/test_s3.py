@@ -21,7 +21,7 @@ TEST_PREFIX = "mock_prefix"
 
 
 class TestS3:
-    # It seem that mock_s3 and classmethod decorators are not compatible, this is why context
+    # It seems that mock_s3 and classmethod decorators are not compatible, this is why context
     # manager of moto is used here.
     mock_s3 = mock_s3()
 
@@ -45,15 +45,6 @@ class TestS3:
             err = "{bucket} should not exist.".format(bucket=TEST_BUCKET)
             raise EnvironmentError(err)
         self.client.create_bucket(Bucket=TEST_BUCKET)
-
-        # current_testcase = (
-        #     os.environ.get("PYTEST_CURRENT_TEST").split(":")[-1].split(" ")[0]
-        # )
-
-        current_dir = os.path.dirname(__file__)
-        fixture_dir = os.path.join(current_dir, "test_s3_fixtures")
-
-        # _upload_fixtures(TEST_BUCKET, fixture_dir)
 
     @classmethod
     def teardown_class(self):
