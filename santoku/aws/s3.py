@@ -26,7 +26,7 @@ class S3:
         """
         Absolute S3 path string (URI) of a file from its bucket, prefix and key
         :param bucket: S3 bucket to get the absolute path from.
-        :param file_key: relative path inside the bucket. relative path within the prefix if a prefix is passed.
+        :param file_key: relative path inside the bucket. Relative path within the prefix if a prefix is passed.
         :param prefix: (optional) S3 prefix within the bucket.
         :param prefix_is_folder: (optional) whether the prefix marks a folder.
         """
