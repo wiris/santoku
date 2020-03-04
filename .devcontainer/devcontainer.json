@@ -24,10 +24,12 @@
     ],
     // Use 'forwardPorts' to make a list of ports inside the container available locally.
     // "forwardPorts": [],
-    // Uncomment the next line to run commands after the container is created - for example
-    // installing git.
-    // "postCreateCommand": "apt-get update && apt-get install -y git",
-    "postCreateCommand": "mkdir -p /root/.ssh && cp /root/ssh/* /root/.ssh/ && chmod 600 /root/.ssh/*",
+    // postCreateCommand runs commands after the container is created:
+    // - enables git autocomplete and...
+    // - copies ssh mounted directory as .ssh directory inside the container
+    //     (this is a workaround for windows hosts. Windows doesn't transmit correctly file
+    //      permissions to Linux and SSH specifies restrictive file permissions to private keys)
+    "postCreateCommand": "echo source /usr/share/bash-completion/completions/git >> /root/.bashrc && mkdir -p /root/.ssh && cp /root/ssh/* /root/.ssh/ && chmod 600 /root/.ssh/*",
     // Uncomment when using a ptrace-based debugger like C++, Go, and Rust
     // "runArgs": [ "--cap-add=SYS_PTRACE", "--security-opt", "seccomp=unconfined" ],
     // Uncomment to use the Docker CLI from inside the container. See
