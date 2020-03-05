@@ -16,13 +16,13 @@ pipeline {
     environment {
         // this creates AWS_ACCESS_CREDENTIALS_USR and AWS_ACCESS_CREDENTIALS_PSW
         AWS_ACCESS_CREDENTIALS=credentials('aws_datascience_admin')
-        parameters {
-            choice(
-                name: 'release_type',
-                choices: ['BUGFIX OR MINOR IMPROVEMENT', 'BIG REVISION'],
-                description: 'This affects the version numbering (MAJOR.MINOR). If BUGFIX OR MINOR IMPROVEMENT is selected, MINOR will be increased (this is the default option as is the first one placed in the list). If BIG REVISION is selected, MAJOR will be increased.'
-            )
-        }
+    }
+    parameters {
+        choice(
+            name: 'release_type',
+            choices: ['BUGFIX OR MINOR IMPROVEMENT', 'BIG REVISION'],
+            description: 'This affects the version numbering (MAJOR.MINOR). If BUGFIX OR MINOR IMPROVEMENT is selected, MINOR will be increased (this is the default option as is the first one placed in the list). If BIG REVISION is selected, MAJOR will be increased.'
+        )
     }
     stages {
         stage('Testing Package') {
@@ -91,6 +91,7 @@ pipeline {
                 // }
                 // Using aws CLI
                 BUCKET_URL = "s3://my-bucket/my/path/in/bucket"
+                // move this up to environmetn section
                 env.AWS_ACCESS_KEY_ID = AWS_ACCESS_CREDENTIALS_USR
                 env.AWS_SECRET_ACCESS_KEY = AWS_ACCESS_CREDENTIALS_PSW
                 env.AWS_DEFAULT_REGION = 'eu-west-1'
