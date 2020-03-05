@@ -37,6 +37,7 @@ pipeline {
             steps {
                 script {
                     // Version number is in the form of MAJOR.MINOR
+                    sh(script: "chmod +x ./scripts/*.sh")
                     VERSION_NUMBER = sh(script: "./scripts/get_version.sh", returnStdout: true)
                     // update version number depending if the release_type is
                     // "BUGFIX OR MINOR IMPROVEMENT" (increase [m]inor) or "BIG REVISION" (incr. [M]ajor)
