@@ -19,10 +19,10 @@ pipeline {
             choice(
                 name: 'release_type',
                 choices: ['BUGFIX OR MINOR IMPROVEMENT', 'BIG REVISION'],
-                description: 'This affects the version numbering (MAJOR.MINOR).
+                description: """This affects the version numbering (MAJOR.MINOR).
                               If "BUGFIX OR MINOR IMPROVEMENT" is selected, MINOR will be increased
                               (this is the default option as is the first one placed in the list).
-                              If "BIG REVISION" is selected, MAJOR will be increased.'
+                              If "BIG REVISION" is selected, MAJOR will be increased."""
             )
         }
     }
