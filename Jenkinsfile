@@ -31,9 +31,9 @@ pipeline {
             }
         }
         stage('Updating Minor Version Number'){
-            when {
-                branch 'develop'
-            }
+            // when {
+            //     branch 'develop'
+            // }
             steps {
                 script {
                     // Version number is in the form of MAJOR.MINOR
@@ -66,20 +66,20 @@ pipeline {
             }
         }
         stage('Building Wheel') {
-            when {
-                branch 'develop'
-            }
+            // when {
+            //     branch 'develop'
+            // }
             steps {
                 sh 'python3 setup.py bdist_wheel'
             }
         }
         stage('Copying Wheel to S3') {
-            when {
-                branch 'develop'
-            }
+            // when {
+            //     branch 'develop'
+            // }
             steps {
                 script{
-                    WHEEL_NAME = sh(script: "dist/Santoku-*.whl", returnStdout: true)
+                    WHEEL_NAME = sh(script: "ls dist/Santoku-*.whl", returnStdout: true)
                     // // using Jenkins Ansible Plugin: we can use ansible to send it to s3
                     // // https://github.com/jenkinsci/ansible-plugin
                     // ansiblePlaybook('playbook.yml'){
