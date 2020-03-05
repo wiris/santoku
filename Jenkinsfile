@@ -68,6 +68,7 @@ pipeline {
                 //     sh(script: 'git push origin master');
                 //     sh(script: "git tag ${VERSION_NUMBER}")
                 // }
+                // #TODO: bump version as well before merging
                 sh(script: "echo git tag ${VERSION_NUMBER}")
             }
         }
