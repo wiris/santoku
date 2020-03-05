@@ -78,24 +78,26 @@ pipeline {
                 branch 'develop'
             }
             steps {
-                WHEEL_NAME = sh(script: "dist/Santoku-*.whl", returnStdout: true)
-                // // using Jenkins Ansible Plugin: we can use ansible to send it to s3
-                // // https://github.com/jenkinsci/ansible-plugin
-                // ansiblePlaybook('playbook.yml'){
-                //     extraVars: [
-                //         bucket_name: 'mybucketname',
-                //         path_in_bucket: '/my/path/in/bucket',
-                //         wheel_name: WHEEL_NAME,
-                //         region_name: 'eu-west-1'
-                //     ]
-                // }
-                // Using aws CLI
-                BUCKET_URL = "s3://my-bucket/my/path/in/bucket"
-                // move this up to environmetn section
-                env.AWS_ACCESS_KEY_ID = AWS_ACCESS_CREDENTIALS_USR
-                env.AWS_SECRET_ACCESS_KEY = AWS_ACCESS_CREDENTIALS_PSW
-                env.AWS_DEFAULT_REGION = 'eu-west-1'
-                sh(script: "echo aws s3 cp ${WHEEL_NAME} ${BUCKET_URL}")
+                script{
+                    WHEEL_NAME = sh(script: "dist/Santoku-*.whl", returnStdout: true)
+                    // // using Jenkins Ansible Plugin: we can use ansible to send it to s3
+                    // // https://github.com/jenkinsci/ansible-plugin
+                    // ansiblePlaybook('playbook.yml'){
+                    //     extraVars: [
+                    //         bucket_name: 'mybucketname',
+                    //         path_in_bucket: '/my/path/in/bucket',
+                    //         wheel_name: WHEEL_NAME,
+                    //         region_name: 'eu-west-1'
+                    //     ]
+                    // }
+                    // Using aws CLI
+                    BUCKET_URL = "s3://my-bucket/my/path/in/bucket"
+                    // move this up to environmetn section
+                    env.AWS_ACCESS_KEY_ID = AWS_ACCESS_CREDENTIALS_USR
+                    env.AWS_SECRET_ACCESS_KEY = AWS_ACCESS_CREDENTIALS_PSW
+                    env.AWS_DEFAULT_REGION = 'eu-west-1'
+                    sh(script: "echo aws s3 cp ${WHEEL_NAME} ${BUCKET_URL}")
+                }
             }
         }
     }
