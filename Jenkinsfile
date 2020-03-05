@@ -1,4 +1,5 @@
 def VERSION_NUMBER = ''
+def RELEASE_TYPE = ''
 
 pipeline {
     // nice example of Jenkinsfile:
@@ -39,14 +40,15 @@ pipeline {
             steps {
                 script {
                     // Version number is in the form of MAJOR.MINOR
-                    VERSION_NUMBER = sh(script: "grep version setup.py | sed -e 's|version=||g' -e 's|[\x22, \t]||g'", returnStdout: true)
+                    VERSION_NUMBER = sh(script: "./scripts/get_version.sh", returnStdout: true)
                     // update version number depending if the release_type is
-                    // "BUGFIX OR MINOR IMPROVEMENT" (increase MINOR) or "BIG REVISION" (inc. MAJOR)
+                    // "BUGFIX OR MINOR IMPROVEMENT" (increase [m]inor) or "BIG REVISION" (incr. [M]ajor)
                     if( params.release_type == 'BUGFIX OR MINOR IMPROVEMENT'){
-                        VERSION_NUMBER = sh(script: "echo ${VERSION_NUMBER} | awk -F'.' '{printf \"%d.%d\",$1,$2+1}'", returnStdout: true)
+                        RELEASE_TYPE = "m"
                     } else {
-                        VERSION_NUMBER = sh(script: "echo ${VERSION_NUMBER} | awk -F'.' '{printf \"%d.%d\",$1+1,$2}'", returnStdout: true)
+                        RELEASE_TYPE = "M"
                     }
+                    VERSION_NUMBER = sh(script: "./scripts/increase_version.sh ${VERSION_NUMBER} ${RELEASE_TYPE}", returnStdout: true)
                 }
             }
         }
