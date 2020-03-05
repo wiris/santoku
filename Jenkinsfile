@@ -30,7 +30,7 @@ pipeline {
                 sh(script: 'pytest')
             }
         }
-        stage('Updating Minor Version Number'){
+        stage('Updating Version Number'){
             // when {
             //     branch 'develop'
             // }
@@ -38,9 +38,11 @@ pipeline {
                 script {
                     // give execute permissions to the scripts
                     sh(script: "chmod +x ./scripts/*.sh")
+
                     // Version number is in the form of MAJOR.MINOR
                     // You will often want to call .trim() on the result to strip off a trailing newline
-                    VERSION_NUMBER = sh(script: "./scripts/get_version.sh", returnStdout: true).trim()
+                    VERSION_NUMBER = sh(script: "./scripts/get_version.sh setup.py", returnStdout: true).trim()
+
                     // update version number depending if the release_type is
                     // "BUGFIX OR MINOR IMPROVEMENT" (increase [m]inor) or "BIG REVISION" (incr. [M]ajor)
                     if( params.release_type == 'BUGFIX OR MINOR IMPROVEMENT'){
@@ -49,6 +51,7 @@ pipeline {
                         RELEASE_TYPE = "M"
                     }
                     VERSION_NUMBER = sh(script: "./scripts/increase_version.sh ${VERSION_NUMBER} ${RELEASE_TYPE}", returnStdout: true)
+                    sh(script: "./scripts/set_version.sh setup.py ${VERSION_NUMBER}")
                 }
             }
         }
