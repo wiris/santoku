@@ -1,7 +1,7 @@
 #!/bin/bash
 
-RELEASE_TYPE=$1
-WHICH_PART=$2
+VERSION_NUMBER=$1
+RELEASE_TYPE=$2
 
 if [ "$RELEASE_TYPE" == "M" ]; then
 	# increase (M)ajor part

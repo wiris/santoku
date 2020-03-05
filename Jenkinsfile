@@ -50,7 +50,7 @@ pipeline {
                     } else {
                         RELEASE_TYPE = "M"
                     }
-                    VERSION_NUMBER = sh(script: "./scripts/increase_version.sh ${VERSION_NUMBER} ${RELEASE_TYPE}", returnStdout: true)
+                    VERSION_NUMBER = sh(script: "./scripts/increase_version.sh ${VERSION_NUMBER} ${RELEASE_TYPE}", returnStdout: true).trim()
                     sh(script: "./scripts/set_version.sh setup.py ${VERSION_NUMBER}")
                 }
             }
