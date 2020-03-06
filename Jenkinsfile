@@ -61,7 +61,7 @@ pipeline {
             }
             steps {
                 sshagent(credentials: ['bitbucket_jenkins_1704']) {
-                    git branch: 'develop', url: 'git@bitbucket.org:wiris/etl.python.toolkit.git';
+                    git branch: 'master', url: 'https://jenkins_at_wiris@bitbucket.org/wiris/etl.python.toolkit.git';
                     sh(script: 'git fetch --all')
                     sh(script: 'git checkout develop')
                     sh(script: 'git add setup.py')
