@@ -71,8 +71,8 @@ pipeline {
                     // sh(script: 'git merge origin/develop --ff-only');
                     // sh(script: 'git push origin master');
                     // sh(script: "git tag ${VERSION_NUMBER}")
-                    sh(script: "git branch -a")
-                }
+                sh(script: "git branch -a")
+                // }
             }
         }
         stage('Building Wheel') {
