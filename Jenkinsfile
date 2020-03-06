@@ -61,14 +61,17 @@ pipeline {
             // }
             steps {
                 // sshagent(credentials: ['bitbucket_jenkins_1704']) {
-                //     git branch: 'master', url: 'git@bitbucket.org:wiris/plugins.git';
+                //     git branch: 'develop', url: 'git@bitbucket.org:wiris/plugins.git';
                 //     sh(script: 'git fetch --all');
+                //     sh(script: 'git checkout develop');
+                //     sh(script: 'git add setup.py');
+                //     sh(script: 'git commit -m "Bump version to ${VERSION_NUMBER}");
+                //     sh(script: 'git push origin develop');
                 //     sh(script: 'git checkout master');
                 //     sh(script: 'git merge origin/develop --ff-only');
                 //     sh(script: 'git push origin master');
                 //     sh(script: "git tag ${VERSION_NUMBER}")
                 // }
-                // #TODO: bump version as well before merging
                 sh(script: "echo git tag ${VERSION_NUMBER}")
             }
         }
