@@ -31,9 +31,9 @@ pipeline {
             }
         }
         stage('Updating Version Number'){
-            // when {
-            //     branch 'develop'
-            // }
+            when {
+                branch 'develop'
+            }
             steps {
                 script {
                     // give execute permissions to the scripts
@@ -56,36 +56,36 @@ pipeline {
             }
         }
         stage('Merging to master & Tagging') {
-            // when {
-            //     branch 'develop'
-            // }
+            when {
+                branch 'develop'
+            }
             steps {
-                // sshagent(credentials: ['bitbucket_jenkins_1704']) {
-                    // git branch: 'develop', url: 'git@bitbucket.org:henry_at_wiris/etl.python.toolkit.git';
-                sh(script: 'git fetch --all')
-                sh(script: 'git checkout develop')
-                sh(script: 'git add setup.py')
-                sh(script: 'git commit -m "Bump version"')
-                sh(script: 'git push origin develop')
-                sh(script: 'git checkout master')
-                sh(script: 'git merge origin/develop --ff-only')
-                sh(script: 'git push origin master')
-                sh(script: "git tag ${VERSION_NUMBER}")
-                // }
+                sshagent(credentials: ['bitbucket_jenkins_1704']) {
+                    git branch: 'develop', url: 'git@bitbucket.org:wiris/etl.python.toolkit.git';
+                    sh(script: 'git fetch --all')
+                    sh(script: 'git checkout develop')
+                    sh(script: 'git add setup.py')
+                    sh(script: 'git commit -m "Bump version"')
+                    sh(script: 'git push origin develop')
+                    sh(script: 'git checkout master')
+                    sh(script: 'git merge origin/develop --ff-only')
+                    sh(script: 'git push origin master')
+                    sh(script: "git tag ${VERSION_NUMBER}")
+                }
             }
         }
         stage('Building Wheel') {
-            // when {
-            //     branch 'develop'
-            // }
+            when {
+                branch 'develop'
+            }
             steps {
                 sh 'python3 setup.py bdist_wheel'
             }
         }
         stage('Copying Wheel to S3') {
-            // when {
-            //     branch 'develop'
-            // }
+            when {
+                branch 'develop'
+            }
             steps {
                 script{
                     WHEEL_NAME = sh(script: "ls dist/Santoku-*.whl", returnStdout: true).trim()
