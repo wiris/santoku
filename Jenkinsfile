@@ -62,16 +62,15 @@ pipeline {
             steps {
                 // sshagent(credentials: ['bitbucket_jenkins_1704']) {
                     // git branch: 'develop', url: 'git@bitbucket.org:henry_at_wiris/etl.python.toolkit.git';
-                    // sh(script: 'git fetch --all');
-                    // sh(script: 'git checkout develop');
-                    // sh(script: 'git add setup.py');
-                    // sh(script: 'git commit -m "Bump version"');
-                    // sh(script: 'git push origin develop');
-                    // sh(script: 'git checkout master');
-                    // sh(script: 'git merge origin/develop --ff-only');
-                    // sh(script: 'git push origin master');
-                    // sh(script: "git tag ${VERSION_NUMBER}")
-                sh(script: "git branch -a")
+                sh(script: 'git fetch --all')
+                sh(script: 'git checkout develop')
+                sh(script: 'git add setup.py')
+                sh(script: 'git commit -m "Bump version"')
+                sh(script: 'git push origin develop')
+                sh(script: 'git checkout master')
+                sh(script: 'git merge origin/develop --ff-only')
+                sh(script: 'git push origin master')
+                sh(script: "git tag ${VERSION_NUMBER}")
                 // }
             }
         }
