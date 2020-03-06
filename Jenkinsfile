@@ -60,10 +60,10 @@ pipeline {
                 branch 'develop'
             }
             steps {
-                //sshagent(credentials: ['bitbucket_jenkins_1704']) {
-                    git branch: 'master', url: 'git@bitbucket.org:wiris/etl.python.toolkit.git', credentialsId: 'bitbucket_jenkins_1704'
-                    sh(script: 'git fetch --all')
-                    // sh(script: 'git checkout develop')
+                sshagent(credentials: ['bitbucket_jenkins_1704']) {
+                    //git branch: 'master', url: 'git@bitbucket.org:wiris/etl.python.toolkit.git', credentialsId: 'bitbucket_jenkins_1704'
+                    //sh(script: 'git fetch --all')
+                    sh(script: 'git checkout develop')
                     // sh(script: 'git add setup.py')
                     // sh(script: 'git commit -m "Bump version"')
                     // sh(script: 'git push origin develop')
@@ -71,7 +71,7 @@ pipeline {
                     // sh(script: 'git merge origin/develop --ff-only')
                     // sh(script: 'git push origin master')
                     // sh(script: "git tag ${VERSION_NUMBER}")
-                //}
+                }
             }
         }
         stage('Building Wheel') {
