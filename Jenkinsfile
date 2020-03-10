@@ -81,7 +81,7 @@ pipeline {
                         git config user.email 'no-reply@wiris.com'
                         git checkout -B master
                         git pull origin master
-                        git merge develop
+                        git merge origin/develop
                         git push origin master
                      """)
                 }
