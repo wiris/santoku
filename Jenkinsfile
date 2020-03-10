@@ -54,7 +54,7 @@ pipeline {
                     }
                     // VERSION_NUMBER = sh(script: "./scripts/increase_version.sh ${VERSION_NUMBER} ${RELEASE_TYPE}", returnStdout: true).trim()
                     // sh(script: "./scripts/set_version.sh setup.py ${VERSION_NUMBER}")
-                    sh(script: "bump2version ${RELEASE_TYPE}")
+                    sh(script: "bump2version ${RELEASE_TYPE} --allow-dirty --verbose")
                     // NEW_VERSION = sh(script: """
                     //     bump2version ${RELEASE_TYPE} --list | sed -ne "/new_version/p" | sed -e "s/new_version=//g"
                     // """).trim()
