@@ -8,7 +8,7 @@ pipeline {
         dockerfile {
             // Jenkins passes .devcontainer as context. In the future
             // if anything is copied inside while creating the image
-            // this might cause problems
+            // this might cause problems.
             dir '.devcontainer'
             label 'docker'
             args '-v /etc/passwd:/etc/passwd'
