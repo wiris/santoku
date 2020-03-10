@@ -75,7 +75,6 @@ pipeline {
                 //     git push origin HEAD:master
                 // ''')
                 sshagent(['bitbucket_jenkins_1704']) {
-                    // git pull origin master
                     sh("""
                         #!/usr/bin/env bash
                         set +x
@@ -83,6 +82,7 @@ pipeline {
                         git config user.name 'Jenkins CI'
                         git config user.email 'no-reply@wiris.com'
                         git checkout -B master
+                        git pull origin master
                         git merge develop
                         git push origin master
                      """)
