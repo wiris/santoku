@@ -11,11 +11,13 @@ pipeline {
             // this might cause problems
             dir '.devcontainer'
             label 'docker'
+            args '-v /etc/passwd:/etc/passwd'
         }
     }
     environment {
         // this creates AWS_ACCESS_CREDENTIALS_USR and AWS_ACCESS_CREDENTIALS_PSW
         AWS_ACCESS_CREDENTIALS=credentials('aws_datascience_admin')
+        //GIT_AUTH=credentials('jenkins_at_wiris')
     }
     parameters {
         choice(
@@ -30,47 +32,60 @@ pipeline {
                 sh(script: 'pytest')
             }
         }
-        stage('Updating Version Number'){
+        stage('Bump Version'){
             when {
                 branch 'develop'
             }
             steps {
                 script {
                     // give execute permissions to the scripts
-                    sh(script: "chmod +x ./scripts/*.sh")
+                    //sh(script: "chmod +x ./scripts/*.sh")
 
                     // Version number is in the form of MAJOR.MINOR
                     // You will often want to call .trim() on the result to strip off a trailing newline
-                    VERSION_NUMBER = sh(script: "./scripts/get_version.sh setup.py", returnStdout: true).trim()
+                    // VERSION_NUMBER = sh(script: "./scripts/get_version.sh setup.py", returnStdout: true).trim()
 
                     // update version number depending if the release_type is
                     // "BUGFIX OR MINOR IMPROVEMENT" (increase [m]inor) or "BIG REVISION" (incr. [M]ajor)
                     if( params.release_type == 'BUGFIX OR MINOR IMPROVEMENT'){
-                        RELEASE_TYPE = "m"
+                        RELEASE_TYPE = "minor"
                     } else {
-                        RELEASE_TYPE = "M"
+                        RELEASE_TYPE = "major"
                     }
-                    VERSION_NUMBER = sh(script: "./scripts/increase_version.sh ${VERSION_NUMBER} ${RELEASE_TYPE}", returnStdout: true).trim()
-                    sh(script: "./scripts/set_version.sh setup.py ${VERSION_NUMBER}")
+                    // VERSION_NUMBER = sh(script: "./scripts/increase_version.sh ${VERSION_NUMBER} ${RELEASE_TYPE}", returnStdout: true).trim()
+                    // sh(script: "./scripts/set_version.sh setup.py ${VERSION_NUMBER}")
+                    sh(script: "bump2version ${RELEASE_TYPE}")
+                    // NEW_VERSION = sh(script: """
+                    //     bump2version ${RELEASE_TYPE} --list | sed -ne "/new_version/p" | sed -e "s/new_version=//g"
+                    // """).trim()
                 }
             }
         }
-        stage('Merging to master & Tagging') {
+        stage('Merging to master and Tagging') {
             when {
                 branch 'develop'
             }
             steps {
-                sshagent(credentials: ['bitbucket_jenkins_1704']) {
-                    //sh(script: 'git fetch --all')
-                    sh(script: 'git remote -v')
-                    // sh(script: 'git checkout develop')
-                    // sh(script: 'git add setup.py')
-                    // sh(script: 'git commit -m "Bump version"')
-                    // sh(script: 'git push origin develop')
-                    // sh(script: 'git checkout master')
-                    // sh(script: 'git merge origin/develop --ff-only')
-                    // sh(script: 'git push origin master')
-                    // sh(script: "git tag ${VERSION_NUMBER}")
+                // sh('''
+                //     git checkout -B master
+                //     git config user.name 'Jenkins CI'
+                //     git config user.email 'no-reply@wiris.com'
+                //     git merge develop
+                //     git config --local credential.helper "!f() { echo username=\\$GIT_AUTH_USR; echo password=\\$GIT_AUTH_PSW; }; f"
+                //     git push origin HEAD:master
+                // ''')
+                sshagent(['bitbucket_jenkins_1704']) {
+                    sh("""
+                        #!/usr/bin/env bash
+                        set +x
+                        export GIT_SSH_COMMAND="ssh -oStrictHostKeyChecking=no"
+                        git config user.name 'Jenkins CI'
+                        git config user.email 'no-reply@wiris.com'
+                        git checkout -B master
+                        git pull origin master
+                        git merge develop
+                        git push origin master
+                     """)
                 }
             }
         }
