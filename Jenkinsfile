@@ -37,16 +37,6 @@ pipeline {
                 branch 'develop'
             }
             steps {
-                sshagent(['bitbucket_jenkins_1704']) {
-                    sh("""
-                        #!/usr/bin/env bash
-                        export GIT_SSH_COMMAND="ssh -oStrictHostKeyChecking=no"
-                        git config user.name 'Jenkins CI'
-                        git config user.email 'no-reply@wiris.com'
-                        git checkout -B master
-                        git checkout develop
-                     """)
-                }
                 script {
                     // give execute permissions to the scripts
                     //sh(script: "chmod +x ./scripts/*.sh")
@@ -82,8 +72,9 @@ pipeline {
                         git config user.name 'Jenkins CI'
                         git config user.email 'no-reply@wiris.com'
                         git push origin develop
-                        git checkout master
-                        git merge --no-ff origin/develop
+                        git checkout -B master
+                        git pull origin master
+                        git merge origin/develop
                         git push origin master
                      """)
                 }
