@@ -79,6 +79,7 @@ pipeline {
                         export GIT_SSH_COMMAND="ssh -oStrictHostKeyChecking=no"
                         git config user.name 'Jenkins CI'
                         git config user.email 'no-reply@wiris.com'
+                        git push origin develop
                         git checkout -B master
                         git pull origin master
                         git merge origin/develop
