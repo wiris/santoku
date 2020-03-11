@@ -40,7 +40,6 @@ pipeline {
                 sshagent(['bitbucket_jenkins_1704']) {
                     sh("""
                         #!/usr/bin/env bash
-                        set +x
                         export GIT_SSH_COMMAND="ssh -oStrictHostKeyChecking=no"
                         git config user.name 'Jenkins CI'
                         git config user.email 'no-reply@wiris.com'
