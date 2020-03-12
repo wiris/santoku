@@ -112,8 +112,7 @@ pipeline {
                     //     ]
                     // }
                     // Using aws CLI
-                    BUCKET_URL = "s3://wiris-datascience-lib/santoku/"
-                    sh(script: "echo aws s3 cp ${WHEEL_NAME} ${BUCKET_URL}")
+                    sh(script: "echo aws s3 cp ${WHEEL_NAME} s3://wiris-datascience-lib/santoku/")
                 }
             }
         }
