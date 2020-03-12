@@ -1,86 +1,93 @@
 import os
 import requests
 import pytest
+import json
 from ..salesforce.connection import SalesforceConnection
-
-URL_AUTH = "https://test.salesforce.com/services/oauth2/token"
 
 
 class TestConnect:
-    @classmethod
-    def setup_class(self):
+    # @classmethod
+    # def setup_class(self):
 
-        self.sc = SalesforceConnection(
-            auth_url=URL_AUTH,
+    #     self.sc = SalesforceConnection(
+    #         auth_url=URL_AUTH,
+    #         username=os.environ["DATA_SCIENCE_SALESFORCE_SANDBOX_USR"],
+    #         password=os.environ["DATA_SCIENCE_SALESFORCE_SANDBOX_PWD"],
+    #         client_id=os.environ["DATA_SCIENCE_SALESFORCE_SANDBOX_CLIENT_USR"],
+    #         client_secret=os.environ["DATA_SCIENCE_SALESFORCE_SANDBOX_CLIENT_PWD"],
+    #     )
+
+    # print(sc.do_query_with_SOQL(query="SELECT Name, Id from Account"))
+
+    # def test_wrong_credentials(self):
+    #     sc = SalesforceConnection(
+    #         auth_url=URL_AUTH,
+    #         username="wrong_user",
+    #         password="wrong_password",
+    #         client_id="wrong_client_id",
+    #         client_secret="wrong_client_secret",
+    #     )
+    #     with pytest.raises(requests.exceptions.RequestException) as e:
+    #         sc.do_request(
+    #             method="POST", path="sobjects/Account", payload={"Name": "Alice Bob"}
+    #         )
+
+    def test_contact_insertion(self):
+        sc = SalesforceConnection(
+            auth_url=os.environ["DATA_SCIENCE_SALESFORCE_SANDBOX_AUTH_URL"],
             username=os.environ["DATA_SCIENCE_SALESFORCE_SANDBOX_USR"],
             password=os.environ["DATA_SCIENCE_SALESFORCE_SANDBOX_PWD"],
             client_id=os.environ["DATA_SCIENCE_SALESFORCE_SANDBOX_CLIENT_USR"],
             client_secret=os.environ["DATA_SCIENCE_SALESFORCE_SANDBOX_CLIENT_PWD"],
         )
 
-        # print(sc.do_query_with_SOQL(query="SELECT Name, Id from Account"))
+        inserted_ids = []
+        contact_payloads = [
+            {
+                "FirstName": "Randall D.",
+                "LastName": "Youngblood",
+                "Email": "randall@example.com",
+            },
+            {
+                "FirstName": "Amani Cantara",
+                "LastName": "Fakhoury",
+                "Email": "amani@example.com",
+            },
+            {
+                "FirstName": "Mika-Matti",
+                "LastName": "Ridanpää",
+                "Email": "mika-matti.ridanpaa@example.com",
+            },
+        ]
 
-    def test_wrong_credentials(self):
-        sc = SalesforceConnection(
-            auth_url=URL_AUTH,
-            username="wrong_user",
-            password="wrong_password",
-            client_id="wrong_client_id",
-            client_secret="wrong_client_secret",
-        )
+        # Insert 3 Contact that doesn't exist [OK]
+        for contact_payload in contact_payloads:
+            response = sc.do_request(
+                method="POST", path="sobjects/Contact", payload=contact_payload
+            )
+            assert response
+            inserted_ids.append(json.loads(response)["id"])
+
+        # Insert 1 Contact that exists [NO]
         with pytest.raises(requests.exceptions.RequestException) as e:
-            sc.do_request(
-                method="POST", path="sobjects/Account", payload={"Name": "Alice Bob"}
+            response = sc.do_request(
+                method="POST", path="sobjects/Contact", payload=contact_payloads[0]
             )
 
-    def test_account_insertion(self):
-        sc = SalesforceConnection(
-            auth_url=URL_AUTH,
-            username=os.environ["DATA_SCIENCE_SALESFORCE_SANDBOX_USR"],
-            password=os.environ["DATA_SCIENCE_SALESFORCE_SANDBOX_PWD"],
-            client_id=os.environ["DATA_SCIENCE_SALESFORCE_SANDBOX_CLIENT_USR"],
-            client_secret=os.environ["DATA_SCIENCE_SALESFORCE_SANDBOX_CLIENT_PWD"],
+        # Query by Id using sobjects/SOQL a previously inserted Contact [OK]
+
+        # Query by LastName using SOQL a previously inserted Contact [OK]
+        response = sc.do_query_with_SOQL(
+            query="SELECT Email, Name FROM Contact WHERE LastName = 'Ridanpää'"
         )
 
-        # Insert 3 Accounts that doesn't exist [OK]
-        response = sc.do_request(
-            method="POST",
-            path="objects/Account",
-            payload={"Name": "Randall D. Youngblood"},
-        )
+        assert response
         print(response)
-        # sc.do_request(
-        #     method="POST",
-        #     path="objects/Account",
-        #     payload={"Name": "Amani Cantara Fakhoury"},
-        # )
-        # sc.do_request(
-        #     method="POST", path="objects/Account", payload={"Name": "Emmi Hyytiä"}
-        # )
 
-        # # Insert 1 Account that exists [NO]
-        # with pytest.raises(requests.exceptions.RequestException) as e:
-        #     sc.do_request(
-        #         method="POST", path="objects/Account", payload={"Name": "Emmi Hyytiä"}
-        #     )
-
-        # # Query using sobjects/SOQL a previously inserted Account [OK]
-
-        # # Query using sobjects/SOQL an Account that doesn't exists [NO]
-        # with pytest.raises(requests.exceptions.RequestException) as e:
-        #     sc.do_request(
-        #         method="GET", path="objects/Account", payload={"Name": "Emmi Hyytiä"}
-        #     )
-
-        # Modify an existing Account [OK]
-        # Modify an Account that doesn't exists [NO]
-        # Delete existing Account [OK]
-        # Delete an Account that doesn't exist [NO]
-        # Query using sobjects/SOQL Account object [NO]
-
-    def test_something(self):
-        # Test POST method.
-        response = self.sc.do_request(
-            method="POST", path="sobjects/Account", payload={"Name": "Alice Bob"}
-        )
-        print("afsasf {}".format(response))
+        # Query by Id using sobjects/SOQL a Contact that doesn't exists [NO]
+        # Query by LastName using SOQL a Contact that doesn't exists [NO]
+        # Modify an existing Contact [OK]
+        # Modify an Contact that doesn't exists [NO]
+        # Delete existing Contact [OK]
+        # Delete an Contact that doesn't exist [NO]
+        # Query using sobjects/SOQL Contact object [NO]

@@ -13,8 +13,6 @@ from typing import List, Dict, Any, Optional, cast
 logger = logging.getLogger(__name__)
 logging.basicConfig(format="%(asctime)s %(message)s")
 
-URL_AUTH = "https://test.salesforce.com/services/oauth2/token"
-
 
 class SalesforceConnection:
     def __init__(
@@ -160,7 +158,22 @@ class SalesforceConnection:
 
     def do_request(
         self, method: str, path: str, payload: Optional[Dict[str, str]] = None
-    ) -> Any:
+    ) -> str:
+        """
+            Constructs and sends a request. Returns a string with a JSON object.
+
+            Parameters
+            ----------
+
+            Returns
+            -------
+
+            Raises
+            ------
+            requests.exceptions.RequestException
+                If the matrix is not numerically invertible.
+        """
+
         assert method in ["POST", "GET", "PATCH"], "method isn't supported"
 
         if not self.__is_authenticated:
@@ -206,11 +219,11 @@ class SalesforceConnection:
             raise
         else:
             self.__validate_standard_object = True
-            if method == "GET":
-                # response is returned as is, it's caller responsability to do the parsing
-                return response.text
+            # if method == "GET":
+            #     return response.text
 
-        return None
+        # response is returned as is, it's caller responsability to do the parsing
+        return response.text
 
     def do_query_with_SOQL(self, query="SELECT Name from Account") -> str:
         return self.do_request(
