@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 setup(
-    name="Santoku",
+    name="santoku",
     version="0.8",
     author="Didac Fernández, Daniel Martín-Albo and Henry Qiu",
     description="ETL Toolkit for handling AWS, Salesforce and many more things.",

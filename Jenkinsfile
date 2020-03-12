@@ -111,7 +111,8 @@ pipeline {
                     env.AWS_ACCESS_KEY_ID = AWS_ACCESS_CREDENTIALS_USR
                     env.AWS_SECRET_ACCESS_KEY = AWS_ACCESS_CREDENTIALS_PSW
                     env.AWS_DEFAULT_REGION = 'eu-west-1'
-                    sh(script: "aws s3 cp ${WHEEL_NAME} s3://wiris-datascience-lib/santoku/")
+                    BUCKET_URI = "s3://wiris-datascience-lib/santoku/"
+                    sh(script: "aws s3 cp ${WHEEL_NAME} ${BUCKET_URI}")
                 }
             }
         }
