@@ -112,8 +112,8 @@ pipeline {
                     //     ]
                     // }
                     // Using aws CLI
-                    BUCKET_URL = "s3://my-bucket/my/path/in/bucket"
-                    sh(script: "echo aws s3 cp ${WHEEL_NAME} ${BUCKET_URL}")
+                    BUCKET_URL = "s3://wiris-datascience-lib/santoku/"
+                    sh(script: "aws s3 cp ${WHEEL_NAME} ${BUCKET_URL}")
                 }
             }
         }
