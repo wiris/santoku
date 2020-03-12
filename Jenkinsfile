@@ -21,9 +21,9 @@ pipeline {
         DATA_SCIENCE_SALESFORCE_SANDBOX=credentials("salesforce_datascience_sandbox")
         DATA_SCIENCE_SALESFORCE_SANDBOX_CLIENT=credentials("salesforce_datascience_sandbox_client")
 
-        env.AWS_ACCESS_KEY_ID = AWS_ACCESS_CREDENTIALS_USR
-        env.AWS_SECRET_ACCESS_KEY = AWS_ACCESS_CREDENTIALS_PSW
-        env.AWS_DEFAULT_REGION = 'eu-west-1'
+        AWS_ACCESS_KEY_ID = AWS_ACCESS_CREDENTIALS_USR
+        AWS_SECRET_ACCESS_KEY = AWS_ACCESS_CREDENTIALS_PSW
+        AWS_DEFAULT_REGION = 'eu-west-1'
     }
     parameters {
         choice(
