@@ -16,8 +16,14 @@ pipeline {
     }
     environment {
         // this creates AWS_ACCESS_CREDENTIALS_USR and AWS_ACCESS_CREDENTIALS_PSW
-        AWS_ACCESS_CREDENTIALS=credentials('aws_datascience_admin')
-        //GIT_AUTH=credentials('jenkins_at_wiris')
+        AWS_ACCESS_CREDENTIALS=credentials('aws_datascience_s3-rw')
+        // this creates DATA_SCIENCE_SALESFORCE_SANDBOX_USR and DATA_SCIENCE_SALESFORCE_SANDBOX_PSW
+        DATA_SCIENCE_SALESFORCE_SANDBOX=credentials("salesforce_datascience_sandbox")
+        DATA_SCIENCE_SALESFORCE_SANDBOX_CLIENT=credentials("salesforce_datascience_sandbox_client")
+
+        env.AWS_ACCESS_KEY_ID = AWS_ACCESS_CREDENTIALS_USR
+        env.AWS_SECRET_ACCESS_KEY = AWS_ACCESS_CREDENTIALS_PSW
+        env.AWS_DEFAULT_REGION = 'eu-west-1'
     }
     parameters {
         choice(
@@ -107,10 +113,6 @@ pipeline {
                     // }
                     // Using aws CLI
                     BUCKET_URL = "s3://my-bucket/my/path/in/bucket"
-                    // move this up to environmetn section
-                    env.AWS_ACCESS_KEY_ID = AWS_ACCESS_CREDENTIALS_USR
-                    env.AWS_SECRET_ACCESS_KEY = AWS_ACCESS_CREDENTIALS_PSW
-                    env.AWS_DEFAULT_REGION = 'eu-west-1'
                     sh(script: "echo aws s3 cp ${WHEEL_NAME} ${BUCKET_URL}")
                 }
             }
