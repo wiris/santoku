@@ -7,3 +7,5 @@ RUN curl -s "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscl
 	unzip -qq awscliv2.zip && \
 	./aws/install && \
 	rm -rf aws*
+
+RUN apt-get update && apt-get install -y vim

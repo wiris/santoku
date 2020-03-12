@@ -96,7 +96,7 @@ pipeline {
             }
             steps {
                 script{
-                    WHEEL_NAME = sh(script: "ls dist/Santoku-*.whl", returnStdout: true).trim()
+                    WHEEL_NAME = sh(script: "ls dist/santoku-*.whl", returnStdout: true).trim()
                     // // using Jenkins Ansible Plugin: we can use ansible to send it to s3
                     // // https://github.com/jenkinsci/ansible-plugin
                     // ansiblePlaybook('playbook.yml'){
