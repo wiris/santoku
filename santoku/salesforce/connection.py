@@ -100,7 +100,7 @@ class SalesforceConnection:
     def __get_salesforce_standard_object_fields(
         self, standard_object_name: str
     ) -> List[str]:
-        # update cache if fields for current standard_object_name aren't in the cache
+        # Update cache if fields for current standard_object_name aren't in the cache
         logger.debug(
             "__get_salesforce_standard_object_fields for {}".format(
                 standard_object_name
@@ -121,7 +121,7 @@ class SalesforceConnection:
         return self.__standard_object_fields_cache[standard_object_name]
 
     def __obtain_standard_object_name_from_path(self, path: str) -> str:
-        # extract standard_object_name taking into account that we'll find something like...
+        # Extract standard_object_name taking into account that we'll find something like...
         if "describe" in path:
             # ...sobjects/Account/describe
             standard_object_name = path.split("/")[1]
@@ -157,7 +157,11 @@ class SalesforceConnection:
                 raise ValueError("{} isn't a valid field".format(field))
 
     def do_request(
-        self, method: str, path: str, payload: Optional[Dict[str, str]] = None
+        self,
+        method: str,
+        path: str,
+        id: str = None,
+        payload: Optional[Dict[str, str]] = None,
     ) -> str:
         """
             Constructs and sends a request. Returns a string with a JSON object.
@@ -174,19 +178,18 @@ class SalesforceConnection:
                 If the matrix is not numerically invertible.
         """
 
-        assert method in ["POST", "GET", "PATCH"], "method isn't supported"
+        assert method in ["POST", "GET", "PATCH", "DELETE"], "method isn't supported"
 
         if not self.__is_authenticated:
             self.__authenticate()
 
         if self.__validate_standard_object:
             standard_object_name = self.__obtain_standard_object_name_from_path(path)
-
             if standard_object_name:
                 assert (
                     standard_object_name
                     in self.__get_salesforce_standard_object_names()
-                ), "standard_object_name isn't a valid standard object"
+                ), "{} isn't a valid standard object".format(standard_object_name)
 
         url = self.__url_to_format.format(
             self.__instance_scheme_and_authority, self.__api_version, path,
@@ -194,24 +197,33 @@ class SalesforceConnection:
 
         try:
             if method in ["POST", "PATCH"]:
-                assert payload, "payload must be defined for a POST or PATCH request"
+                assert payload, "payload must be defined for a POST, PATCH request"
 
                 if self.__validate_standard_object:
                     standard_object_fields = self.__get_salesforce_standard_object_fields(
                         standard_object_name
                     )
-
                     self.__validate_payload_content(
                         payload=payload, standard_object_fields=standard_object_fields
                     )
 
+                if method == "PATCH":
+                    assert id, "{} method requires Id attribute.".format(method)
+                    url = "{}/{}".format(url, id)
+
                 # we use reflection to choose which method (POST or PATCH) to execute
                 response = getattr(requests, method.lower())(
-                    url, json=payload, headers=self.request_headers,
+                    url=url, json=payload, headers=self.request_headers,
                 )
+            else:  # method == "GET" or method == "DELETE":
+                if method == "DELETE":
+                    assert id, "{} method requires Id attribute.".format(method)
+                if id:
+                    url = "{}/{}".format(url, id)
 
-            else:  # method == "GET":
-                response = requests.get(url, headers=self.request_headers)
+                response = getattr(requests, method.lower())(
+                    url, headers=self.request_headers
+                )
 
             # Call Response.raise_for_status method to raise exceptions from http errors (e.g. 401 Unauthorized)
             response.raise_for_status()
