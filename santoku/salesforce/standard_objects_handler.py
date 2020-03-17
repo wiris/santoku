@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(format="%(asctime)s %(message)s")
 
 
-class SalesforceConnection:
+class StandardObjectsHandler:
     def __init__(
         self,
         auth_url: str,
@@ -47,6 +47,7 @@ class SalesforceConnection:
             "Content-type": "application/json",
         }
 
+        # Indicates if there is need to validate whether the requesting standard object is valid or not
         self.__validate_standard_object = True
         self.__is_authenticated = False
 
@@ -144,8 +145,10 @@ class SalesforceConnection:
         elif path == "sobjects":
             standard_object_name = ""
         else:
-            # ...sobjects/Account
-            standard_object_name = path.split("/")[-1]
+            # ...sobjects/Account or ...sobjects/Account/ID
+            splitted_path = path.split("/")
+            standard_object_name = splitted_path[path.index("sobjects") + 1]
+            # standard_object_name = path.split("/")[-1]
 
         return standard_object_name
 
@@ -157,20 +160,24 @@ class SalesforceConnection:
                 raise ValueError("{} isn't a valid field".format(field))
 
     def do_request(
-        self,
-        method: str,
-        path: str,
-        id: str = None,
-        payload: Optional[Dict[str, str]] = None,
+        self, method: str, path: str, payload: Optional[Dict[str, str]] = None,
     ) -> str:
         """
             Constructs and sends a request. Returns a string with a JSON object.
 
             Parameters
             ----------
+            method : str {'POST', 'GET', 'PATCH', 'DELETE'}
+                An HTTP Request Method.
+            path : str
+
+            payload : Optional[Dict[str, str]]
 
             Returns
             -------
+
+            str
+
 
             Raises
             ------
@@ -207,19 +214,11 @@ class SalesforceConnection:
                         payload=payload, standard_object_fields=standard_object_fields
                     )
 
-                if method == "PATCH":
-                    assert id, "{} method requires Id attribute.".format(method)
-                    url = "{}/{}".format(url, id)
-
                 # we use reflection to choose which method (POST or PATCH) to execute
                 response = getattr(requests, method.lower())(
                     url=url, json=payload, headers=self.request_headers,
                 )
             else:  # method == "GET" or method == "DELETE":
-                if method == "DELETE":
-                    assert id, "{} method requires Id attribute.".format(method)
-                if id:
-                    url = "{}/{}".format(url, id)
 
                 response = getattr(requests, method.lower())(
                     url, headers=self.request_headers
@@ -234,7 +233,7 @@ class SalesforceConnection:
             # if method == "GET":
             #     return response.text
 
-        # response is returned as is, it's caller responsability to do the parsing
+        # response is returned as is, it's caller's responsability to do the parsing
         return response.text
 
     def do_query_with_SOQL(self, query="SELECT Name from Account") -> str:

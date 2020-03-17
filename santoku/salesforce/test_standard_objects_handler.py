@@ -2,34 +2,38 @@ import os
 import requests
 import pytest
 import json
-from ..salesforce.connection import SalesforceConnection
+from ..salesforce.standard_objects_handler import StandardObjectsHandler
 
+SANDBOX_AUTH_URL = os.environ["DATA_SCIENCE_SALESFORCE_SANDBOX_AUTH_URL"]
+SANDBOX_USR = os.environ["DATA_SCIENCE_SALESFORCE_SANDBOX_USR"]
+SANDBOX_PWD = os.environ["DATA_SCIENCE_SALESFORCE_SANDBOX_PWD"]
+SANDBOX_CLIENT_USR = os.environ["DATA_SCIENCE_SALESFORCE_SANDBOX_CLIENT_USR"]
+SANDBOX_CLIENT_PWD = os.environ["DATA_SCIENCE_SALESFORCE_SANDBOX_CLIENT_PWD"]
 
-class TestConnect:
+# TODO:
+# REVIEW S3 PART
+# CHECK ALL TYPES DECLARATIONS AND SEPARATIONS BETWEEN TESTS
+# DOCSTRING, PHINX (EXPLAIN WE SHOULD ONLY MAKE QUERIES BY SOQL)
+class TestStandardObjectsHandler:
     @classmethod
     def teardown_method(self):
         # Clean the sandbox each time a testcase is executed.
-        sc = SalesforceConnection(
-            auth_url=os.environ["DATA_SCIENCE_SALESFORCE_SANDBOX_AUTH_URL"],
-            username=os.environ["DATA_SCIENCE_SALESFORCE_SANDBOX_USR"],
-            password=os.environ["DATA_SCIENCE_SALESFORCE_SANDBOX_PWD"],
-            client_id=os.environ["DATA_SCIENCE_SALESFORCE_SANDBOX_CLIENT_USR"],
-            client_secret=os.environ["DATA_SCIENCE_SALESFORCE_SANDBOX_CLIENT_PWD"],
+        sc = StandardObjectsHandler(
+            auth_url=SANDBOX_AUTH_URL,
+            username=SANDBOX_USR,
+            password=SANDBOX_PWD,
+            client_id=SANDBOX_CLIENT_USR,
+            client_secret=SANDBOX_CLIENT_PWD,
         )
-        response = json.loads(sc.do_request(method="GET", path="sobjects/Contact"))
-        obtained_contacts = response["recentItems"]
-        for obtained_contact in obtained_contacts:
-            sc.do_request(
-                method="DELETE", path="sobjects/Contact", id=obtained_contact["Id"]
-            )
+        delete_records(sc, "Contact")
 
     def test_wrong_credentials(self):
-        sc = SalesforceConnection(
-            auth_url=os.environ["DATA_SCIENCE_SALESFORCE_SANDBOX_AUTH_URL"],
-            username="wrong_user",
-            password="wrong_password",
-            client_id="wrong_client_id",
-            client_secret="wrong_client_secret",
+        sc = StandardObjectsHandler(
+            auth_url=SANDBOX_AUTH_URL,
+            username=SANDBOX_USR,
+            password=SANDBOX_PWD,
+            client_id=SANDBOX_CLIENT_USR,
+            client_secret=SANDBOX_CLIENT_PWD,
         )
         with pytest.raises(requests.exceptions.RequestException) as e:
             sc.do_request(
@@ -37,15 +41,15 @@ class TestConnect:
             )
 
     def test_contact_insertion(self):
-        sc = SalesforceConnection(
-            auth_url=os.environ["DATA_SCIENCE_SALESFORCE_SANDBOX_AUTH_URL"],
-            username=os.environ["DATA_SCIENCE_SALESFORCE_SANDBOX_USR"],
-            password=os.environ["DATA_SCIENCE_SALESFORCE_SANDBOX_PWD"],
-            client_id=os.environ["DATA_SCIENCE_SALESFORCE_SANDBOX_CLIENT_USR"],
-            client_secret=os.environ["DATA_SCIENCE_SALESFORCE_SANDBOX_CLIENT_PWD"],
+        sc = StandardObjectsHandler(
+            auth_url=SANDBOX_AUTH_URL,
+            username=SANDBOX_USR,
+            password=SANDBOX_PWD,
+            client_id=SANDBOX_CLIENT_USR,
+            client_secret=SANDBOX_CLIENT_PWD,
         )
 
-        # Insert 3 Contacts that do not exist. [OK]
+        # Insert 3 Contacts that do not exist. Success expected.
         contact_payloads = [
             {
                 "FirstName": "Randall D.",
@@ -69,14 +73,14 @@ class TestConnect:
             )
         assert response
 
-        # Insert a Contact that already exist with a new email. [OK]
+        # Insert a Contact that already exist with a new email. Success expected.
         contact_payloads[0]["Email"] = "youngblood@example.com"
         response = sc.do_request(
             method="POST", path="sobjects/Contact", payload=contact_payloads[0],
         )
         assert response
 
-        # Insert a Contact that already exist. [NO]
+        # Insert a Contact that already exist. Failure expected.
         with pytest.raises(requests.exceptions.RequestException) as e:
             response = sc.do_request(
                 method="POST", path="sobjects/Contact", payload=contact_payloads[0],
@@ -84,18 +88,14 @@ class TestConnect:
             assert response
 
     def test_contact_query(self):
-        sc = SalesforceConnection(
-            auth_url=os.environ["DATA_SCIENCE_SALESFORCE_SANDBOX_AUTH_URL"],
-            username=os.environ["DATA_SCIENCE_SALESFORCE_SANDBOX_USR"],
-            password=os.environ["DATA_SCIENCE_SALESFORCE_SANDBOX_PWD"],
-            client_id=os.environ["DATA_SCIENCE_SALESFORCE_SANDBOX_CLIENT_USR"],
-            client_secret=os.environ["DATA_SCIENCE_SALESFORCE_SANDBOX_CLIENT_PWD"],
+        sc = StandardObjectsHandler(
+            auth_url=SANDBOX_AUTH_URL,
+            username=SANDBOX_USR,
+            password=SANDBOX_PWD,
+            client_id=SANDBOX_CLIENT_USR,
+            client_secret=SANDBOX_CLIENT_PWD,
         )
 
-        # Read 0 Contacts with sobjects.
-        response = json.loads(sc.do_request(method="GET", path="sobjects/Contact"))
-        obtained_contacts = response["recentItems"]
-        assert not obtained_contacts
         # Read 0 Contacts with SOQL.
         response = json.loads(sc.do_query_with_SOQL("SELECT Name from Contact"))
         assert response["totalSize"] == 0
@@ -113,23 +113,8 @@ class TestConnect:
             sc.do_request(
                 method="POST", path="sobjects/Contact", payload=contact_payload
             )
-        # Read the 2 Contacts inserted with sobjects. [OK]
-        response = json.loads(sc.do_request(method="GET", path="sobjects/Contact"))
-        obtained_contacts = response["recentItems"]
-        assert len(obtained_contacts) == 2
-        obtained_names = []
-        obtained_ids = []
-        for obtained_contact in obtained_contacts:
-            obtained_names.append(obtained_contact["Name"])
-            obtained_ids.append(obtained_contact["Id"])
-        # When getting all the contacts with sobjects, the field Name appears with the format:
-        # "LastName, FirstName"
-        expected_names = ["Collins, Angel", "Ross, June"]
-        for expected_name in expected_names:
-            assert expected_name in obtained_names
-        # When getting all the contacts with SOQL, the field Name appears with the usual format:
-        # "FirstName LastName"
-        # Read the 2 Contacts inserted with SOQL. [OK]
+
+        # Read the 2 Contacts inserted with SOQL. Success expected.
         expected_names = ["Angel Collins", "June Ross"]
         response = json.loads(sc.do_query_with_SOQL("SELECT Id, Name from Contact"))
         assert response["totalSize"] == 2
@@ -142,21 +127,7 @@ class TestConnect:
         for expected_name in expected_names:
             assert expected_name in obtained_names
 
-        # Read a specific Contact with sobjects. [OK]
-        response = json.loads(
-            sc.do_request(method="GET", path="sobjects/Contact", id=obtained_ids[0],)
-        )
-        obtained_contact = response
-        # When getting a specific contact with sobjects, the field Name appears with the usual format:
-        # "FirstName LastName"
-        assert obtained_contact["Name"] == obtained_names[0]
-        # Read a specific contact with SOQL. [OK]
-        response = json.loads(
-            sc.do_query_with_SOQL("SELECT Name from contact WHERE Name = 'June Ross'")
-        )
-        assert response["totalSize"] == 1
-        obtained_contacts = response["records"]
-        assert obtained_contacts[0]["Name"] == "June Ross"
+        # Read a specific contact with SOQL by Id. Success expected.
         response = json.loads(
             sc.do_query_with_SOQL(
                 "SELECT Id, Name from contact WHERE Id = '{}'".format(obtained_ids[0])
@@ -164,14 +135,19 @@ class TestConnect:
         )
         assert response["totalSize"] == 1
         obtained_contacts = response["records"]
-        assert obtained_contact["Name"] == obtained_names[0]
+        assert obtained_contacts[0]["Name"] == obtained_names[0]
 
-        # Query a contact that does not exists with sobjects. [NO]
-        with pytest.raises(requests.exceptions.RequestException) as e:
-            sc.do_request(
-                method="GET", path="sobjects/Contact", id="WRONGID",
+        # Read a specific contact with SOQL by Name. Success expected.
+        response = json.loads(
+            sc.do_query_with_SOQL(
+                "SELECT Name from contact WHERE Name = '{}'".format(obtained_names[0])
             )
-        # Query a contact that does not exists with SOQL. [OK]
+        )
+        assert response["totalSize"] == 1
+        obtained_contacts = response["records"]
+        assert obtained_contacts[0]["Name"] == obtained_names[0]
+
+        # Query a contact that does not exists with SOQL. Success expected.
         response = json.loads(
             sc.do_query_with_SOQL(
                 "SELECT Name from contact WHERE Name = 'Nick Mullins'"
@@ -180,12 +156,12 @@ class TestConnect:
         assert response["totalSize"] == 0
 
     def test_contact_modification(self):
-        sc = SalesforceConnection(
-            auth_url=os.environ["DATA_SCIENCE_SALESFORCE_SANDBOX_AUTH_URL"],
-            username=os.environ["DATA_SCIENCE_SALESFORCE_SANDBOX_USR"],
-            password=os.environ["DATA_SCIENCE_SALESFORCE_SANDBOX_PWD"],
-            client_id=os.environ["DATA_SCIENCE_SALESFORCE_SANDBOX_CLIENT_USR"],
-            client_secret=os.environ["DATA_SCIENCE_SALESFORCE_SANDBOX_CLIENT_PWD"],
+        sc = StandardObjectsHandler(
+            auth_url=SANDBOX_AUTH_URL,
+            username=SANDBOX_USR,
+            password=SANDBOX_PWD,
+            client_id=SANDBOX_CLIENT_USR,
+            client_secret=SANDBOX_CLIENT_PWD,
         )
 
         # Insert 2 Contacts.
@@ -198,7 +174,7 @@ class TestConnect:
                 method="POST", path="sobjects/Contact", payload=contact_payload
             )
 
-        # Modify an existing contact's FirstName and LastName. [OK]
+        # Modify an existing contact's FirstName and LastName. Success expected.
         response = json.loads(
             sc.do_query_with_SOQL(
                 "SELECT Id, Name from Contact WHERE Name = 'Ramon Evans'"
@@ -208,8 +184,7 @@ class TestConnect:
         contact_payload = {"FirstName": "Ken", "LastName": "Williams"}
         response = sc.do_request(
             method="PATCH",
-            path="sobjects/Contact",
-            id=obtained_contacts[0]["Id"],
+            path="sobjects/Contact/{}".format(obtained_contacts[0]["Id"]),
             payload=contact_payload,
         )
         response = json.loads(
@@ -220,14 +195,16 @@ class TestConnect:
             )
         )
         obtained_contacts = response["records"]
-        assert obtained_contacts[0]["Name"] == "Ken Williams"
+        expected_contact_name = "{} {}".format(
+            contact_payload["FirstName"], contact_payload["LastName"]
+        )
+        assert obtained_contacts[0]["Name"] == expected_contact_name
 
-        # Modify an existing contact's Email. [OK]
+        # Modify an existing contact's Email. Success expected.
         contact_payload = {"Email": "ken@example.com"}
         response = sc.do_request(
             method="PATCH",
-            path="sobjects/Contact",
-            id=obtained_contacts[0]["Id"],
+            path="sobjects/Contact/{}".format(obtained_contacts[0]["Id"]),
             payload=contact_payload,
         )
         response = json.loads(
@@ -238,37 +215,25 @@ class TestConnect:
             )
         )
         obtained_contacts = response["records"]
-        assert obtained_contacts[0]["Name"] == "Ken Williams"
-        assert obtained_contacts[0]["Email"] == "ken@example.com"
+        assert obtained_contacts[0]["Name"] == expected_contact_name
+        assert obtained_contacts[0]["Email"] == contact_payload["Email"]
 
-        # It seems that a compound field is not modifiable
-        # Modify an existing contact's Name. [NO]
-        contact_payload = {"Name": "Marie Rogers"}
-        with pytest.raises(requests.exceptions.RequestException) as e:
-            response = sc.do_request(
-                method="PATCH",
-                path="sobjects/Contact",
-                id=obtained_contacts[0]["Id"],
-                payload=contact_payload,
-            )
-
-        # Modify a Contact that does not exist. [NO]
+        # Modify a Contact that does not exist. Failure expected.
         contact_payload = {"FirstName": "Marie"}
         with pytest.raises(requests.exceptions.RequestException) as e:
             response = sc.do_request(
                 method="PATCH",
-                path="sobjects/Contact",
-                id="WRONGID",
+                path="sobjects/Contact/{}".format("WRONGID"),
                 payload=contact_payload,
             )
 
     def test_contact_deletion(self):
-        sc = SalesforceConnection(
-            auth_url=os.environ["DATA_SCIENCE_SALESFORCE_SANDBOX_AUTH_URL"],
-            username=os.environ["DATA_SCIENCE_SALESFORCE_SANDBOX_USR"],
-            password=os.environ["DATA_SCIENCE_SALESFORCE_SANDBOX_PWD"],
-            client_id=os.environ["DATA_SCIENCE_SALESFORCE_SANDBOX_CLIENT_USR"],
-            client_secret=os.environ["DATA_SCIENCE_SALESFORCE_SANDBOX_CLIENT_PWD"],
+        sc = StandardObjectsHandler(
+            auth_url=SANDBOX_AUTH_URL,
+            username=SANDBOX_USR,
+            password=SANDBOX_PWD,
+            client_id=SANDBOX_CLIENT_USR,
+            client_secret=SANDBOX_CLIENT_PWD,
         )
 
         # Insert 2 Contacts.
@@ -289,7 +254,7 @@ class TestConnect:
                 method="POST", path="sobjects/Contact", payload=contact_payload
             )
 
-        # Delete an existing Contact. [OK]
+        # Delete an existing Contact. Success expected.
         response = json.loads(sc.do_query_with_SOQL("SELECT Id, Name from Contact"))
         obtained_contacts = response["records"]
         obtained_contacts_names = []
@@ -298,7 +263,8 @@ class TestConnect:
             obtained_contacts_names.append(obtained_contact["Name"])
             obtained_contacts_ids.append(obtained_contact["Id"])
         sc.do_request(
-            method="DELETE", path="sobjects/Contact", id=obtained_contacts_ids[0],
+            method="DELETE",
+            path="sobjects/Contact/{}".format(obtained_contacts_ids[0]),
         )
         response = json.loads(
             sc.do_query_with_SOQL(
@@ -317,8 +283,20 @@ class TestConnect:
         )
         assert response["totalSize"] == 1
 
-        # Delete a Contact that does not exist. [NO]
+        # Delete a Contact that does not exist. Failure expected.
         with pytest.raises(requests.exceptions.RequestException) as e:
             sc.do_request(
-                method="DELETE", path="sobjects/Contact", id="WRONGID",
+                method="DELETE",
+                path="sobjects/Contact/{}".format(obtained_contacts_ids[0]),
             )
+
+
+def delete_records(sc: StandardObjectsHandler, sobject: str):
+    response = json.loads(
+        sc.do_query_with_SOQL("SELECT Id, Name from {}".format(sobject))
+    )
+    obtained_contacts = response["records"]
+    for obtained_contact in obtained_contacts:
+        sc.do_request(
+            method="DELETE", path="sobjects/Contact/{}".format(obtained_contact["Id"])
+        )
