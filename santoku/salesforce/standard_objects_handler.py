@@ -15,6 +15,8 @@ logging.basicConfig(format="%(asctime)s %(message)s")
 
 
 class StandardObjectsHandler:
+    """ Handler of Salesforce standard objects """
+
     def __init__(
         self,
         auth_url: str,
@@ -145,8 +147,7 @@ class StandardObjectsHandler:
             standard_object_name = ""
         else:
             # ...sobjects/Account or ...sobjects/Account/ID
-            splitted_path = path.split("/")
-            standard_object_name = splitted_path[path.index("sobjects") + 1]
+            standard_object_name = path.split("/")[path.index("sobjects") + 1]
 
         return standard_object_name
 
@@ -160,7 +161,7 @@ class StandardObjectsHandler:
     def do_request(
         self, method: str, path: str, payload: Optional[Dict[str, str]] = None,
     ) -> str:
-        """Constructs and sends a request. Returns a string with a JSON object.
+        """Constructs and sends a request.
 
             Parameters
             ----------
@@ -168,18 +169,19 @@ class StandardObjectsHandler:
                 An HTTP Request Method.
             path : str
 
-            payload : Optional[Dict[str, str]]
+            payload : `Dict[str, str]`, optional
+                Payload that contains the objects to be sent.
 
             Returns
             -------
-
             str
+                Response from Salesforce. This is a JSON encoded as text.
 
 
             Raises
             ------
             requests.exceptions.RequestException
-                If the matrix is not numerically invertible.
+                If the request fails
         """
 
         assert method in ["POST", "GET", "PATCH", "DELETE"], "method isn't supported"
@@ -231,6 +233,38 @@ class StandardObjectsHandler:
         return response.text
 
     def do_query_with_SOQL(self, query="SELECT Name from Account") -> str:
+        """Constructs and sends a request using SOQL [1]_. 
+        
+        Use the Salesforce Object Query Language (SOQL) to search Salesforce data for specific 
+        information.
+
+            Parameters
+            ----------
+            query : str
+                String in SOQL with the desired query.
+
+            Returns
+            -------
+            str
+                Response from Salesforce. This is a JSON encoded as text.
+
+            Note
+            ----
+            Use this method when you know which objects the data resides in, and you want to 
+            retrieve data from a single object or from multiple objects that are related. 
+            For a complete description of the SOQL syntax, see [2]_.
+
+            References
+            ----------
+            .. [1] https://developer.salesforce.com/docs/atlas.en-us.soql_sosl.meta/soql_sosl/sforce_api_calls_soql.htm
+            .. [2] https://developer.salesforce.com/docs/atlas.en-us.soql_sosl.meta/soql_sosl/sforce_api_calls_soql_select.htm
+
+            Raises
+            ------
+            requests.exceptions.RequestException
+                If the request fails
+        """
+
         return self.do_request(
             method="GET", path="query?q={}".format(query.replace(" ", "+"))
         )
