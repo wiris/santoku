@@ -9,7 +9,7 @@ class Firehose:
     """
 
     def __init__(self):
-        self.client = boto3.client('firehose')
+        self.client = boto3.client("firehose")
 
     def encode_base_64(self, data):
         """
@@ -27,9 +27,8 @@ class Firehose:
         :param data: (blob)
         :return: (dict)
         """
-        record = {'Data': data}
-        response = self.client.put_record(
-            DeliveryStreamName=stream, Record=record)
+        record = {"Data": data}
+        response = self.client.put_record(DeliveryStreamName=stream, Record=record)
         return response
 
     def put_records(self, stream: str, data):
@@ -39,6 +38,5 @@ class Firehose:
         :param data: (blob)
         :return: (dict)
         """
-        response = self.client.put_records(
-            DeliveryStreamName=stream, Data=data)
+        response = self.client.put_records(DeliveryStreamName=stream, Data=data)
         return response
