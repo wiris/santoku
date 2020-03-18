@@ -7,7 +7,7 @@ import re
 
 import requests
 
-from typing import List, Dict, Any, Optional, cast
+from typing import List, Dict, Any, Optional
 
 # load global logger
 logger = logging.getLogger(__name__)
@@ -42,7 +42,7 @@ class StandardObjectsHandler:
         self.__standard_object_names_cache: List[str] = []
         self.__standard_object_fields_cache: Dict[str, List[str]] = {}
 
-        self.request_headers = {
+        self.request_headers: Dict[str, str] = {
             "Authorization": "OAuth",
             "Content-type": "application/json",
         }
@@ -141,14 +141,12 @@ class StandardObjectsHandler:
                 else:
                     standard_object_name = ""
 
-            # standard_object_name = path.split("+")[-1]
         elif path == "sobjects":
             standard_object_name = ""
         else:
             # ...sobjects/Account or ...sobjects/Account/ID
             splitted_path = path.split("/")
             standard_object_name = splitted_path[path.index("sobjects") + 1]
-            # standard_object_name = path.split("/")[-1]
 
         return standard_object_name
 
@@ -162,8 +160,7 @@ class StandardObjectsHandler:
     def do_request(
         self, method: str, path: str, payload: Optional[Dict[str, str]] = None,
     ) -> str:
-        """
-            Constructs and sends a request. Returns a string with a JSON object.
+        """Constructs and sends a request. Returns a string with a JSON object.
 
             Parameters
             ----------
@@ -219,9 +216,8 @@ class StandardObjectsHandler:
                     url=url, json=payload, headers=self.request_headers,
                 )
             else:  # method == "GET" or method == "DELETE":
-
                 response = getattr(requests, method.lower())(
-                    url, headers=self.request_headers
+                    url=url, headers=self.request_headers
                 )
 
             # Call Response.raise_for_status method to raise exceptions from http errors (e.g. 401 Unauthorized)
@@ -230,8 +226,6 @@ class StandardObjectsHandler:
             raise
         else:
             self.__validate_standard_object = True
-            # if method == "GET":
-            #     return response.text
 
         # response is returned as is, it's caller's responsability to do the parsing
         return response.text
@@ -240,37 +234,3 @@ class StandardObjectsHandler:
         return self.do_request(
             method="GET", path="query?q={}".format(query.replace(" ", "+"))
         )
-
-
-# def main():
-#     try:
-#         parser = argparse.ArgumentParser(description="My description")
-#         parser.add_argument(
-#             "-v", "--verbose", action="store_true", help="Increase output verbosity",
-#         )
-
-#         args = parser.parse_args()
-#     except Exception:
-#         logger.error("Error", exc_info=True)
-#         return 2
-
-#     # logging stuff
-#     if args.verbose:
-#         logger.setLevel(logging.DEBUG)
-
-#     sc = SalesforceConnection(URL_AUTH)
-
-#     # print(
-#     #     sc.do_request(
-#     #         method="GET", path="query?q=SELECT+Name+from+Account"
-#     #     )
-#     # )
-
-#     # print(sc.do_request(method="GET", path="sobjects/Account"))
-
-#     sc.do_request(method="POST", path="sobjects/Account", payload={"Name": "Alice Bob"})
-#     print(sc.do_query_with_SOQL(query="SELECT Name, Id from Account"))
-
-
-# if __name__ == "__main__":
-#     sys.exit(main())
