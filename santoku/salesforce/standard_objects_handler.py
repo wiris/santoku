@@ -4,18 +4,38 @@ import os
 import sys
 import json
 import re
-
 import requests
 
 from typing import List, Dict, Any, Optional
 
-# load global logger
+""" Load global logger."""
 logger = logging.getLogger(__name__)
 logging.basicConfig(format="%(asctime)s %(message)s")
 
 
 class StandardObjectsHandler:
-    """ Handler of Salesforce standard objects """
+    """
+    Class to manage operations on Salesforce content.
+
+    This class contains methods that interact with Salesforce standard objects and makes easy some usual operations. The connection is done by calling the Salesforce API Rest. This class is pretended to be used on AWS Glue jobs (Python Shell) directly or through a higher level API.
+
+    Notes
+    -----
+    The functionalities of the private methods are the following:
+        Pass authentication credentials to establish connection with salesforce.
+        Collect the sobject names available in salesforce, which is used to verify the correctness of the parameters.
+        Collect the sobject fields available of a specific sobject and store this information as a cache, which is used to verify the correctness of the parameters.
+        Extract the standard object name from a given path.
+        Verify if the introduced parameters are valid fields of an sobject.
+
+    More information on the use of Salesforce API Rest: [1]
+
+    References
+    ----------
+    [1] :
+        https://developer.salesforce.com/docs/atlas.en-us.api_rest.meta/api_rest/quickstart.htm
+
+    """
 
     def __init__(
         self,
@@ -27,6 +47,31 @@ class StandardObjectsHandler:
         api_version: float = 47.0,
         grant_type: str = "password",
     ) -> None:
+        """
+        Initialize the private variables of the class.
+
+        Parameters
+        ----------
+        auth_url : str
+            Url used to authenticate with salesforce.
+        username : str
+            Username used to authenticate with salesforce.
+        password : str
+            Password used to authenticate with salesforce.
+        client_id : str
+            Consumer key used to authenticate with salesforce.
+        client_secret : str
+            Consumer secret used to authenticate with salesforce.
+        api_version : float, optional
+            Version of the Salesforce API used (the default is 47.0).
+        grant_type : str, optional
+            Type of credentials used to authenticate with salesforce(the default is 'password').
+
+        Return
+        ------
+        None
+
+        """
 
         self.__url_to_format = "{}/services/data/v{:.1f}/{}"
 
@@ -103,7 +148,6 @@ class StandardObjectsHandler:
     def __get_salesforce_standard_object_fields(
         self, standard_object_name: str
     ) -> List[str]:
-        # Update cache if fields for current standard_object_name aren't in the cache
         logger.debug(
             "__get_salesforce_standard_object_fields for {}".format(
                 standard_object_name
@@ -161,30 +205,34 @@ class StandardObjectsHandler:
     def do_request(
         self, method: str, path: str, payload: Optional[Dict[str, str]] = None,
     ) -> str:
-        """Constructs and sends a request.
+        """
+        Constructs and sends a request.
 
-            Parameters
-            ----------
-            method : str {'POST', 'GET', 'PATCH', 'DELETE'}
-                An HTTP Request Method.
-            path : str
+        Parameters
+        ----------
+        method : str {'POST', 'GET', 'PATCH', 'DELETE'}
+            An HTTP Request Method.
+        path : str
+            Relative path of requesting service.
+        payload : `Dict[str, str]`, optional
+            Payload that contains information that complements the requesting operation.
 
-            payload : `Dict[str, str]`, optional
-                Payload that contains the objects to be sent.
+        Returns
+        -------
+        str
+            Response from Salesforce. This is a JSON encoded as text.
 
-            Returns
-            -------
-            str
-                Response from Salesforce. This is a JSON encoded as text.
+        Raises
+        ------
+        AssertionError
+            If the method is not supported, or the sobject is not valid, or payload is missing when needed.
 
+        requests.exceptions.RequestException
+            If the connection with salesforce fails, e.g. the requesting resource does not exist.
 
-            Raises
-            ------
-            requests.exceptions.RequestException
-                If the request fails
         """
 
-        assert method in ["POST", "GET", "PATCH", "DELETE"], "method isn't supported"
+        assert method in ["POST", "GET", "PATCH", "DELETE"], "Method isn't supported."
 
         if not self.__is_authenticated:
             self.__authenticate()
@@ -203,7 +251,7 @@ class StandardObjectsHandler:
 
         try:
             if method in ["POST", "PATCH"]:
-                assert payload, "payload must be defined for a POST, PATCH request"
+                assert payload, "Payload must be defined for a POST, PATCH request."
 
                 if self.__validate_standard_object:
                     standard_object_fields = self.__get_salesforce_standard_object_fields(
@@ -233,36 +281,39 @@ class StandardObjectsHandler:
         return response.text
 
     def do_query_with_SOQL(self, query="SELECT Name from Account") -> str:
-        """Constructs and sends a request using SOQL [1]_. 
-        
-        Use the Salesforce Object Query Language (SOQL) to search Salesforce data for specific 
+        """
+        Constructs and sends a request using SOQL.
+
+        Use the Salesforce Object Query Language (SOQL) to search Salesforce data for specific
         information.
 
-            Parameters
-            ----------
-            query : str
-                String in SOQL with the desired query.
+        Parameters
+        ----------
+        query : str
+            SOQL with the desired query.
 
-            Returns
-            -------
-            str
-                Response from Salesforce. This is a JSON encoded as text.
+        Returns
+        -------
+        str
+            Response from Salesforce. This is a JSON encoded as text.
 
-            Note
-            ----
-            Use this method when you know which objects the data resides in, and you want to 
-            retrieve data from a single object or from multiple objects that are related. 
-            For a complete description of the SOQL syntax, see [2]_.
+        Notes
+        ----
+        Use this method when you know which objects the data resides in, and you want to
+        retrieve data from a single object or from multiple objects that are related.
+        For more information related to SOQL: [1]
+        For a complete description of the SOQL syntax: [2].
 
-            References
-            ----------
-            .. [1] https://developer.salesforce.com/docs/atlas.en-us.soql_sosl.meta/soql_sosl/sforce_api_calls_soql.htm
-            .. [2] https://developer.salesforce.com/docs/atlas.en-us.soql_sosl.meta/soql_sosl/sforce_api_calls_soql_select.htm
+        References
+        ----------
+        [1] https://developer.salesforce.com/docs/atlas.en-us.soql_sosl.meta/soql_sosl/sforce_api_calls_soql.htm
+        [2] https://developer.salesforce.com/docs/atlas.en-us.soql_sosl.meta/soql_sosl/sforce_api_calls_soql_select.htm
 
-            Raises
-            ------
-            requests.exceptions.RequestException
-                If the request fails
+        Raises
+        ------
+        requests.exceptions.RequestException
+            If the request fails, e.g. the requesting attribute does not exist for the sobject class.
+
         """
 
         return self.do_request(
