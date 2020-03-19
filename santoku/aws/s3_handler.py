@@ -8,7 +8,7 @@ from typing import Generator
 from io import StringIO
 
 
-class S3:
+class S3Handler:
     """
     Class to handle input/output operations with Amazon's S3 storage service.
 
