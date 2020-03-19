@@ -20,7 +20,7 @@ TEST_BUCKET = "test_bucket"
 TEST_PREFIX = "mock_prefix"
 
 
-class TestS3:
+class TestS3Handler:
     # It seems that mock_s3 and classmethod decorators are not compatible, this is why context
     # manager of moto is used here.
     mock_s3 = mock_s3()

@@ -1,2 +1,2 @@
 from .firehose import Firehose
-from .s3 import S3
+from .s3_handler import S3Handler
