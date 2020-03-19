@@ -20,6 +20,7 @@ pipeline {
         // this creates DATA_SCIENCE_SALESFORCE_SANDBOX_USR and DATA_SCIENCE_SALESFORCE_SANDBOX_PSW
         DATA_SCIENCE_SALESFORCE_SANDBOX=credentials("salesforce_datascience_sandbox")
         DATA_SCIENCE_SALESFORCE_SANDBOX_CLIENT=credentials("salesforce_datascience_sandbox_client")
+        DATA_SCIENCE_SALESFORCE_SANDBOX_AUTH_URL=credentials("salesforce_datascience_sandbox_auth_url")
     }
     parameters {
         choice(
