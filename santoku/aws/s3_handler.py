@@ -297,8 +297,8 @@ class S3Handler:
         self,
         bucket: str,
         object_key: str,
-        paths: List[str] = None,
-        prefixes: List[str] = None,
+        absolute_paths: List[str] = None,
+        uri_prefix_paths: List[str] = None,
         file_format: str = None,
         delimiter: str = None,
         qualifier: str = None,
@@ -315,11 +315,10 @@ class S3Handler:
             Name of the bucket to save the generated manifest.
         object_key : str
             Identifier with which the manifest will have in the bucket.
-        paths : List[str], optional
+        absolute_paths : List[str], optional
             List of S3 absolute paths of the files that will be used.
-        prefixes : List[str], optional
-            List of S3 prefixes that will be used. The prefixes filters those object keys that begin with the specified string.
-
+        uri_prefixes : List[str], optional
+            List of uri prefixes that will be used. The uri_prefixes filters those object keys that begin with the specified string. Notice that an uri_prefix is different than an S3 prefix, an uri_prefix contains also the first part of an absolute path: 's3://bucket_name/..'.
         format : str, optional
             Format of manifest files to be imported (the default is 'CSV').
         delimiter : str, optional
@@ -344,23 +343,23 @@ class S3Handler:
 
         """
         assert (
-            prefixes is not None or paths is not None
-        ), "No file nor prefix were specified。"
+            uri_prefix_paths is not None or absolute_paths is not None
+        ), "No file nor prefix were specified."
 
         # Build the JSON with the not None attributes.
         # Build the 'fileLocations' part.
         uri: Dict[str, Any] = {}
-        if paths is not None:
-            uri["URIs"] = list(paths)
+        if absolute_paths is not None:
+            uri["URIs"] = list(absolute_paths)
 
         uri_prefixes: Dict[str, Any] = {}
-        if prefixes is not None:
-            uri_prefixes["URIPrefixes"] = list(prefixes)
+        if uri_prefix_paths is not None:
+            uri_prefixes["URIPrefixes"] = list(uri_prefix_paths)
 
         data: Dict[str, Any] = {"fileLocations": []}
-        if paths is not None:
+        if absolute_paths is not None:
             data["fileLocations"].append(uri)
-        if prefixes is not None:
+        if uri_prefix_paths is not None:
             data["fileLocations"].append(uri_prefixes)
 
         # Build the 'globalUploadSettings' part.

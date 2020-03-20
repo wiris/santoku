@@ -331,10 +331,14 @@ class TestS3Handler:
             s3_client=self.client, tmpdir=tmpdir, file_names=[], contents=[]
         )
         key_paths: List[str] = [
-            "{}/{}".format("test_generate_quicksight_manifest", file_names[0]),
+            "s3://{}/{}/{}".format(
+                TEST_BUCKET, "test_generate_quicksight_manifest", file_names[0]
+            ),
         ]
-        prefix_paths: List[str] = [
-            "{}/{}".format("test_generate_quicksight_manifest", "second"),
+        uri_prefix_paths: List[str] = [
+            "s3://{}/{}/{}".format(
+                TEST_BUCKET, "test_generate_quicksight_manifest", "second"
+            ),
         ]
         upload_settings: Dict[str, Any] = {
             "format": "CSV",
@@ -343,17 +347,17 @@ class TestS3Handler:
             "containsHeader": "True",
         }
         data: Dict[str, Any] = {
-            "fileLocations": [{"URIs": key_paths}, {"URIPrefixes": prefix_paths}],
+            "fileLocations": [{"URIs": key_paths}, {"URIPrefixes": uri_prefix_paths}],
             "globalUploadSettings": upload_settings,
         }
 
         expected_manifest = json.dumps(data, indent=4, sort_keys=True)
-        manifest_key = "manifest.json"
+        manifest_key = "{}/manifest.json".format("test_generate_quicksight_manifest")
         self.s3_handler.generate_quicksight_manifest(
             bucket=TEST_BUCKET,
             object_key=manifest_key,
-            paths=key_paths,
-            prefixes=prefix_paths,
+            absolute_paths=key_paths,
+            uri_prefix_paths=uri_prefix_paths,
             file_format=upload_settings["format"],
             delimiter=upload_settings["delimiter"],
             qualifier=upload_settings["textqualifier"],
