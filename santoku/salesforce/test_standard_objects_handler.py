@@ -7,9 +7,9 @@ from typing import List, Dict, Any
 
 SANDBOX_AUTH_URL = os.environ["DATA_SCIENCE_SALESFORCE_SANDBOX_AUTH_URL"]
 SANDBOX_USR = os.environ["DATA_SCIENCE_SALESFORCE_SANDBOX_USR"]
-SANDBOX_PWD = os.environ["DATA_SCIENCE_SALESFORCE_SANDBOX_PWD"]
+SANDBOX_PSW = os.environ["DATA_SCIENCE_SALESFORCE_SANDBOX_PSW"]
 SANDBOX_CLIENT_USR = os.environ["DATA_SCIENCE_SALESFORCE_SANDBOX_CLIENT_USR"]
-SANDBOX_CLIENT_PWD = os.environ["DATA_SCIENCE_SALESFORCE_SANDBOX_CLIENT_PWD"]
+SANDBOX_CLIENT_PSW = os.environ["DATA_SCIENCE_SALESFORCE_SANDBOX_CLIENT_PSW"]
 
 
 class TestStandardObjectsHandler:
@@ -18,9 +18,9 @@ class TestStandardObjectsHandler:
         sc = StandardObjectsHandler(
             auth_url=SANDBOX_AUTH_URL,
             username=SANDBOX_USR,
-            password=SANDBOX_PWD,
+            password=SANDBOX_PSW,
             client_id=SANDBOX_CLIENT_USR,
-            client_secret=SANDBOX_CLIENT_PWD,
+            client_secret=SANDBOX_CLIENT_PSW,
         )
         delete_records(sc=sc, sobject="Contact")
 
@@ -28,9 +28,9 @@ class TestStandardObjectsHandler:
         sc = StandardObjectsHandler(
             auth_url=SANDBOX_AUTH_URL,
             username=SANDBOX_USR,
-            password=SANDBOX_PWD,
+            password=SANDBOX_PSW,
             client_id=SANDBOX_CLIENT_USR,
-            client_secret=SANDBOX_CLIENT_PWD,
+            client_secret=SANDBOX_CLIENT_PSW,
         )
         with pytest.raises(requests.exceptions.RequestException) as e:
             sc.do_request(
@@ -43,9 +43,9 @@ class TestStandardObjectsHandler:
         sc = StandardObjectsHandler(
             auth_url=SANDBOX_AUTH_URL,
             username=SANDBOX_USR,
-            password=SANDBOX_PWD,
+            password=SANDBOX_PSW,
             client_id=SANDBOX_CLIENT_USR,
-            client_secret=SANDBOX_CLIENT_PWD,
+            client_secret=SANDBOX_CLIENT_PSW,
         )
 
         # Insert 3 Contacts that do not exist. Success expected.
@@ -91,9 +91,9 @@ class TestStandardObjectsHandler:
         sc = StandardObjectsHandler(
             auth_url=SANDBOX_AUTH_URL,
             username=SANDBOX_USR,
-            password=SANDBOX_PWD,
+            password=SANDBOX_PSW,
             client_id=SANDBOX_CLIENT_USR,
-            client_secret=SANDBOX_CLIENT_PWD,
+            client_secret=SANDBOX_CLIENT_PSW,
         )
 
         # Read 0 Contacts with SOQL.
@@ -165,9 +165,9 @@ class TestStandardObjectsHandler:
         sc = StandardObjectsHandler(
             auth_url=SANDBOX_AUTH_URL,
             username=SANDBOX_USR,
-            password=SANDBOX_PWD,
+            password=SANDBOX_PSW,
             client_id=SANDBOX_CLIENT_USR,
-            client_secret=SANDBOX_CLIENT_PWD,
+            client_secret=SANDBOX_CLIENT_PSW,
         )
 
         # Insert 2 Contacts.
@@ -242,9 +242,9 @@ class TestStandardObjectsHandler:
         sc = StandardObjectsHandler(
             auth_url=SANDBOX_AUTH_URL,
             username=SANDBOX_USR,
-            password=SANDBOX_PWD,
+            password=SANDBOX_PSW,
             client_id=SANDBOX_CLIENT_USR,
-            client_secret=SANDBOX_CLIENT_PWD,
+            client_secret=SANDBOX_CLIENT_PSW,
         )
 
         # Insert 2 Contacts.
@@ -317,4 +317,3 @@ def delete_records(sc: StandardObjectsHandler, sobject: str):
         sc.do_request(
             method="DELETE", path="sobjects/Contact/{}".format(obtained_contact["Id"]),
         )
-
