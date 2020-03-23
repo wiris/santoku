@@ -8,7 +8,7 @@ import py
 from typing import List
 from datetime import datetime
 from moto import mock_s3
-from ..aws.s3 import S3
+from ..aws.s3_handler import S3Handler
 
 """
 TODO: this whole section might serve in the future as test suite for this library
@@ -29,7 +29,7 @@ class TestS3Handler:
     def setup_class(self):
         self.mock_s3.start()
 
-        self.s3_handler = S3()
+        self.s3_handler = S3Handler()
         self.client = boto3.client("s3")
         self.resource = boto3.resource(
             "s3",
@@ -284,4 +284,3 @@ def generate_fixture_files(
         fixture_file = tmpdir.join(key)
         fixture_file.write(content_list[i])
     _upload_fixtures(bucket=TEST_BUCKET, fixture_dir=tmpdir)
-
