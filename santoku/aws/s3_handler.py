@@ -182,17 +182,17 @@ class S3Handler:
             raise Exception("no file nor prefix were specified")
 
         # Absolute paths of specific keys.
-        uri: Dict[str, Any] = {}
+        uri = {}
         if s3_path is not None:
             uri["URIs"] = list(s3_path)
 
         # Prefixes to include all keys with that prefix.
-        uri_prefixes: Dict[str, Any] = {}
+        uri_prefixes = {}
         if s3_prefix is not None:
             uri_prefixes["URIPrefixes"] = list(s3_prefix)
 
         # Global upload settings (if any)
-        upload_settings: Dict[str, Any] = {}
+        upload_settings = {}
         if set_format is not None:
             upload_settings["format"] = set_format
         if set_delimiter is not None:
