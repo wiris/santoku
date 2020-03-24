@@ -29,9 +29,7 @@ class S3Handler:
         self.resource = boto3.resource("s3")
 
     @staticmethod
-    def get_absolute_path(
-        bucket: str, folder_path: str = "", file_name: str = ""
-    ) -> str:
+    def get_uri(bucket: str, folder_path: str = "", file_name: str = "") -> str:
         """
         Absolute S3 path (URI) of a file.
 
@@ -64,7 +62,7 @@ class S3Handler:
         """
         Iterates over a collection of objects.
 
-        Generic syntax, works also for services other than s3. Yields an iterable
+        Generic syntax, works also for services other than S3. Yields an iterable
         with the objects obtained from applying `method`.
 
         Parameters
@@ -73,12 +71,12 @@ class S3Handler:
             Name of the method used to list the objects.
         kwargs : Dict[str, Any]
             Additional arguments for the specified method. In S3 services the Bucket
-            property is required. Other optional usual arguments are Prefix (str), that filter those keys that begin with the specified string, and PaginationConfig (Dict), that contains arguments to control the pagination, a usual parameter to control the pagination is MaxItems (int) that indicates the total number of items to return.
+            property is required. Other optional usual arguments are Prefix (str), that filter those object keys that begin with the specified string, and PaginationConfig (Dict), that contains arguments to control the pagination, a usual parameter to control the pagination is MaxItems (int) that indicates the total number of items to return.
 
         Yields
         ------
         Generator[Dict[str, Any], None, None]
-            Responses dictionaries of the `method`. To get keys use
+            Responses dictionaries of the `method`. To get object keys use
             result['Key'].
 
         Raises
@@ -122,12 +120,12 @@ class S3Handler:
             Name of the bucket to iterate in.
         kwargs : Any
             Additional arguments for the used method boto3.client.list_objects_v2. Some usual arguments are
-            Prefix (str), that filters those keys that begin with the specified string, or StartAfter (str), that indicates where must S3 start listing from.
+            Prefix (str), that filters those object keys that begin with the specified string, or StartAfter (str), that indicates where must S3 start listing from.
 
         Yields
         ------
         Generator[str, None, None]
-            The keys located in the `bucket` in alphabetical order.
+            The object keys located in the `bucket` in alphabetical order.
 
         Notes
         -----
@@ -147,7 +145,7 @@ class S3Handler:
         ):
             yield result["Key"]
 
-    def key_exist(self, bucket: str, object_key: str) -> bool:
+    def object_key_exist(self, bucket: str, object_key: str) -> bool:
         """
         Check whether an object exist.
 
