@@ -50,32 +50,28 @@ class TestS3Handler:
         bucket.delete()
         self.mock_s3.stop()
 
-    def test_get_absolute_path(self):
+    def test_get_uri(self):
         file_name = "test_file.test"
 
         # Bucket without folder nor file. Success expected.
         expected_path = "s3://test_bucket/"
-        obtained_path = self.s3_handler.get_absolute_path(bucket=TEST_BUCKET)
+        obtained_path = self.s3_handler.get_uri(bucket=TEST_BUCKET)
         assert obtained_path == expected_path
 
         # File in a bucket without folder.
         expected_path = "s3://test_bucket/test_file.test"
-        obtained_path = self.s3_handler.get_absolute_path(
-            bucket=TEST_BUCKET, file_name=file_name
-        )
+        obtained_path = self.s3_handler.get_uri(bucket=TEST_BUCKET, file_name=file_name)
         assert obtained_path == expected_path
 
         # Folder in a bucket without file. Success expected.
         folder = "folder"
         expected_path = "s3://test_bucket/folder/"
-        obtained_path = self.s3_handler.get_absolute_path(
-            bucket=TEST_BUCKET, folder_path=folder,
-        )
+        obtained_path = self.s3_handler.get_uri(bucket=TEST_BUCKET, folder_path=folder,)
         assert obtained_path == expected_path
 
         # Folder in a bucket with file. Success expected.
         expected_path = "s3://test_bucket/folder/test_file.test"
-        obtained_path = self.s3_handler.get_absolute_path(
+        obtained_path = self.s3_handler.get_uri(
             bucket=TEST_BUCKET, folder_path=folder, file_name=file_name,
         )
         assert obtained_path == expected_path
@@ -83,7 +79,7 @@ class TestS3Handler:
         # Folder in a bucket with a / at the begining. Success expected.
         folder = "/folder"
         expected_path = "s3://test_bucket/folder/test_file.test"
-        obtained_path = self.s3_handler.get_absolute_path(
+        obtained_path = self.s3_handler.get_uri(
             bucket=TEST_BUCKET, folder_path=folder, file_name=file_name,
         )
         assert obtained_path == expected_path
@@ -91,7 +87,7 @@ class TestS3Handler:
         # Folder in a bucket with subfolder. Success expected.
         folder = "folder/subfolder"
         expected_path = "s3://test_bucket/folder/subfolder/test_file.test"
-        obtained_path = self.s3_handler.get_absolute_path(
+        obtained_path = self.s3_handler.get_uri(
             bucket=TEST_BUCKET, folder_path=folder, file_name=file_name,
         )
         assert obtained_path == expected_path
@@ -193,7 +189,7 @@ class TestS3Handler:
         )
         assert expected_objects == obtained_objects
 
-    def test_key_exist(self, tmpdir):
+    def test_object_key_exist(self, tmpdir):
         file_names: List[str] = ["first_object.json", "second_object.json"]
         contents: List[str] = ["", ""]
         generate_fixture_files(
@@ -204,18 +200,20 @@ class TestS3Handler:
         )
 
         # The method gives true when an object exist in the bucket. Success expected.
-        obtained_result = self.s3_handler.key_exist(
-            bucket=TEST_BUCKET, object_key="test_key_exist/{}".format(file_names[0])
+        obtained_result = self.s3_handler.object_key_exist(
+            bucket=TEST_BUCKET,
+            object_key="test_object_key_exist/{}".format(file_names[0]),
         )
         assert obtained_result
 
-        obtained_result = self.s3_handler.key_exist(
-            bucket=TEST_BUCKET, object_key="test_key_exist/{}".format(file_names[1])
+        obtained_result = self.s3_handler.object_key_exist(
+            bucket=TEST_BUCKET,
+            object_key="test_object_key_exist/{}".format(file_names[1]),
         )
         assert obtained_result
 
         # The method gives false when an object does not exist in the bucket. Success expected.
-        obtained_result = self.s3_handler.key_exist(
+        obtained_result = self.s3_handler.object_key_exist(
             bucket=TEST_BUCKET, object_key=file_names[1]
         )
         assert not obtained_result
