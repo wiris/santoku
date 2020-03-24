@@ -12,6 +12,18 @@ SANDBOX_CLIENT_USR = os.environ["DATA_SCIENCE_SALESFORCE_SANDBOX_CLIENT_USR"]
 SANDBOX_CLIENT_PSW = os.environ["DATA_SCIENCE_SALESFORCE_SANDBOX_CLIENT_PSW"]
 
 
+def delete_records(sc: StandardObjectsHandler, sobject: str):
+    response = json.loads(
+        sc.do_query_with_SOQL("SELECT Id, Name from {}".format(sobject))
+    )
+    obtained_contacts = response["records"]
+
+    for obtained_contact in obtained_contacts:
+        sc.do_request(
+            method="DELETE", path="sobjects/Contact/{}".format(obtained_contact["Id"]),
+        )
+
+
 class TestStandardObjectsHandler:
     def teardown_method(cls):
         # Clean the sandbox each time a testcase is executed.
@@ -25,6 +37,7 @@ class TestStandardObjectsHandler:
         delete_records(sc=sc, sobject="Contact")
 
     def test_wrong_credentials(self):
+        # Connect Salesforce with wrong credentials. Failure expected.
         sc = StandardObjectsHandler(
             auth_url=SANDBOX_AUTH_URL,
             username=SANDBOX_USR,
@@ -49,7 +62,7 @@ class TestStandardObjectsHandler:
         )
 
         # Insert 3 Contacts that do not exist. Success expected.
-        contact_payloads: List[Dict[str, str]] = [
+        contact_payloads = [
             {
                 "FirstName": "Randall D.",
                 "LastName": "Youngblood",
@@ -71,7 +84,7 @@ class TestStandardObjectsHandler:
             response = sc.do_request(
                 method="POST", path="sobjects/Contact", payload=contact_payload
             )
-        assert response
+            assert response
 
         # Insert a Contact that already exist with a new email. Success expected.
         contact_payloads[0]["Email"] = "youngblood@example.com"
@@ -101,7 +114,7 @@ class TestStandardObjectsHandler:
         assert response["totalSize"] == 0
 
         # Insert 2 Contacts.
-        contact_payloads: List[Dict[str, str]] = [
+        contact_payloads = [
             {
                 "FirstName": "Angel",
                 "LastName": "Collins",
@@ -116,14 +129,14 @@ class TestStandardObjectsHandler:
             )
 
         # Read the 2 Contacts inserted with SOQL. Success expected.
-        expected_names: List[str] = ["Angel Collins", "June Ross"]
+        expected_names = ["Angel Collins", "June Ross"]
         response = json.loads(sc.do_query_with_SOQL("SELECT Id, Name from Contact"))
         assert response["totalSize"] == 2
 
         obtained_contacts = response["records"]
-        obtained_names: List[str] = []
+        obtained_names = []
 
-        obtained_ids: List[str] = []
+        obtained_ids = []
         for obtained_contact in obtained_contacts:
             obtained_names.append(obtained_contact["Name"])
             obtained_ids.append(obtained_contact["Id"])
@@ -171,7 +184,7 @@ class TestStandardObjectsHandler:
         )
 
         # Insert 2 Contacts.
-        contact_payloads: List[Dict[str, str]] = [
+        contact_payloads = [
             {"FirstName": "Ramon", "LastName": "Evans", "Email": "ramon@example.com",},
             {"FirstName": "Janis", "LastName": "Holmes", "Email": "janis@example.com",},
         ]
@@ -188,7 +201,7 @@ class TestStandardObjectsHandler:
             )
         )
         obtained_contacts = response["records"]
-        contact_payload: Dict[str, str] = {"FirstName": "Ken", "LastName": "Williams"}
+        contact_payload = {"FirstName": "Ken", "LastName": "Williams"}
 
         sc.do_request(
             method="PATCH",
@@ -210,7 +223,7 @@ class TestStandardObjectsHandler:
         assert obtained_contacts[0]["Name"] == expected_contact_name
 
         # Modify an existing contact's Email. Success expected.
-        contact_payload: Dict[str, str] = {"Email": "ken@example.com"}
+        contact_payload = {"Email": "ken@example.com"}
 
         sc.do_request(
             method="PATCH",
@@ -230,7 +243,7 @@ class TestStandardObjectsHandler:
         assert obtained_contacts[0]["Email"] == contact_payload["Email"]
 
         # Modify a Contact that does not exist. Failure expected.
-        contact_payload: Dict[str, str] = {"FirstName": "Marie"}
+        contact_payload = {"FirstName": "Marie"}
         with pytest.raises(requests.exceptions.RequestException) as e:
             response = sc.do_request(
                 method="PATCH",
@@ -248,7 +261,7 @@ class TestStandardObjectsHandler:
         )
 
         # Insert 2 Contacts.
-        contact_payloads: List[Dict[str, str]] = [
+        contact_payloads = [
             {
                 "FirstName": "Brian",
                 "LastName": "Cunningham",
@@ -269,8 +282,8 @@ class TestStandardObjectsHandler:
         # Delete an existing Contact. Success expected.
         response = json.loads(sc.do_query_with_SOQL("SELECT Id, Name from Contact"))
         obtained_contacts = response["records"]
-        obtained_contacts_names: List[str] = []
-        obtained_contacts_ids: List[str] = []
+        obtained_contacts_names = []
+        obtained_contacts_ids = []
 
         for obtained_contact in obtained_contacts:
             obtained_contacts_names.append(obtained_contact["Name"])
@@ -305,15 +318,3 @@ class TestStandardObjectsHandler:
                 method="DELETE",
                 path="sobjects/Contact/{}".format(obtained_contacts_ids[0]),
             )
-
-
-def delete_records(sc: StandardObjectsHandler, sobject: str):
-    response = json.loads(
-        sc.do_query_with_SOQL("SELECT Id, Name from {}".format(sobject))
-    )
-    obtained_contacts = response["records"]
-
-    for obtained_contact in obtained_contacts:
-        sc.do_request(
-            method="DELETE", path="sobjects/Contact/{}".format(obtained_contact["Id"]),
-        )
