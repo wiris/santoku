@@ -17,7 +17,6 @@ TODO: this whole section might serve in the future as test suite for this librar
 """
 
 TEST_BUCKET = "test_bucket"
-TEST_PREFIX = "mock_prefix"
 
 
 class TestS3Handler:
