@@ -25,20 +25,20 @@ def delete_records(sc: StandardObjectsHandler, sobject: str):
         )
 
 
-def clean_sandbox(sobjects: List[str]):
-    # Clean the sobject records in the sandbox each time a testcase is executed.
-    sc = StandardObjectsHandler(
-        auth_url=SANDBOX_AUTH_URL,
-        username=SANDBOX_USR,
-        password=SANDBOX_PSW,
-        client_id=SANDBOX_CLIENT_USR,
-        client_secret=SANDBOX_CLIENT_PSW,
-    )
-    for sobject in sobjects:
-        delete_records(sc=sc, sobject=sobject)
-
-
 class TestStandardObjectsHandler:
+    def setup_method(self):
+        # Clean the sobject records in the sandbox before a testcase is executed.
+        sc = StandardObjectsHandler(
+            auth_url=SANDBOX_AUTH_URL,
+            username=SANDBOX_USR,
+            password=SANDBOX_PSW,
+            client_id=SANDBOX_CLIENT_USR,
+            client_secret=SANDBOX_CLIENT_PSW,
+        )
+        sobjects_to_clear = ["Contact"]
+        for sobject in sobjects_to_clear:
+            delete_records(sc=sc, sobject=sobject)
+
     def test_wrong_credentials(self):
         contact_payloads = [
             {
@@ -121,8 +121,6 @@ class TestStandardObjectsHandler:
             )
             assert response
 
-        clean_sandbox(sobjects=["Contact"])
-
     def test_contact_query(self):
         sc = StandardObjectsHandler(
             auth_url=SANDBOX_AUTH_URL,
@@ -196,8 +194,6 @@ class TestStandardObjectsHandler:
             )
         )
         assert response["totalSize"] == 0
-
-        clean_sandbox(sobjects=["Contact"])
 
     def test_contact_modification(self):
         sc = StandardObjectsHandler(
@@ -276,8 +272,6 @@ class TestStandardObjectsHandler:
                 payload=contact_payload,
             )
 
-        clean_sandbox(sobjects=["Contact"])
-
     def test_contact_deletion(self):
         sc = StandardObjectsHandler(
             auth_url=SANDBOX_AUTH_URL,
@@ -345,5 +339,3 @@ class TestStandardObjectsHandler:
                 method="DELETE",
                 path="sobjects/Contact/{}".format(obtained_contacts_ids[0]),
             )
-
-        clean_sandbox(sobjects=["Contact"])
