@@ -1,16 +1,8 @@
-import argparse
-import logging
-import os
-import sys
 import json
 import re
 import requests
 
 from typing import List, Dict, Any, Optional
-
-""" Load global logger."""
-logger = logging.getLogger(__name__)
-logging.basicConfig(format="%(asctime)s %(message)s")
 
 
 class StandardObjectsHandler:
@@ -99,7 +91,6 @@ class StandardObjectsHandler:
         self.__is_authenticated = False
 
     def __authenticate(self) -> None:
-        logger.debug("Authenticating...")
         try:
             response = requests.post(
                 self.__auth_url,
@@ -116,7 +107,6 @@ class StandardObjectsHandler:
         except requests.exceptions.RequestException as err:
             raise
         else:
-            logger.debug("Done.")
             self.__is_authenticated = True
 
             response_as_dict = response.json()
@@ -129,10 +119,8 @@ class StandardObjectsHandler:
             )
 
     def __get_salesforce_standard_object_names(self) -> List[str]:
-        logger.debug("__get_salesforce_standard_object_names...")
 
         if not self.__standard_object_names_cache:
-            logger.debug("No cached, doing query.")
             self.__validate_standard_object = False
 
             # GET request to /sobjects returns a list with the valid standard objects
@@ -148,14 +136,8 @@ class StandardObjectsHandler:
     def __get_salesforce_standard_object_fields(
         self, standard_object_name: str
     ) -> List[str]:
-        logger.debug(
-            "__get_salesforce_standard_object_fields for {}".format(
-                standard_object_name
-            )
-        )
 
         if standard_object_name not in self.__standard_object_fields_cache:
-            logger.debug("No cached, doing query.")
             self.__validate_standard_object = False
             response = self.do_request(
                 method="GET", path="sobjects/{}/describe".format(standard_object_name)

@@ -16,40 +16,61 @@ def delete_records(sc: StandardObjectsHandler, sobject: str):
     response = json.loads(
         sc.do_query_with_SOQL("SELECT Id, Name from {}".format(sobject))
     )
-    obtained_contacts = response["records"]
+    obtained_sobjects = response["records"]
 
-    for obtained_contact in obtained_contacts:
+    for obtained_sobject in obtained_sobjects:
         sc.do_request(
-            method="DELETE", path="sobjects/Contact/{}".format(obtained_contact["Id"]),
+            method="DELETE",
+            path="sobjects/{}/{}".format(sobject, obtained_sobject["Id"]),
         )
+
+
+def clean_sandbox(sobjects: List[str]):
+    # Clean the sobject records in the sandbox each time a testcase is executed.
+    sc = StandardObjectsHandler(
+        auth_url=SANDBOX_AUTH_URL,
+        username=SANDBOX_USR,
+        password=SANDBOX_PSW,
+        client_id=SANDBOX_CLIENT_USR,
+        client_secret=SANDBOX_CLIENT_PSW,
+    )
+    for sobject in sobjects:
+        delete_records(sc=sc, sobject=sobject)
 
 
 class TestStandardObjectsHandler:
-    def teardown_method(cls):
-        # Clean the sandbox each time a testcase is executed.
-        sc = StandardObjectsHandler(
-            auth_url=SANDBOX_AUTH_URL,
-            username=SANDBOX_USR,
-            password=SANDBOX_PSW,
-            client_id=SANDBOX_CLIENT_USR,
-            client_secret=SANDBOX_CLIENT_PSW,
-        )
-        delete_records(sc=sc, sobject="Contact")
-
     def test_wrong_credentials(self):
+        contact_payloads = [
+            {
+                "FirstName": "Janie",
+                "LastName": "Goodman",
+                "Email": "janie@example.com",
+            },
+        ]
+
         # Connect Salesforce with wrong credentials. Failure expected.
         sc = StandardObjectsHandler(
             auth_url=SANDBOX_AUTH_URL,
-            username=SANDBOX_USR,
-            password=SANDBOX_PSW,
+            username="false_username",
+            password="false_password",
             client_id=SANDBOX_CLIENT_USR,
             client_secret=SANDBOX_CLIENT_PSW,
         )
         with pytest.raises(requests.exceptions.RequestException) as e:
             sc.do_request(
-                method="POST",
-                path="sobjects/Contact",
-                payload={"Name": "Janie Goodman"},
+                method="POST", path="sobjects/Contact", payload=contact_payloads[0],
+            )
+
+        sc = StandardObjectsHandler(
+            auth_url=SANDBOX_AUTH_URL,
+            username=SANDBOX_USR,
+            password=SANDBOX_PSW,
+            client_id="false_client_id",
+            client_secret="false_client_secret",
+        )
+        with pytest.raises(requests.exceptions.RequestException) as e:
+            sc.do_request(
+                method="POST", path="sobjects/Contact", payload=contact_payloads[0],
             )
 
     def test_contact_insertion(self):
@@ -99,6 +120,8 @@ class TestStandardObjectsHandler:
                 method="POST", path="sobjects/Contact", payload=contact_payloads[0],
             )
             assert response
+
+        clean_sandbox(sobjects=["Contact"])
 
     def test_contact_query(self):
         sc = StandardObjectsHandler(
@@ -173,6 +196,8 @@ class TestStandardObjectsHandler:
             )
         )
         assert response["totalSize"] == 0
+
+        clean_sandbox(sobjects=["Contact"])
 
     def test_contact_modification(self):
         sc = StandardObjectsHandler(
@@ -251,6 +276,8 @@ class TestStandardObjectsHandler:
                 payload=contact_payload,
             )
 
+        clean_sandbox(sobjects=["Contact"])
+
     def test_contact_deletion(self):
         sc = StandardObjectsHandler(
             auth_url=SANDBOX_AUTH_URL,
@@ -318,3 +345,5 @@ class TestStandardObjectsHandler:
                 method="DELETE",
                 path="sobjects/Contact/{}".format(obtained_contacts_ids[0]),
             )
+
+        clean_sandbox(sobjects=["Contact"])
