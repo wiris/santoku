@@ -9,14 +9,18 @@ class StandardObjectsHandler:
     """
     Class to manage operations on Salesforce content.
 
-    This class contains methods that interact with Salesforce standard objects and makes easy some usual operations. The connection is done by calling the Salesforce API Rest. This class is pretended to be used on AWS Glue jobs (Python Shell) directly or through a higher level API.
+    This class contains methods that interact with Salesforce standard objects and makes easy some
+    usual operations. The connection is done by calling the Salesforce API Rest. This class is
+    pretended to be used on AWS Glue jobs (Python Shell) directly or through a higher level API.
 
     Notes
     -----
     The functionalities of the private methods are the following:
         Pass authentication credentials to establish connection with salesforce.
-        Collect the sobject names available in salesforce, which is used to verify the correctness of the parameters.
-        Collect the sobject fields available of a specific sobject and store this information as a cache, which is used to verify the correctness of the parameters.
+        Collect the sobject names available in salesforce, which is used to verify the correctness
+        of the parameters.
+        Collect the sobject fields available of a specific sobject and store this information as a
+        cache, which is used to verify the correctness of the parameters.
         Extract the standard object name from a given path.
         Verify if the introduced parameters are valid fields of an sobject.
 
@@ -86,7 +90,7 @@ class StandardObjectsHandler:
             "Content-type": "application/json",
         }
 
-        # Indicates if there is need to validate whether the requesting standard object is valid or not
+        # Indicates if there is need to validate whether the requesting standard object is valid
         self.__validate_standard_object = True
         self.__is_authenticated = False
 
@@ -207,7 +211,8 @@ class StandardObjectsHandler:
         Raises
         ------
         AssertionError
-            If the method is not supported, or the sobject is not valid, or payload is missing when needed.
+            If the method is not supported, or the sobject is not valid, or payload is missing when
+            needed.
 
         requests.exceptions.RequestException
             If the connection with salesforce fails, e.g. the requesting resource does not exist.
@@ -252,7 +257,8 @@ class StandardObjectsHandler:
                     url=url, headers=self.request_headers
                 )
 
-            # Call Response.raise_for_status method to raise exceptions from http errors (e.g. 401 Unauthorized)
+            # Call Response.raise_for_status method to raise exceptions from http errors (e.g. 401
+            # Unauthorized)
             response.raise_for_status()
         except requests.exceptions.RequestException as err:
             raise
@@ -294,7 +300,8 @@ class StandardObjectsHandler:
         Raises
         ------
         requests.exceptions.RequestException
-            If the request fails, e.g. the requesting attribute does not exist for the sobject class.
+            If the request fails, e.g. the requesting attribute does not exist for the sobject
+            class.
 
         """
 
