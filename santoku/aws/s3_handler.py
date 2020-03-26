@@ -3,10 +3,7 @@ import boto3
 import json
 import botocore
 import pandas as pd
-from typing import Any
-from typing import Dict
-from typing import List
-from typing import Generator
+from typing import Any, Dict, List, Generator
 from io import StringIO
 
 
@@ -14,12 +11,10 @@ class S3Handler:
     """
     Class to manage input/output operations of Amazon S3 storage services.
 
-    This class is intended to be run on AWS Glue jobs (Python Shell). S3
-    is organized in buckets, that contains a collection of files
-    identified by a path. The
-    connection to the elements of S3 are done using the services classes Client and
-    Resource of the library boto3. This class provides methods to interact
-    with S3 elements and makes easy some usual operations.
+    This class is intended to be run on AWS Glue jobs (Python Shell). S3 is organized in buckets,
+    that contains a collection of files identified by a path. The connection to the elements of S3
+    are done using the services classes Client and Resource of the library boto3. This class
+    provides methods to interact with S3 elements and makes easy some usual operations.
 
     """
 
@@ -34,7 +29,8 @@ class S3Handler:
         Absolute S3 path (URI) of a file.
 
         Build an absolute S3 path containing the `bucket`, the `folder_path`
-        and the `file_name` of the file. This method can be useful when some methods require an absolute path of the files.
+        and the `file_name` of the file. This method can be useful when some methods require an
+        absolute path of the files.
 
         Parameters
         ----------
@@ -48,7 +44,7 @@ class S3Handler:
         Returns
         -------
         str
-            Absolut S3 path of the file.
+            Absolut S3 URI of the file.
 
         """
         # Prevent os.path.join from considering folder_path as absolute path.
@@ -70,8 +66,11 @@ class S3Handler:
         method : str
             Name of the method used to list the objects.
         kwargs : Dict[str, Any]
-            Additional arguments for the specified method. In S3 services the Bucket
-            property is required. Other optional usual arguments are Prefix (str), that filter those object keys that begin with the specified string, and PaginationConfig (Dict), that contains arguments to control the pagination, a usual parameter to control the pagination is MaxItems (int) that indicates the total number of items to return.
+            Additional arguments for the specified method. In S3 services the Bucket property is
+            required. Other optional usual arguments are Prefix (str), that filter those object keys
+            that begin with the specified string, and PaginationConfig (Dict), that contains
+            arguments to control the pagination, a usual parameter to control the pagination is
+            MaxItems (int) that indicates the total number of items to return.
 
         Yields
         ------
@@ -119,8 +118,9 @@ class S3Handler:
         bucket : str
             Name of the bucket to iterate in.
         kwargs : Any
-            Additional arguments for the used method boto3.client.list_objects_v2. Some usual arguments are
-            Prefix (str), that filters those object keys that begin with the specified string, or StartAfter (str), that indicates where must S3 start listing from.
+            Additional arguments for the used method boto3.client.list_objects_v2. Some usual
+            arguments are Prefix (str), that filters those object keys that begin with the specified
+            string, or StartAfter (str), that indicates where must S3 start listing from.
 
         Yields
         ------
@@ -129,8 +129,9 @@ class S3Handler:
 
         Notes
         -----
-        This method will never add objects partially, or all objects will be added or none of them. If there are multiple write requests of the same object simultaneously, it overwrites all but the last object written.
-        More information on list_objects_v2 method: [1].
+        This method will never add objects partially, or all objects will be added or none of them.
+        If there are multiple write requests of the same object simultaneously, it overwrites all
+        but the last object written. More information on list_objects_v2 method: [1].
 
         References
         ----------
@@ -145,7 +146,7 @@ class S3Handler:
         ):
             yield result["Key"]
 
-    def object_key_exist(self, bucket: str, object_key: str) -> bool:
+    def object_exist(self, bucket: str, object_key: str) -> bool:
         """
         Check whether an object exist.
 
@@ -179,7 +180,8 @@ class S3Handler:
         """
         Get the content of a file.
 
-        Return the content of the object `object_key` in the `bucket` with the specific encoding. This method assumes the object `object_key` exists in the `bucket`.
+        Return the content of the object `object_key` in the `bucket` with the specific encoding.
+        If the object `object_key` does not exist, an exception will be raised.
 
         Parameters
         ----------
@@ -197,19 +199,27 @@ class S3Handler:
 
         Raises
         ------
-        botocore.exceptions.ClientError
+        Exception
             If the object called `object_key` does not exist in the `bucket`.
 
         """
-        object_to_read = self.resource.Object(bucket_name=bucket, key=object_key)
-        file_content = object_to_read.get()["Body"].read().decode(encoding)
+        if self.object_exist(bucket=bucket, object_key=object_key):
+            object_to_read = self.resource.Object(bucket_name=bucket, key=object_key)
+            file_content = object_to_read.get()["Body"].read().decode(encoding)
+        else:
+            raise Exception(
+                "The object `{}` does not exist in the bucket `{}`".format(
+                    object_key, bucket
+                )
+            )
         return file_content
 
     def put_object(self, bucket: str, object_key: str, content: bytes) -> None:
         """
         Write in a file in a specific location.
 
-        Write `content` into an object `object_key` and upload it to the `bucket`. If the object already exist, its content will be overwriten.
+        Write `content` into an object `object_key` and upload it to the `bucket`. If the object
+        already exist, its content will be overwriten.
 
         Parameters
         ----------
@@ -232,7 +242,8 @@ class S3Handler:
         """
         Remove a file.
 
-        Delete an object `object_key` from the `bucket`. This method assumes the object `object_key` exists in the `bucket`.
+        Delete an object `object_key` from the `bucket`. This method assumes the object `object_key`
+        exists in the `bucket`.
 
         Parameters
         ----------
@@ -265,7 +276,8 @@ class S3Handler:
         """
         Put a dataframe into a csv file.
 
-        Write the content of a pandas datafram into a csv file and upload it to the `bucket`. If the object already exist, its content will be overwriten.
+        Write the content of a pandas dataframe into a csv file and upload it to the `bucket`. If the
+        object already exists, its content will be overwriten.
 
         Parameters
         ----------
@@ -295,8 +307,8 @@ class S3Handler:
         self,
         bucket: str,
         object_key: str,
-        absolute_paths: List[str] = None,
-        uri_prefix_paths: List[str] = None,
+        s3_uris: List[str] = None,
+        s3_uri_prefixes: List[str] = None,
         file_format: str = None,
         delimiter: str = None,
         qualifier: str = None,
@@ -305,7 +317,8 @@ class S3Handler:
         """
         Generates a QS manifest JSON file.
 
-        Generates a QS manifest JSON file from a list of `paths` and/or `prefixes` and upload them to the `bucket`.
+        Generates a QS manifest JSON file from a list of `S3 URIs` and/or `S3 URI prefixes` and upload them
+        to the `bucket`.
 
         Parameters
         ----------
@@ -313,10 +326,13 @@ class S3Handler:
             Name of the bucket to save the generated manifest.
         object_key : str
             Identifier with which the manifest will have in the bucket.
-        absolute_paths : List[str], optional
-            List of S3 absolute paths of the files that will be used.
-        uri_prefixes : List[str], optional
-            List of uri prefixes that will be used. The uri_prefixes filters those object keys that begin with the specified string. Notice that an uri_prefix is different than an S3 prefix, an uri_prefix contains also the first part of an absolute path: 's3://bucket_name/..'.
+        s3_uris : List[str], optional
+            List of S3 uris of the files that will be used.
+        s3_uri_prefixes : List[str], optional
+            List of S3 uri prefixes that will be used. The uri_prefixes filters those object keys that
+            begin with the specified string. Notice that an uri_prefix is different than an S3
+            prefix, an uri_prefix contains also the first part of an absolute path:
+            's3://bucket_name/..'.
         format : str, optional
             Format of manifest files to be imported (the default is 'CSV').
         delimiter : str, optional
@@ -324,7 +340,8 @@ class S3Handler:
         qualifier : str, optional
             Text qualifier used in the file to specify the beginning of a text.
         header_row : str, optional
-            Boolean string that has value 'True' if the file has a header row (the default is 'True').
+            Boolean string that has value 'True' if the file has a header row (the default is
+            'True').
 
         Return
         -----
@@ -341,23 +358,23 @@ class S3Handler:
 
         """
         assert (
-            uri_prefix_paths is not None or absolute_paths is not None
+            s3_uri_prefixes is not None or s3_uris is not None
         ), "No file nor prefix were specified."
 
         # Build the JSON with the not None attributes.
         # Build the 'fileLocations' part.
         uri: Dict[str, Any] = {}
-        if absolute_paths is not None:
-            uri["URIs"] = list(absolute_paths)
+        if s3_uris is not None:
+            uri["URIs"] = list(s3_uris)
 
         uri_prefixes: Dict[str, Any] = {}
-        if uri_prefix_paths is not None:
-            uri_prefixes["URIPrefixes"] = list(uri_prefix_paths)
+        if s3_uri_prefixes is not None:
+            uri_prefixes["URIPrefixes"] = list(s3_uri_prefixes)
 
         data: Dict[str, Any] = {"fileLocations": []}
-        if absolute_paths is not None:
+        if s3_uris is not None:
             data["fileLocations"].append(uri)
-        if uri_prefix_paths is not None:
+        if s3_uri_prefixes is not None:
             data["fileLocations"].append(uri_prefixes)
 
         # Build the 'globalUploadSettings' part.
