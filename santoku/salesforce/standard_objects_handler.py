@@ -69,21 +69,21 @@ class StandardObjectsHandler:
 
         """
 
-        self.__url_to_format = "{}/services/data/v{:.1f}/{}"
+        self._url_to_format = "{}/services/data/v{:.1f}/{}"
 
-        self.__auth_url = auth_url
-        self.__api_version = api_version
-        self.__grant_type = grant_type
-        self.__username = username
-        self.__password = password
-        self.__client_id = client_id
-        self.__client_secret = client_secret
+        self._auth_url = auth_url
+        self._api_version = api_version
+        self._grant_type = grant_type
+        self._username = username
+        self._password = password
+        self._client_id = client_id
+        self._client_secret = client_secret
 
-        self.__instance_scheme_and_authority = ""
-        self.__access_token = ""
+        self._instance_scheme_and_authority = ""
+        self._access_token = ""
 
-        self.__standard_object_names_cache: List[str] = []
-        self.__standard_object_fields_cache: Dict[str, List[str]] = {}
+        self._standard_object_names_cache: List[str] = []
+        self._standard_object_fields_cache: Dict[str, List[str]] = {}
 
         self.request_headers: Dict[str, str] = {
             "Authorization": "OAuth",
@@ -91,19 +91,19 @@ class StandardObjectsHandler:
         }
 
         # Indicates if there is need to validate whether the requesting standard object is valid
-        self.__validate_standard_object = True
-        self.__is_authenticated = False
+        self._validate_standard_object = True
+        self._is_authenticated = False
 
-    def __authenticate(self) -> None:
+    def _authenticate(self) -> None:
         try:
             response = requests.post(
-                self.__auth_url,
+                self._auth_url,
                 data={
-                    "grant_type": self.__grant_type,
-                    "username": self.__username,
-                    "password": self.__password,
-                    "client_id": self.__client_id,
-                    "client_secret": self.__client_secret,
+                    "grant_type": self._grant_type,
+                    "username": self._username,
+                    "password": self._password,
+                    "client_id": self._client_id,
+                    "client_secret": self._client_secret,
                 },
                 headers={"Accept": "application/json"},
             )
@@ -111,49 +111,49 @@ class StandardObjectsHandler:
         except requests.exceptions.RequestException as err:
             raise
         else:
-            self.__is_authenticated = True
+            self._is_authenticated = True
 
             response_as_dict = response.json()
 
-            self.__instance_scheme_and_authority = response_as_dict["instance_url"]
-            self.__access_token = response_as_dict["access_token"]
+            self._instance_scheme_and_authority = response_as_dict["instance_url"]
+            self._access_token = response_as_dict["access_token"]
             # Update header with OAuth access token
             self.request_headers["Authorization"] = "OAuth {}".format(
-                self.__access_token
+                self._access_token
             )
 
-    def __get_salesforce_standard_object_names(self) -> List[str]:
+    def _get_salesforce_standard_object_names(self) -> List[str]:
 
-        if not self.__standard_object_names_cache:
-            self.__validate_standard_object = False
+        if not self._standard_object_names_cache:
+            self._validate_standard_object = False
 
             # GET request to /sobjects returns a list with the valid standard objects
             response = self.do_request(method="GET", path="sobjects")
 
-            self.__standard_object_names_cache = [
+            self._standard_object_names_cache = [
                 standard_object["name"]
                 for standard_object in json.loads(response)["sobjects"]
             ]
 
-        return self.__standard_object_names_cache
+        return self._standard_object_names_cache
 
-    def __get_salesforce_standard_object_fields(
+    def _get_salesforce_standard_object_fields(
         self, standard_object_name: str
     ) -> List[str]:
 
-        if standard_object_name not in self.__standard_object_fields_cache:
-            self.__validate_standard_object = False
+        if standard_object_name not in self._standard_object_fields_cache:
+            self._validate_standard_object = False
             response = self.do_request(
                 method="GET", path="sobjects/{}/describe".format(standard_object_name)
             )
 
-            self.__standard_object_fields_cache[standard_object_name] = [
+            self._standard_object_fields_cache[standard_object_name] = [
                 fields["name"] for fields in json.loads(response)["fields"]
             ]
 
-        return self.__standard_object_fields_cache[standard_object_name]
+        return self._standard_object_fields_cache[standard_object_name]
 
-    def __obtain_standard_object_name_from_path(self, path: str) -> str:
+    def _obtain_standard_object_name_from_path(self, path: str) -> str:
         # Extract standard_object_name taking into account that we'll find something like...
         if "describe" in path:
             # ...sobjects/Account/describe
@@ -181,7 +181,7 @@ class StandardObjectsHandler:
 
         return standard_object_name
 
-    def __validate_payload_content(
+    def _validate_payload_content(
         self, payload: Dict[str, str], standard_object_fields: List[str]
     ) -> None:
         for field in payload.keys():
@@ -221,30 +221,29 @@ class StandardObjectsHandler:
 
         assert method in ["POST", "GET", "PATCH", "DELETE"], "Method isn't supported."
 
-        if not self.__is_authenticated:
-            self.__authenticate()
+        if not self._is_authenticated:
+            self._authenticate()
 
-        if self.__validate_standard_object:
-            standard_object_name = self.__obtain_standard_object_name_from_path(path)
+        if self._validate_standard_object:
+            standard_object_name = self._obtain_standard_object_name_from_path(path)
             if standard_object_name:
                 assert (
-                    standard_object_name
-                    in self.__get_salesforce_standard_object_names()
+                    standard_object_name in self._get_salesforce_standard_object_names()
                 ), "{} isn't a valid standard object".format(standard_object_name)
 
-        url = self.__url_to_format.format(
-            self.__instance_scheme_and_authority, self.__api_version, path,
+        url = self._url_to_format.format(
+            self._instance_scheme_and_authority, self._api_version, path,
         )
 
         try:
             if method in ["POST", "PATCH"]:
                 assert payload, "Payload must be defined for a POST, PATCH request."
 
-                if self.__validate_standard_object:
-                    standard_object_fields = self.__get_salesforce_standard_object_fields(
+                if self._validate_standard_object:
+                    standard_object_fields = self._get_salesforce_standard_object_fields(
                         standard_object_name
                     )
-                    self.__validate_payload_content(
+                    self._validate_payload_content(
                         payload=payload, standard_object_fields=standard_object_fields
                     )
 
@@ -263,7 +262,7 @@ class StandardObjectsHandler:
         except requests.exceptions.RequestException as err:
             raise
         else:
-            self.__validate_standard_object = True
+            self._validate_standard_object = True
 
         # response is returned as is, it's caller's responsability to do the parsing
         return response.text
