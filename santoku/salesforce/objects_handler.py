@@ -19,10 +19,10 @@ class ObjectsHandler:
         Pass authentication credentials to establish connection with salesforce.
         Collect the object names available in salesforce, which is used to verify the correctness
         of the parameters.
-        Collect the object fields available of a specific object and store this information as a
-        cache, which is used to verify the correctness of the parameters.
+        Collect the object fields available of a specific salesforce object and store this
+        information as a cache, which is used to verify the correctness of the parameters.
         Extract the object name from a given path.
-        Verify if the introduced parameters are valid fields of an object.
+        Verify if the introduced parameters are valid fields of a salesforce object.
 
     More information on the use of Salesforce API Rest: [1]
 
@@ -82,16 +82,16 @@ class ObjectsHandler:
         self._instance_scheme_and_authority = ""
         self._access_token = ""
 
-        self._object_names_cache: List[str] = []
-        self._object_fields_cache: Dict[str, List[str]] = {}
+        self._salesforce_object_names_cache: List[str] = []
+        self._salesforce_object_fields_cache: Dict[str, List[str]] = {}
 
         self.request_headers: Dict[str, str] = {
             "Authorization": "OAuth",
             "Content-type": "application/json",
         }
 
-        # Indicates if there is need to validate whether the requesting object is valid
-        self._validate_object = True
+        # Indicates if there is need to validate whether the requesting salesforce object is valid
+        self._validate_salesforce_object = True
         self._is_authenticated = False
 
     def _authenticate(self) -> None:
@@ -124,59 +124,59 @@ class ObjectsHandler:
 
     def _get_salesforce_object_names(self) -> List[str]:
 
-        if not self._object_names_cache:
-            self._validate_object = False
+        if not self._salesforce_object_names_cache:
+            self._validate_salesforce_object = False
 
             # GET request to /sobjects returns a list with the valid objects
             response = self.do_request(method="GET", path="sobjects")
 
-            self._object_names_cache = [
+            self._salesforce_object_names_cache = [
                 sobject["name"] for sobject in json.loads(response)["sobjects"]
             ]
 
-        return self._object_names_cache
+        return self._salesforce_object_names_cache
 
-    def _get_salesforce_object_fields(self, object_name: str) -> List[str]:
+    def _get_salesforce_object_fields(self, salesforce_object_name: str) -> List[str]:
 
-        if object_name not in self._object_fields_cache:
-            self._validate_object = False
+        if salesforce_object_name not in self._salesforce_object_fields_cache:
+            self._validate_salesforce_object = False
             response = self.do_request(
-                method="GET", path="sobjects/{}/describe".format(object_name)
+                method="GET", path="sobjects/{}/describe".format(salesforce_object_name)
             )
 
-            self._object_fields_cache[object_name] = [
+            self._salesforce_object_fields_cache[salesforce_object_name] = [
                 fields["name"] for fields in json.loads(response)["fields"]
             ]
 
-        return self._object_fields_cache[object_name]
+        return self._salesforce_object_fields_cache[salesforce_object_name]
 
-    def _obtain_object_name_from_path(self, path: str) -> str:
-        # Extract object_name taking into account that we'll find something like...
+    def _obtain_salesforce_object_name_from_path(self, path: str) -> str:
+        # Extract salesforce_object_name taking into account that we'll find something like...
         if "describe" in path:
             # ...sobjects/Account/describe
-            object_name = path.split("/")[1]
+            salesforce_object_name = path.split("/")[1]
         elif "query?q=SELECT" in path:
             # ...query?q=SELECT+one+or+more+fields+FROM+an+object+WHERE+filter+statements
             if "WHERE" in path:
                 matches = re.search("{}(.*){}".format("FROM+", "+WHERE"), path)
                 if matches:
-                    object_name = matches.group(1)
+                    salesforce_object_name = matches.group(1)
                 else:
-                    object_name = ""
+                    salesforce_object_name = ""
             else:
                 matches = re.search("{}(.*)".format("FROM+"), path)
                 if matches:
-                    object_name = matches.group(1)
+                    salesforce_object_name = matches.group(1)
                 else:
-                    object_name = ""
+                    salesforce_object_name = ""
 
         elif path == "sobjects":
-            object_name = ""
+            salesforce_object_name = ""
         else:
             # ...sobjects/Account or ...sobjects/Account/ID
-            object_name = path.split("/")[path.index("sobjects") + 1]
+            salesforce_object_name = path.split("/")[path.index("sobjects") + 1]
 
-        return object_name
+        return salesforce_object_name
 
     def _validate_payload_content(
         self, payload: Dict[str, str], object_fields: List[str]
@@ -221,12 +221,12 @@ class ObjectsHandler:
         if not self._is_authenticated:
             self._authenticate()
 
-        if self._validate_object:
-            object_name = self._obtain_object_name_from_path(path)
-            if object_name:
+        if self._validate_salesforce_object:
+            salesforce_object_name = self._obtain_salesforce_object_name_from_path(path)
+            if salesforce_object_name:
                 assert (
-                    object_name in self._get_salesforce_object_names()
-                ), "{} isn't a valid object".format(object_name)
+                    salesforce_object_name in self._get_salesforce_object_names()
+                ), "{} isn't a valid object".format(salesforce_object_name)
 
         url = self._url_to_format.format(
             self._instance_scheme_and_authority, self._api_version, path,
@@ -236,8 +236,10 @@ class ObjectsHandler:
             if method in ["POST", "PATCH"]:
                 assert payload, "Payload must be defined for a POST, PATCH request."
 
-                if self._validate_object:
-                    object_fields = self._get_salesforce_object_fields(object_name)
+                if self._validate_salesforce_object:
+                    object_fields = self._get_salesforce_object_fields(
+                        salesforce_object_name
+                    )
                     self._validate_payload_content(
                         payload=payload, object_fields=object_fields
                     )
@@ -257,12 +259,14 @@ class ObjectsHandler:
         except requests.exceptions.RequestException as err:
             raise
         else:
-            self._validate_object = True
+            self._validate_salesforce_object = True
 
         # response is returned as is, it's caller's responsability to do the parsing
         return response.text
 
-    def do_query_with_SOQL(self, query="SELECT Name from Account") -> str:
+    def do_query_with_SOQL(
+        self, query="SELECT Name from Account"
+    ) -> List[Dict[str, Any]]:
         """
         Constructs and sends a request using SOQL.
 
@@ -282,7 +286,7 @@ class ObjectsHandler:
         Notes
         ----
         Use this method when you know which objects the data resides in, and you want to
-        retrieve data from a single object or from multiple objects that are related.
+        retrieve data from a single salesforce object or from multiple objects that are related.
         For more information related to SOQL: [1]
         For a complete description of the SOQL syntax: [2].
 
@@ -294,11 +298,13 @@ class ObjectsHandler:
         Raises
         ------
         requests.exceptions.RequestException
-            If the request fails, e.g. the requesting attribute does not exist for the object
-            class.
+            If the request fails, e.g. the requesting attribute does not exist for the salesforce
+            object class.
 
         """
-
-        return self.do_request(
-            method="GET", path="query?q={}".format(query.replace(" ", "+"))
+        response = json.loads(
+            self.do_request(
+                method="GET", path="query?q={}".format(query.replace(" ", "+"))
+            )
         )
+        return response["records"]
