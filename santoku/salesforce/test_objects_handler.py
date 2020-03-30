@@ -2,7 +2,7 @@ import os
 import requests
 import pytest
 import json
-from ..salesforce.standard_objects_handler import StandardObjectsHandler
+from ..salesforce.objects_handler import ObjectsHandler
 from typing import List, Dict, Any
 
 SANDBOX_AUTH_URL = os.environ["DATA_SCIENCE_SALESFORCE_SANDBOX_AUTH_URL"]
@@ -12,23 +12,23 @@ SANDBOX_CLIENT_USR = os.environ["DATA_SCIENCE_SALESFORCE_SANDBOX_CLIENT_USR"]
 SANDBOX_CLIENT_PSW = os.environ["DATA_SCIENCE_SALESFORCE_SANDBOX_CLIENT_PSW"]
 
 
-def delete_records(sc: StandardObjectsHandler, sobject: str):
+def delete_records(oh: ObjectsHandler, sobject: str):
     response = json.loads(
-        sc.do_query_with_SOQL("SELECT Id, Name from {}".format(sobject))
+        oh.do_query_with_SOQL("SELECT Id, Name from {}".format(sobject))
     )
     obtained_sobjects = response["records"]
 
     for obtained_sobject in obtained_sobjects:
-        sc.do_request(
+        oh.do_request(
             method="DELETE",
             path="sobjects/{}/{}".format(sobject, obtained_sobject["Id"]),
         )
 
 
-class TestStandardObjectsHandler:
+class TestObjectsHandler:
     def setup_method(self):
         # Clean the sobject records in the sandbox before a testcase is executed.
-        sc = StandardObjectsHandler(
+        oh = ObjectsHandler(
             auth_url=SANDBOX_AUTH_URL,
             username=SANDBOX_USR,
             password=SANDBOX_PSW,
@@ -37,7 +37,7 @@ class TestStandardObjectsHandler:
         )
         sobjects_to_clear = ["Contact"]
         for sobject in sobjects_to_clear:
-            delete_records(sc=sc, sobject=sobject)
+            delete_records(oh=oh, sobject=sobject)
 
     def test_wrong_credentials(self):
         contact_payloads = [
@@ -49,7 +49,7 @@ class TestStandardObjectsHandler:
         ]
 
         # Connect Salesforce with wrong credentials. Failure expected.
-        sc = StandardObjectsHandler(
+        oh = ObjectsHandler(
             auth_url=SANDBOX_AUTH_URL,
             username="false_username",
             password="false_password",
@@ -57,11 +57,11 @@ class TestStandardObjectsHandler:
             client_secret=SANDBOX_CLIENT_PSW,
         )
         with pytest.raises(requests.exceptions.RequestException) as e:
-            sc.do_request(
+            oh.do_request(
                 method="POST", path="sobjects/Contact", payload=contact_payloads[0],
             )
 
-        sc = StandardObjectsHandler(
+        oh = ObjectsHandler(
             auth_url=SANDBOX_AUTH_URL,
             username=SANDBOX_USR,
             password=SANDBOX_PSW,
@@ -69,12 +69,12 @@ class TestStandardObjectsHandler:
             client_secret="false_client_secret",
         )
         with pytest.raises(requests.exceptions.RequestException) as e:
-            sc.do_request(
+            oh.do_request(
                 method="POST", path="sobjects/Contact", payload=contact_payloads[0],
             )
 
     def test_contact_insertion(self):
-        sc = StandardObjectsHandler(
+        oh = ObjectsHandler(
             auth_url=SANDBOX_AUTH_URL,
             username=SANDBOX_USR,
             password=SANDBOX_PSW,
@@ -102,27 +102,27 @@ class TestStandardObjectsHandler:
         ]
 
         for contact_payload in contact_payloads:
-            response = sc.do_request(
+            response = oh.do_request(
                 method="POST", path="sobjects/Contact", payload=contact_payload
             )
             assert response
 
         # Insert a Contact that already exist with a new email. Success expected.
         contact_payloads[0]["Email"] = "youngblood@example.com"
-        response = sc.do_request(
+        response = oh.do_request(
             method="POST", path="sobjects/Contact", payload=contact_payloads[0],
         )
         assert response
 
         # Insert a Contact that already exist. Failure expected.
         with pytest.raises(requests.exceptions.RequestException) as e:
-            response = sc.do_request(
+            response = oh.do_request(
                 method="POST", path="sobjects/Contact", payload=contact_payloads[0],
             )
             assert response
 
     def test_contact_query(self):
-        sc = StandardObjectsHandler(
+        oh = ObjectsHandler(
             auth_url=SANDBOX_AUTH_URL,
             username=SANDBOX_USR,
             password=SANDBOX_PSW,
@@ -131,7 +131,7 @@ class TestStandardObjectsHandler:
         )
 
         # Read 0 Contacts with SOQL.
-        response = json.loads(sc.do_query_with_SOQL("SELECT Name from Contact"))
+        response = json.loads(oh.do_query_with_SOQL("SELECT Name from Contact"))
         assert response["totalSize"] == 0
 
         # Insert 2 Contacts.
@@ -145,13 +145,13 @@ class TestStandardObjectsHandler:
         ]
 
         for contact_payload in contact_payloads:
-            sc.do_request(
+            oh.do_request(
                 method="POST", path="sobjects/Contact", payload=contact_payload
             )
 
         # Read the 2 Contacts inserted with SOQL. Success expected.
         expected_names = ["Angel Collins", "June Ross"]
-        response = json.loads(sc.do_query_with_SOQL("SELECT Id, Name from Contact"))
+        response = json.loads(oh.do_query_with_SOQL("SELECT Id, Name from Contact"))
         assert response["totalSize"] == 2
 
         obtained_contacts = response["records"]
@@ -167,7 +167,7 @@ class TestStandardObjectsHandler:
 
         # Read a specific contact with SOQL by Id. Success expected.
         response = json.loads(
-            sc.do_query_with_SOQL(
+            oh.do_query_with_SOQL(
                 "SELECT Id, Name from contact WHERE Id = '{}'".format(obtained_ids[0])
             )
         )
@@ -178,7 +178,7 @@ class TestStandardObjectsHandler:
 
         # Read a specific contact with SOQL by Name. Success expected.
         response = json.loads(
-            sc.do_query_with_SOQL(
+            oh.do_query_with_SOQL(
                 "SELECT Name from contact WHERE Name = '{}'".format(obtained_names[0])
             )
         )
@@ -189,14 +189,14 @@ class TestStandardObjectsHandler:
 
         # Query a contact that does not exists with SOQL. Success expected.
         response = json.loads(
-            sc.do_query_with_SOQL(
+            oh.do_query_with_SOQL(
                 "SELECT Name from contact WHERE Name = 'Nick Mullins'"
             )
         )
         assert response["totalSize"] == 0
 
     def test_contact_modification(self):
-        sc = StandardObjectsHandler(
+        oh = ObjectsHandler(
             auth_url=SANDBOX_AUTH_URL,
             username=SANDBOX_USR,
             password=SANDBOX_PSW,
@@ -211,27 +211,27 @@ class TestStandardObjectsHandler:
         ]
 
         for contact_payload in contact_payloads:
-            response = sc.do_request(
+            response = oh.do_request(
                 method="POST", path="sobjects/Contact", payload=contact_payload
             )
 
         # Modify an existing contact's FirstName and LastName. Success expected.
         response = json.loads(
-            sc.do_query_with_SOQL(
+            oh.do_query_with_SOQL(
                 "SELECT Id, Name from Contact WHERE Name = 'Ramon Evans'"
             )
         )
         obtained_contacts = response["records"]
         contact_payload = {"FirstName": "Ken", "LastName": "Williams"}
 
-        sc.do_request(
+        oh.do_request(
             method="PATCH",
             path="sobjects/Contact/{}".format(obtained_contacts[0]["Id"]),
             payload=contact_payload,
         )
 
         response = json.loads(
-            sc.do_query_with_SOQL(
+            oh.do_query_with_SOQL(
                 "SELECT Id, Name from Contact WHERE Id = '{}'".format(
                     obtained_contacts[0]["Id"]
                 )
@@ -246,14 +246,14 @@ class TestStandardObjectsHandler:
         # Modify an existing contact's Email. Success expected.
         contact_payload = {"Email": "ken@example.com"}
 
-        sc.do_request(
+        oh.do_request(
             method="PATCH",
             path="sobjects/Contact/{}".format(obtained_contacts[0]["Id"]),
             payload=contact_payload,
         )
 
         response = json.loads(
-            sc.do_query_with_SOQL(
+            oh.do_query_with_SOQL(
                 "SELECT Id, Name, Email from Contact WHERE Id = '{}'".format(
                     obtained_contacts[0]["Id"]
                 )
@@ -266,14 +266,14 @@ class TestStandardObjectsHandler:
         # Modify a Contact that does not exist. Failure expected.
         contact_payload = {"FirstName": "Marie"}
         with pytest.raises(requests.exceptions.RequestException) as e:
-            response = sc.do_request(
+            response = oh.do_request(
                 method="PATCH",
                 path="sobjects/Contact/{}".format("WRONGID"),
                 payload=contact_payload,
             )
 
     def test_contact_deletion(self):
-        sc = StandardObjectsHandler(
+        oh = ObjectsHandler(
             auth_url=SANDBOX_AUTH_URL,
             username=SANDBOX_USR,
             password=SANDBOX_PSW,
@@ -296,12 +296,12 @@ class TestStandardObjectsHandler:
         ]
 
         for contact_payload in contact_payloads:
-            response = sc.do_request(
+            response = oh.do_request(
                 method="POST", path="sobjects/Contact", payload=contact_payload
             )
 
         # Delete an existing Contact. Success expected.
-        response = json.loads(sc.do_query_with_SOQL("SELECT Id, Name from Contact"))
+        response = json.loads(oh.do_query_with_SOQL("SELECT Id, Name from Contact"))
         obtained_contacts = response["records"]
         obtained_contacts_names = []
         obtained_contacts_ids = []
@@ -310,13 +310,13 @@ class TestStandardObjectsHandler:
             obtained_contacts_names.append(obtained_contact["Name"])
             obtained_contacts_ids.append(obtained_contact["Id"])
 
-        sc.do_request(
+        oh.do_request(
             method="DELETE",
             path="sobjects/Contact/{}".format(obtained_contacts_ids[0]),
         )
 
         response = json.loads(
-            sc.do_query_with_SOQL(
+            oh.do_query_with_SOQL(
                 "SELECT Name from Contact WHERE Name = '{}'".format(
                     obtained_contacts_names[0]
                 )
@@ -325,7 +325,7 @@ class TestStandardObjectsHandler:
         assert response["totalSize"] == 0
 
         response = json.loads(
-            sc.do_query_with_SOQL(
+            oh.do_query_with_SOQL(
                 "SELECT Name from contact WHERE Name = '{}'".format(
                     obtained_contacts_names[1]
                 )
@@ -335,7 +335,7 @@ class TestStandardObjectsHandler:
 
         # Delete a Contact that does not exist. Failure expected.
         with pytest.raises(requests.exceptions.RequestException) as e:
-            sc.do_request(
+            oh.do_request(
                 method="DELETE",
                 path="sobjects/Contact/{}".format(obtained_contacts_ids[0]),
             )

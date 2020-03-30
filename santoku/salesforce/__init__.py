@@ -1,1 +1,1 @@
-from .standard_objects_handler import StandardObjectsHandler
+from .objects_handler import ObjectsHandler
