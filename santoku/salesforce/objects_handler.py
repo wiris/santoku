@@ -308,3 +308,27 @@ class ObjectsHandler:
             )
         )
         return response["records"]
+
+    def insert_object(
+        self, salesforce_object_name: str, payload: Dict[str, str]
+    ) -> str:
+        return self.do_request(
+            method="POST",
+            path="sobjects/{}".format(salesforce_object_name),
+            payload=payload,
+        )
+
+    def modify_object(
+        self, salesforce_object_name: str, record_id: str, payload: Dict[str, str],
+    ) -> str:
+        return self.do_request(
+            method="PATCH",
+            path="sobjects/{}/{}".format(salesforce_object_name, record_id),
+            payload=payload,
+        )
+
+    def delete_object(self, salesforce_object_name: str, record_id: str) -> str:
+        return self.do_request(
+            method="DELETE",
+            path="sobjects/{}/{}".format(salesforce_object_name, record_id),
+        )
