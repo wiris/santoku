@@ -313,3 +313,169 @@ class TestObjectsHandler:
             oh.do_request(
                 method="DELETE", path="sobjects/Contact/{}".format(obtained_ids[0]),
             )
+
+    def test_contact_insertion_high_level(self):
+        oh = ObjectsHandler(
+            auth_url=SANDBOX_AUTH_URL,
+            username=SANDBOX_USR,
+            password=SANDBOX_PSW,
+            client_id=SANDBOX_CLIENT_USR,
+            client_secret=SANDBOX_CLIENT_PSW,
+        )
+
+        # Insert 3 Contacts that do not exist. Success expected.
+        contact_payloads = [
+            {"FirstName": "Kim", "LastName": "George", "Email": "kim@example.com",},
+            {
+                "FirstName": "Wilfred",
+                "LastName": "Craig",
+                "Email": "wilfred@example.com",
+            },
+            {
+                "FirstName": "Whitney",
+                "LastName": "Ross",
+                "Email": "whitney@example.com",
+            },
+        ]
+
+        for contact_payload in contact_payloads:
+            response = oh.insert_object(
+                salesforce_object_name="Contact", payload=contact_payload
+            )
+            assert response
+
+        # Insert a Contact that already exist with a new email. Success expected.
+        contact_payloads[0]["Email"] = "rodriguez@example.com"
+        response = oh.insert_object(
+            salesforce_object_name="Contact", payload=contact_payloads[0]
+        )
+        assert response
+
+        # Insert a Contact that already exist. Failure expected.
+        with pytest.raises(requests.exceptions.RequestException) as e:
+            response = oh.insert_object(
+                salesforce_object_name="Contact", payload=contact_payload
+            )
+            assert response
+
+    def test_contact_modification_high_level(self):
+        oh = ObjectsHandler(
+            auth_url=SANDBOX_AUTH_URL,
+            username=SANDBOX_USR,
+            password=SANDBOX_PSW,
+            client_id=SANDBOX_CLIENT_USR,
+            client_secret=SANDBOX_CLIENT_PSW,
+        )
+
+        # Insert 2 Contacts.
+        contact_payloads = [
+            {"FirstName": "Ramon", "LastName": "Evans", "Email": "ramon@example.com",},
+            {"FirstName": "Janis", "LastName": "Holmes", "Email": "janis@example.com",},
+        ]
+
+        for contact_payload in contact_payloads:
+            response = oh.do_request(
+                method="POST", path="sobjects/Contact", payload=contact_payload
+            )
+
+        # Modify an existing contact's FirstName and LastName. Success expected.
+        obtained_contacts = oh.do_query_with_SOQL(
+            "SELECT Id, Name from Contact WHERE Name = 'Ramon Evans'"
+        )
+        contact_payload = {"FirstName": "Ken", "LastName": "Williams"}
+
+        expected_contact_id = obtained_contacts[0]["Id"]
+        oh.modify_object(
+            salesforce_object_name="Contact",
+            record_id=expected_contact_id,
+            payload=contact_payload,
+        )
+
+        obtained_contacts = oh.do_query_with_SOQL(
+            "SELECT Id, Name from Contact WHERE Id = '{}'".format(expected_contact_id)
+        )
+        expected_contact_name = "{} {}".format(
+            contact_payload["FirstName"], contact_payload["LastName"]
+        )
+        assert obtained_contacts[0]["Name"] == expected_contact_name
+
+        # Modify an existing contact's Email. Success expected.
+        contact_payload = {"Email": "ken@example.com"}
+
+        oh.modify_object(
+            salesforce_object_name="Contact",
+            record_id=expected_contact_id,
+            payload=contact_payload,
+        )
+
+        obtained_contacts = oh.do_query_with_SOQL(
+            "SELECT Id, Name, Email from Contact WHERE Id = '{}'".format(
+                expected_contact_id
+            )
+        )
+        assert obtained_contacts[0]["Name"] == expected_contact_name
+        assert obtained_contacts[0]["Email"] == contact_payload["Email"]
+
+        # Modify a Contact that does not exist. Failure expected.
+        contact_payload = {"FirstName": "Marie"}
+        with pytest.raises(requests.exceptions.RequestException) as e:
+            oh.modify_object(
+                salesforce_object_name="Contact",
+                record_id="WRONGID",
+                payload=contact_payload,
+            )
+
+    def test_contact_deletion_high_level(self):
+        oh = ObjectsHandler(
+            auth_url=SANDBOX_AUTH_URL,
+            username=SANDBOX_USR,
+            password=SANDBOX_PSW,
+            client_id=SANDBOX_CLIENT_USR,
+            client_secret=SANDBOX_CLIENT_PSW,
+        )
+
+        # Insert 2 Contacts.
+        contact_payloads = [
+            {
+                "FirstName": "Brian",
+                "LastName": "Cunningham",
+                "Email": "brian@example.com",
+            },
+            {
+                "FirstName": "Julius",
+                "LastName": "Marsh",
+                "Email": "julius@example.com",
+            },
+        ]
+
+        for contact_payload in contact_payloads:
+            response = oh.do_request(
+                method="POST", path="sobjects/Contact", payload=contact_payload
+            )
+
+        # Delete an existing Contact. Success expected.
+        obtained_contacts = oh.do_query_with_SOQL("SELECT Id, Name from Contact")
+        obtained_names = []
+        obtained_ids = []
+
+        for obtained_contact in obtained_contacts:
+            obtained_names.append(obtained_contact["Name"])
+            obtained_ids.append(obtained_contact["Id"])
+
+        oh.delete_object(salesforce_object_name="Contact", record_id=obtained_ids[0])
+
+        obtained_contacts = oh.do_query_with_SOQL(
+            "SELECT Name from Contact WHERE Name = '{}'".format(obtained_names[0])
+        )
+        assert len(obtained_contacts) == 0
+
+        obtained_contacts = oh.do_query_with_SOQL(
+            "SELECT Name from contact WHERE Name = '{}'".format(obtained_names[1])
+        )
+        assert len(obtained_contacts) == 1
+
+        # Delete a Contact that does not exist. Failure expected.
+        with pytest.raises(requests.exceptions.RequestException) as e:
+            oh.do_request(
+                method="DELETE", path="sobjects/Contact/{}".format(obtained_ids[0]),
+            )
