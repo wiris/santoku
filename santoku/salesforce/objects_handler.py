@@ -68,7 +68,6 @@ class ObjectsHandler:
         None
 
         """
-
         self._url_to_format = "{}/services/data/v{:.1f}/{}"
 
         self._auth_url = auth_url
@@ -169,8 +168,11 @@ class ObjectsHandler:
                     salesforce_object_name = matches.group(1)
                 else:
                     salesforce_object_name = ""
+        elif "query" in path:
+            # ...query/idnetifier
+            salesforce_object_name = ""
 
-        elif path == "sobjects":
+        elif path == "sobjects" or path == "limits":
             salesforce_object_name = ""
         else:
             # ...sobjects/Account or ...sobjects/Account/ID
@@ -286,14 +288,20 @@ class ObjectsHandler:
         Notes
         ----
         Use this method when you know which objects the data resides in, and you want to
-        retrieve data from a single salesforce object or from multiple objects that are related.
+        retrieve data from a single salesforce object or from multiple objects that are related. The
+        maximum number of records that a single SOQL request can return is 2000, when this limit is
+        exceeded, the nextRecordsUrl from the response of the query is used.
         For more information related to SOQL: [1]
         For a complete description of the SOQL syntax: [2].
+        For more information about the limits of the SOQL requests: [3].
+        For more information about the SOQL requests URIs: [4].
 
         References
         ----------
         [1] https://developer.salesforce.com/docs/atlas.en-us.soql_sosl.meta/soql_sosl/sforce_api_calls_soql.htm
         [2] https://developer.salesforce.com/docs/atlas.en-us.soql_sosl.meta/soql_sosl/sforce_api_calls_soql_select.htm
+        [3] https://developer.salesforce.com/docs/atlas.en-us.salesforce_app_limits_cheatsheet.meta/salesforce_app_limits_cheatsheet/salesforce_app_limits_platform_soslsoql.htm
+        [4] https://developer.salesforce.com/docs/atlas.en-us.api_rest.meta/api_rest/resources_query.htm
 
         Raises
         ------
@@ -302,12 +310,20 @@ class ObjectsHandler:
             object class.
 
         """
-        response = json.loads(
-            self.do_request(
-                method="GET", path="query?q={}".format(query.replace(" ", "+"))
-            )
+        response = self.do_request(
+            method="GET", path="query?q={}".format(query.replace(" ", "+"))
         )
-        return response["records"]
+        response_dict = json.loads(response)
+        records = response_dict["records"]
+        while "nextRecordsUrl" in response_dict:
+            next_url = response_dict["nextRecordsUrl"]
+            query_identifier = next_url.split("/")[-1]
+            response = self.do_request(
+                method="GET", path="query/{}".format(query_identifier)
+            )
+            response_dict = json.loads(response)
+            records.extend(response_dict["records"])
+        return records
 
     def insert_object(
         self, salesforce_object_name: str, payload: Dict[str, str]
