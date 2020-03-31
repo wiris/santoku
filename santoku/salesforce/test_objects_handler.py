@@ -189,6 +189,30 @@ class TestObjectsHandler:
         )
         assert len(obtained_contacts) == 0
 
+    def test_contact_query_more_than_2000_records(self):
+        oh = ObjectsHandler(
+            auth_url=SANDBOX_AUTH_URL,
+            username=SANDBOX_USR,
+            password=SANDBOX_PSW,
+            client_id=SANDBOX_CLIENT_USR,
+            client_secret=SANDBOX_CLIENT_PSW,
+        )
+
+        # Insert more than 2000 contacts
+        limit = 2000
+        for i in range(limit + 1):
+            contact = '{{"FirstName":"{}", "LastName":"{}", "Email":"{}@example.com"}}'.format(
+                str(i), str(i), str(i)
+            )
+            contact_payload = json.loads(contact)
+            oh.do_request(
+                method="POST", path="sobjects/Contact", payload=contact_payload
+            )
+
+        # Check all the contacts are obtained even the number of records are bigger than the limit.
+        obtained_contacts = oh.do_query_with_SOQL("SELECT Id, Name from contact")
+        assert len(obtained_contacts) == limit + 1
+
     def test_contact_modification(self):
         oh = ObjectsHandler(
             auth_url=SANDBOX_AUTH_URL,
@@ -479,3 +503,18 @@ class TestObjectsHandler:
             oh.do_request(
                 method="DELETE", path="sobjects/Contact/{}".format(obtained_ids[0]),
             )
+
+    def test_get_remaining_daily_api_requests(self):
+        oh = ObjectsHandler(
+            auth_url=SANDBOX_AUTH_URL,
+            username=SANDBOX_USR,
+            password=SANDBOX_PSW,
+            client_id=SANDBOX_CLIENT_USR,
+            client_secret=SANDBOX_CLIENT_PSW,
+        )
+
+        remaining_requests = oh.get_remaining_daily_api_requests()
+        # Get the maximum number of daily api requests.
+        response = oh.do_request(method="GET", path="limits")
+        maximum_requests = json.loads(response)["DailyApiRequests"]["Max"]
+        assert remaining_requests >= 0 and remaining_requests <= maximum_requests
