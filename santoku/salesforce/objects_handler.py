@@ -122,7 +122,7 @@ class ObjectsHandler:
                 self._access_token
             )
 
-    def _get_salesforce_object_names(self) -> List[str]:
+    def get_salesforce_object_names(self) -> List[str]:
 
         if not self._salesforce_object_names_cache:
             self._validate_salesforce_object = False
@@ -136,7 +136,7 @@ class ObjectsHandler:
 
         return self._salesforce_object_names_cache
 
-    def _get_salesforce_object_fields(self, salesforce_object_name: str) -> List[str]:
+    def get_salesforce_object_fields(self, salesforce_object_name: str) -> List[str]:
 
         if salesforce_object_name not in self._salesforce_object_fields_cache:
             self._validate_salesforce_object = False
@@ -225,7 +225,7 @@ class ObjectsHandler:
             salesforce_object_name = self._obtain_salesforce_object_name_from_path(path)
             if salesforce_object_name:
                 assert (
-                    salesforce_object_name in self._get_salesforce_object_names()
+                    salesforce_object_name in self.get_salesforce_object_names()
                 ), "{} isn't a valid object".format(salesforce_object_name)
 
         url = self._url_to_format.format(
@@ -237,7 +237,7 @@ class ObjectsHandler:
                 assert payload, "Payload must be defined for a POST, PATCH request."
 
                 if self._validate_salesforce_object:
-                    object_fields = self._get_salesforce_object_fields(
+                    object_fields = self.get_salesforce_object_fields(
                         salesforce_object_name
                     )
                     self._validate_payload_content(
