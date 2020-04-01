@@ -13,12 +13,12 @@ SANDBOX_CLIENT_PSW = os.environ["DATA_SCIENCE_SALESFORCE_SANDBOX_CLIENT_PSW"]
 
 
 def delete_records(oh: ObjectsHandler, sobject: str):
-    obtained_sobjects = oh.do_query_with_SOQL("SELECT Id, Name from {}".format(sobject))
+    obtained_records = oh.do_query_with_SOQL("SELECT Id from {}".format(sobject))
 
-    for obtained_sobject in obtained_sobjects:
+    for obtained_record in obtained_records:
         oh.do_request(
             method="DELETE",
-            path="sobjects/{}/{}".format(sobject, obtained_sobject["Id"]),
+            path="sobjects/{}/{}".format(sobject, obtained_record["Id"]),
         )
 
 
@@ -189,30 +189,6 @@ class TestObjectsHandler:
         )
         assert len(obtained_contacts) == 0
 
-    def test_contact_query_more_than_2000_records(self):
-        oh = ObjectsHandler(
-            auth_url=SANDBOX_AUTH_URL,
-            username=SANDBOX_USR,
-            password=SANDBOX_PSW,
-            client_id=SANDBOX_CLIENT_USR,
-            client_secret=SANDBOX_CLIENT_PSW,
-        )
-
-        # Insert more than 2000 contacts
-        limit = 2000
-        for i in range(limit + 1):
-            contact = '{{"FirstName":"{}", "LastName":"{}", "Email":"{}@example.com"}}'.format(
-                str(i), str(i), str(i)
-            )
-            contact_payload = json.loads(contact)
-            oh.do_request(
-                method="POST", path="sobjects/Contact", payload=contact_payload
-            )
-
-        # Check all the contacts are obtained even the number of records are bigger than the limit.
-        obtained_contacts = oh.do_query_with_SOQL("SELECT Id, Name from contact")
-        assert len(obtained_contacts) == limit + 1
-
     def test_contact_modification(self):
         oh = ObjectsHandler(
             auth_url=SANDBOX_AUTH_URL,
@@ -235,7 +211,9 @@ class TestObjectsHandler:
 
         # Modify an existing contact's FirstName and LastName. Success expected.
         obtained_contacts = oh.do_query_with_SOQL(
-            "SELECT Id, Name from Contact WHERE Name = 'Ramon Evans'"
+            "SELECT Id, Name from Contact WHERE Name = '{} {}'".format(
+                contact_payloads[0]["FirstName"], contact_payloads[0]["LastName"]
+            )
         )
         contact_payload = {"FirstName": "Ken", "LastName": "Williams"}
 
@@ -256,7 +234,9 @@ class TestObjectsHandler:
         assert obtained_contacts[0]["Name"] == expected_contact_name
 
         # Modify an existing contact's Email. Success expected.
-        contact_payload = {"Email": "ken@example.com"}
+        contact_payload = {
+            "Email": "{}@example.com".format(contact_payload["FirstName"].lower())
+        }
 
         oh.do_request(
             method="PATCH",
@@ -273,7 +253,7 @@ class TestObjectsHandler:
         assert obtained_contacts[0]["Email"] == contact_payload["Email"]
 
         # Modify a Contact that does not exist. Failure expected.
-        contact_payload = {"FirstName": "Marie"}
+        contact_payload = {"FirstName": "ANYNAME"}
         with pytest.raises(requests.exceptions.RequestException) as e:
             response = oh.do_request(
                 method="PATCH",
@@ -363,23 +343,17 @@ class TestObjectsHandler:
         ]
 
         for contact_payload in contact_payloads:
-            response = oh.insert_object(
-                salesforce_object_name="Contact", payload=contact_payload
-            )
+            response = oh.insert_record(sobject="Contact", payload=contact_payload)
             assert response
 
         # Insert a Contact that already exist with a new email. Success expected.
         contact_payloads[0]["Email"] = "rodriguez@example.com"
-        response = oh.insert_object(
-            salesforce_object_name="Contact", payload=contact_payloads[0]
-        )
+        response = oh.insert_record(sobject="Contact", payload=contact_payloads[0])
         assert response
 
         # Insert a Contact that already exist. Failure expected.
         with pytest.raises(requests.exceptions.RequestException) as e:
-            response = oh.insert_object(
-                salesforce_object_name="Contact", payload=contact_payload
-            )
+            response = oh.insert_record(sobject="Contact", payload=contact_payload)
             assert response
 
     def test_contact_modification_high_level(self):
@@ -393,8 +367,12 @@ class TestObjectsHandler:
 
         # Insert 2 Contacts.
         contact_payloads = [
-            {"FirstName": "Ramon", "LastName": "Evans", "Email": "ramon@example.com",},
-            {"FirstName": "Janis", "LastName": "Holmes", "Email": "janis@example.com",},
+            {"FirstName": "Boyd", "LastName": "Johnston", "Email": "boyd@example.com",},
+            {
+                "FirstName": "Zachary",
+                "LastName": "Singleton",
+                "Email": "zachary@example.com",
+            },
         ]
 
         for contact_payload in contact_payloads:
@@ -404,15 +382,15 @@ class TestObjectsHandler:
 
         # Modify an existing contact's FirstName and LastName. Success expected.
         obtained_contacts = oh.do_query_with_SOQL(
-            "SELECT Id, Name from Contact WHERE Name = 'Ramon Evans'"
+            "SELECT Id, Name from Contact WHERE Name = '{} {}'".format(
+                contact_payloads[0]["FirstName"], contact_payloads[0]["LastName"]
+            )
         )
-        contact_payload = {"FirstName": "Ken", "LastName": "Williams"}
+        contact_payload = {"FirstName": "Ralph", "LastName": "Alexander"}
 
         expected_contact_id = obtained_contacts[0]["Id"]
-        oh.modify_object(
-            salesforce_object_name="Contact",
-            record_id=expected_contact_id,
-            payload=contact_payload,
+        oh.modify_record(
+            sobject="Contact", record_id=expected_contact_id, payload=contact_payload,
         )
 
         obtained_contacts = oh.do_query_with_SOQL(
@@ -424,12 +402,12 @@ class TestObjectsHandler:
         assert obtained_contacts[0]["Name"] == expected_contact_name
 
         # Modify an existing contact's Email. Success expected.
-        contact_payload = {"Email": "ken@example.com"}
+        contact_payload = {
+            "Email": "{}@example.com".format(contact_payload["FirstName"].lower())
+        }
 
-        oh.modify_object(
-            salesforce_object_name="Contact",
-            record_id=expected_contact_id,
-            payload=contact_payload,
+        oh.modify_record(
+            sobject="Contact", record_id=expected_contact_id, payload=contact_payload,
         )
 
         obtained_contacts = oh.do_query_with_SOQL(
@@ -441,12 +419,10 @@ class TestObjectsHandler:
         assert obtained_contacts[0]["Email"] == contact_payload["Email"]
 
         # Modify a Contact that does not exist. Failure expected.
-        contact_payload = {"FirstName": "Marie"}
+        contact_payload = {"FirstName": "ANYNAME"}
         with pytest.raises(requests.exceptions.RequestException) as e:
-            oh.modify_object(
-                salesforce_object_name="Contact",
-                record_id="WRONGID",
-                payload=contact_payload,
+            oh.modify_record(
+                sobject="Contact", record_id="WRONGID", payload=contact_payload,
             )
 
     def test_contact_deletion_high_level(self):
@@ -461,15 +437,11 @@ class TestObjectsHandler:
         # Insert 2 Contacts.
         contact_payloads = [
             {
-                "FirstName": "Brian",
-                "LastName": "Cunningham",
-                "Email": "brian@example.com",
+                "FirstName": "Elaine",
+                "LastName": "Mullins",
+                "Email": "elaine@example.com",
             },
-            {
-                "FirstName": "Julius",
-                "LastName": "Marsh",
-                "Email": "julius@example.com",
-            },
+            {"FirstName": "Tami", "LastName": "Joseph", "Email": "tami@example.com",},
         ]
 
         for contact_payload in contact_payloads:
@@ -486,7 +458,7 @@ class TestObjectsHandler:
             obtained_names.append(obtained_contact["Name"])
             obtained_ids.append(obtained_contact["Id"])
 
-        oh.delete_object(salesforce_object_name="Contact", record_id=obtained_ids[0])
+        oh.delete_record(sobject="Contact", record_id=obtained_ids[0])
 
         obtained_contacts = oh.do_query_with_SOQL(
             "SELECT Name from Contact WHERE Name = '{}'".format(obtained_names[0])
@@ -500,9 +472,7 @@ class TestObjectsHandler:
 
         # Delete a Contact that does not exist. Failure expected.
         with pytest.raises(requests.exceptions.RequestException) as e:
-            oh.do_request(
-                method="DELETE", path="sobjects/Contact/{}".format(obtained_ids[0]),
-            )
+            oh.delete_record(sobject="Contact", record_id=obtained_ids[0])
 
     def test_get_remaining_daily_api_requests(self):
         oh = ObjectsHandler(

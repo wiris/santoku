@@ -89,7 +89,7 @@ class ObjectsHandler:
             "Content-type": "application/json",
         }
 
-        # Indicates if there is need to validate whether the requesting salesforce object is valid
+        # Indicates if there is need to validate whether the requesting salesforce object is valid.
         self._validate_salesforce_object = True
         self._is_authenticated = False
 
@@ -116,7 +116,7 @@ class ObjectsHandler:
 
             self._instance_scheme_and_authority = response_as_dict["instance_url"]
             self._access_token = response_as_dict["access_token"]
-            # Update header with OAuth access token
+            # Update header with OAuth access token.
             self.request_headers["Authorization"] = "OAuth {}".format(
                 self._access_token
             )
@@ -126,7 +126,7 @@ class ObjectsHandler:
         if not self._salesforce_object_names_cache:
             self._validate_salesforce_object = False
 
-            # GET request to /sobjects returns a list with the valid objects
+            # GET request to /sobjects returns a list with the valid objects.
             response = self.do_request(method="GET", path="sobjects")
 
             self._salesforce_object_names_cache = [
@@ -191,7 +191,7 @@ class ObjectsHandler:
         self, method: str, path: str, payload: Optional[Dict[str, str]] = None,
     ) -> str:
         """
-        Constructs and sends a request.
+        Construct and send a request.
 
         Parameters
         ----------
@@ -217,7 +217,6 @@ class ObjectsHandler:
             If the connection with salesforce fails, e.g. the requesting resource does not exist.
 
         """
-
         assert method in ["POST", "GET", "PATCH", "DELETE"], "Method isn't supported."
 
         if not self._is_authenticated:
@@ -246,7 +245,7 @@ class ObjectsHandler:
                         payload=payload, object_fields=object_fields
                     )
 
-                # we use reflection to choose which method (POST or PATCH) to execute
+                # We use reflection to choose which method (POST or PATCH) to execute.
                 response = getattr(requests, method.lower())(
                     url=url, json=payload, headers=self.request_headers,
                 )
@@ -256,14 +255,14 @@ class ObjectsHandler:
                 )
 
             # Call Response.raise_for_status method to raise exceptions from http errors (e.g. 401
-            # Unauthorized)
+            # Unauthorized).
             response.raise_for_status()
         except requests.exceptions.RequestException as err:
             raise
         else:
             self._validate_salesforce_object = True
 
-        # response is returned as is, it's caller's responsability to do the parsing
+        # Response is returned as is, it's caller's responsability to do the parsing.
         return response.text
 
     def do_query_with_SOQL(
@@ -285,29 +284,34 @@ class ObjectsHandler:
         str
             Response from Salesforce. This is a JSON encoded as text.
 
-        Notes
-        ----
-        Use this method when you know which objects the data resides in, and you want to
-        retrieve data from a single salesforce object or from multiple objects that are related. The
-        maximum number of records that a single SOQL request can return is 2000, when this limit is
-        exceeded, the nextRecordsUrl from the response of the query is used.
-        For more information related to SOQL: [1]
-        For a complete description of the SOQL syntax: [2].
-        For more information about the limits of the SOQL requests: [3].
-        For more information about the SOQL requests URIs: [4].
-
-        References
-        ----------
-        [1] https://developer.salesforce.com/docs/atlas.en-us.soql_sosl.meta/soql_sosl/sforce_api_calls_soql.htm
-        [2] https://developer.salesforce.com/docs/atlas.en-us.soql_sosl.meta/soql_sosl/sforce_api_calls_soql_select.htm
-        [3] https://developer.salesforce.com/docs/atlas.en-us.salesforce_app_limits_cheatsheet.meta/salesforce_app_limits_cheatsheet/salesforce_app_limits_platform_soslsoql.htm
-        [4] https://developer.salesforce.com/docs/atlas.en-us.api_rest.meta/api_rest/resources_query.htm
-
         Raises
         ------
         requests.exceptions.RequestException
             If the request fails, e.g. the requesting attribute does not exist for the salesforce
             object class.
+
+        See Also
+        --------
+        do_request : this method does a request of type GET.
+
+        Notes
+        ----
+        Use this method when you know which objects the data resides in, and you want to
+        retrieve data from a single salesforce object or from multiple objects that are related. The
+        maximum number of records that a single SOQL request can return is 2000, when this limit is
+        exceeded, the field `nextRecordsUrl` from the response of the query is used, this method
+        already manages this problem, hence all the records of the query will be returned.
+        For more information related to SOQL: [1]
+        For a complete description of the SOQL syntax: [2].
+        For more information about the SOQL requests URIs: [3].
+        For more information about the limits of the SOQL requests: [4].
+
+        References
+        ----------
+        [1] https://developer.salesforce.com/docs/atlas.en-us.soql_sosl.meta/soql_sosl/sforce_api_calls_soql.htm
+        [2] https://developer.salesforce.com/docs/atlas.en-us.soql_sosl.meta/soql_sosl/sforce_api_calls_soql_select.htm
+        [3] https://developer.salesforce.com/docs/atlas.en-us.api_rest.meta/api_rest/resources_query.htm
+        [4] https://developer.salesforce.com/docs/atlas.en-us.salesforce_app_limits_cheatsheet.meta/salesforce_app_limits_cheatsheet/salesforce_app_limits_platform_soslsoql.htm
 
         """
         response = self.do_request(
@@ -325,26 +329,137 @@ class ObjectsHandler:
             records.extend(response_dict["records"])
         return records
 
-    def insert_object(
-        self, salesforce_object_name: str, payload: Dict[str, str]
-    ) -> str:
+    def insert_record(self, sobject: str, payload: Dict[str, str]) -> str:
+        """
+        Create a new instance of a salesforce object.
+
+        Create a new record of type `sobject` with the information in the payload.
+
+        Parameters
+        ----------
+        sobject : str
+            A salesforce object.
+        payload : Dict[str, str]
+            Payload that contains information to create the record.
+
+        Returns
+        -------
+        str
+            Response from Salesforce. This is a JSON encoded as text.
+
+        Raises
+        ------
+        AssertionError
+            If the object is not valid, or the payload contains fields that are not valid for this
+            object.
+
+        See Also
+        --------
+        do_request : this method does a request of type POST.
+
+        """
         return self.do_request(
-            method="POST",
-            path="sobjects/{}".format(salesforce_object_name),
-            payload=payload,
+            method="POST", path="sobjects/{}".format(sobject), payload=payload,
         )
 
-    def modify_object(
-        self, salesforce_object_name: str, record_id: str, payload: Dict[str, str],
+    def modify_record(
+        self, sobject: str, record_id: str, payload: Dict[str, str],
     ) -> str:
+        """
+        Update an instance of a salesforce object.
+
+        Modify a record of type `sobject` with id `record_id` using the new
+        information in the `payload`.
+
+        Parameters
+        ----------
+        sobject : str
+            A salesforce object.
+        record_id : str
+            The identification of the record.
+        payload : Dict[str, str]
+            Payload that contains information to update the record.
+        Returns
+        -------
+        str
+            Response from Salesforce. This is a JSON encoded as text.
+
+        Raises
+        ------
+        AssertionError
+            If the object is not valid, or the payload contains fields that are not valid for this
+            object.
+
+        requests.exceptions.RequestException
+            If the connection with salesforce fails, e.g. the record does not exist.
+
+        See Also
+        --------
+        do_request : this method does a request of type PATCH.
+
+        """
         return self.do_request(
             method="PATCH",
-            path="sobjects/{}/{}".format(salesforce_object_name, record_id),
+            path="sobjects/{}/{}".format(sobject, record_id),
             payload=payload,
         )
 
-    def delete_object(self, salesforce_object_name: str, record_id: str) -> str:
+    def delete_record(self, sobject: str, record_id: str) -> str:
+        """
+        Remove an instance of a salesforce object.
+
+        Delete a record of type `sobject` with id `record_id`.
+
+        Parameters
+        ----------
+        sobject : str
+            A salesforce object.
+        record_id : str
+            The identification of the record.
+        Returns
+        -------
+        str
+            Response from Salesforce. This is a JSON encoded as text.
+
+        Raises
+        ------
+        AssertionError
+            If the object is not valid, or the payload contains fields that are not valid for this
+            object.
+
+        requests.exceptions.RequestException
+            If the connection with salesforce fails, e.g. the record does not exist.
+
+        See Also
+        --------
+        do_request : this method does a request of type DELETE.
+
+        """
         return self.do_request(
-            method="DELETE",
-            path="sobjects/{}/{}".format(salesforce_object_name, record_id),
+            method="DELETE", path="sobjects/{}/{}".format(sobject, record_id),
         )
+
+    def get_remaining_daily_api_requests(self) -> int:
+        """
+        Return the number of calls still available in the current day.
+
+        Returns
+        -------
+        int
+            The number of remaining daily API requests.
+
+        See Also
+        --------
+        do_request : this method does a request of type GET.
+
+        Notes
+        -----
+        For more information about the salesforce organization limits: [1]
+
+        References
+        ----------
+        [1] https://developer.salesforce.com/docs/atlas.en-us.api_rest.meta/api_rest/dome_limits.htm
+
+        """
+        response = self.do_request(method="GET", path="limits")
+        return int(json.loads(response)["DailyApiRequests"]["Remaining"])
