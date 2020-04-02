@@ -79,7 +79,7 @@ class TestObjectsHandler:
             client_secret=SANDBOX_CLIENT_PSW,
         )
 
-        # Insert 3 Contacts that do not exist. Success expected.
+        # Insert n Contacts that do not exist. Success expected.
         contact_payloads = [
             {
                 "FirstName": "Randall D.",
@@ -131,7 +131,7 @@ class TestObjectsHandler:
         obtained_contacts = oh.do_query_with_SOQL("SELECT Name from Contact")
         assert len(obtained_contacts) == 0
 
-        # Insert 2 Contacts.
+        # Insert n Contacts.
         contact_payloads = [
             {
                 "FirstName": "Angel",
@@ -146,17 +146,17 @@ class TestObjectsHandler:
                 method="POST", path="sobjects/Contact", payload=contact_payload
             )
 
-        # Read the 2 Contacts inserted with SOQL. Success expected.
-        expected_names = [
-            "{} {}".format(
-                contact_payloads[0]["FirstName"], contact_payloads[0]["LastName"]
-            ),
-            "{} {}".format(
-                contact_payloads[1]["FirstName"], contact_payloads[1]["LastName"]
-            ),
-        ]
+        # Read the n Contacts inserted with SOQL. Success expected.
+        expected_names = []
+        for contact_payload in contact_payloads:
+            expected_names.append(
+                "{} {}".format(
+                    contact_payload["FirstName"], contact_payload["LastName"]
+                )
+            )
+
         obtained_contacts = oh.do_query_with_SOQL("SELECT Id, Name from Contact")
-        assert len(obtained_contacts) == 2
+        assert len(obtained_contacts) == len(contact_payloads)
 
         obtained_names = []
         obtained_ids = []
@@ -198,7 +198,7 @@ class TestObjectsHandler:
             client_secret=SANDBOX_CLIENT_PSW,
         )
 
-        # Insert 2 Contacts.
+        # Insert n Contacts.
         contact_payloads = [
             {"FirstName": "Ramon", "LastName": "Evans", "Email": "ramon@example.com",},
             {"FirstName": "Janis", "LastName": "Holmes", "Email": "janis@example.com",},
@@ -270,7 +270,7 @@ class TestObjectsHandler:
             client_secret=SANDBOX_CLIENT_PSW,
         )
 
-        # Insert 2 Contacts.
+        # Insert n Contacts.
         contact_payloads = [
             {
                 "FirstName": "Brian",
@@ -310,7 +310,7 @@ class TestObjectsHandler:
         obtained_contacts = oh.do_query_with_SOQL(
             "SELECT Name from contact WHERE Name = '{}'".format(obtained_names[1])
         )
-        assert len(obtained_contacts) == 1
+        assert len(obtained_contacts) == len(contact_payloads) - 1
 
         # Delete a Contact that does not exist. Failure expected.
         with pytest.raises(requests.exceptions.RequestException) as e:
@@ -327,7 +327,7 @@ class TestObjectsHandler:
             client_secret=SANDBOX_CLIENT_PSW,
         )
 
-        # Insert 3 Contacts that do not exist. Success expected.
+        # Insert n Contacts that do not exist. Success expected.
         contact_payloads = [
             {"FirstName": "Kim", "LastName": "George", "Email": "kim@example.com",},
             {
@@ -365,7 +365,7 @@ class TestObjectsHandler:
             client_secret=SANDBOX_CLIENT_PSW,
         )
 
-        # Insert 2 Contacts.
+        # Insert n Contacts.
         contact_payloads = [
             {"FirstName": "Boyd", "LastName": "Johnston", "Email": "boyd@example.com",},
             {
@@ -434,7 +434,7 @@ class TestObjectsHandler:
             client_secret=SANDBOX_CLIENT_PSW,
         )
 
-        # Insert 2 Contacts.
+        # Insert n Contacts.
         contact_payloads = [
             {
                 "FirstName": "Elaine",
@@ -468,7 +468,7 @@ class TestObjectsHandler:
         obtained_contacts = oh.do_query_with_SOQL(
             "SELECT Name from contact WHERE Name = '{}'".format(obtained_names[1])
         )
-        assert len(obtained_contacts) == 1
+        assert len(obtained_contacts) == len(contact_payloads) - 1
 
         # Delete a Contact that does not exist. Failure expected.
         with pytest.raises(requests.exceptions.RequestException) as e:

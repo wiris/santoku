@@ -169,7 +169,7 @@ class ObjectsHandler:
                 else:
                     salesforce_object_name = ""
         elif "query" in path:
-            # ...query/idnetifier
+            # ...query/identifier
             salesforce_object_name = ""
 
         elif path == "sobjects" or path == "limits":
@@ -281,8 +281,8 @@ class ObjectsHandler:
 
         Returns
         -------
-        str
-            Response from Salesforce. This is a JSON encoded as text.
+        List[Dict[str, Any]]
+            A list of records resulting from the query.
 
         Raises
         ------
@@ -321,6 +321,7 @@ class ObjectsHandler:
         records = response_dict["records"]
         while "nextRecordsUrl" in response_dict:
             next_url = response_dict["nextRecordsUrl"]
+            # The nextRecordsUrl field has the form .../query/query_identifier
             query_identifier = next_url.split("/")[-1]
             response = self.do_request(
                 method="GET", path="query/{}".format(query_identifier)
@@ -376,7 +377,7 @@ class ObjectsHandler:
         sobject : str
             A salesforce object.
         record_id : str
-            The identification of the record.
+            The record identifier.
         payload : Dict[str, str]
             Payload that contains information to update the record.
         Returns
