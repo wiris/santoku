@@ -70,6 +70,33 @@ class TestObjectsHandler:
                 method="POST", path="sobjects/Contact", payload=contact_payloads[0],
             )
 
+    def test_salesforce_object_required_fields(self):
+        oh = ObjectsHandler(
+            auth_url=SANDBOX_AUTH_URL,
+            username=SANDBOX_USR,
+            password=SANDBOX_PSW,
+            client_id=SANDBOX_CLIENT_USR,
+            client_secret=SANDBOX_CLIENT_PSW,
+        )
+
+        # Test inserting a contact without a required field. Failure expected.
+        contact_payload = {
+            "FirstName": "Larry",
+            "Email": "larry@example.com",
+        }
+        with pytest.raises(ValueError) as e:
+            oh.do_request(
+                method="POST", path="sobjects/Contact", payload=contact_payload,
+            )
+
+        # Test inserting a contact with an empty required field. Failure expected.
+        contact_payload["LastName"] = ""
+
+        with pytest.raises(ValueError) as e:
+            oh.do_request(
+                method="POST", path="sobjects/Contact", payload=contact_payload,
+            )
+
     def test_contact_insertion(self):
         oh = ObjectsHandler(
             auth_url=SANDBOX_AUTH_URL,
@@ -483,8 +510,8 @@ class TestObjectsHandler:
             client_secret=SANDBOX_CLIENT_PSW,
         )
 
+        # Get the maximum number of daily api requests. Success expected.
         remaining_requests = oh.get_remaining_daily_api_requests()
-        # Get the maximum number of daily api requests.
         response = oh.do_request(method="GET", path="limits")
         maximum_requests = json.loads(response)["DailyApiRequests"]["Max"]
         assert remaining_requests >= 0 and remaining_requests <= maximum_requests
