@@ -83,6 +83,7 @@ class ObjectsHandler:
 
         self._salesforce_object_names_cache: List[str] = []
         self._salesforce_object_fields_cache: Dict[str, List[str]] = {}
+        self._salesforce_object_required_fields_cache: Dict[str, List[str]] = {}
 
         self.request_headers: Dict[str, str] = {
             "Authorization": "OAuth",
@@ -122,7 +123,15 @@ class ObjectsHandler:
             )
 
     def get_salesforce_object_names(self) -> List[str]:
+        """
+        Return the sobjects in the organization.
 
+        Return
+        ------
+        List[str]
+            List of names of the salesforce object in the organization.
+
+        """
         if not self._salesforce_object_names_cache:
             self._validate_salesforce_object = False
 
@@ -136,7 +145,20 @@ class ObjectsHandler:
         return self._salesforce_object_names_cache
 
     def get_salesforce_object_fields(self, salesforce_object_name: str) -> List[str]:
+        """
+        Return the arguments that an sobject has.
 
+        Parameters
+        ----------
+        salesforce_object_name : str, optional
+            A salesforce object.
+
+        Return
+        ------
+        List[str]
+            List of all the fields that a salesforce object has.
+
+        """
         if salesforce_object_name not in self._salesforce_object_fields_cache:
             self._validate_salesforce_object = False
             response = self.do_request(
@@ -147,7 +169,49 @@ class ObjectsHandler:
                 fields["name"] for fields in json.loads(response)["fields"]
             ]
 
+            # Update also the required fields to save a call to the API.
+            self._salesforce_object_required_fields_cache[salesforce_object_name] = [
+                fields["name"]
+                for fields in json.loads(response)["fields"]
+                if not fields["nillable"]
+                and not fields["defaultedOnCreate"]
+                and fields["createable"]
+            ]
+
         return self._salesforce_object_fields_cache[salesforce_object_name]
+
+    def get_salesforce_object_required_fields(
+        self, salesforce_object_name: str
+    ) -> List[str]:
+        """
+        Return the mandatory arguments that an sobject need to be created.
+
+        Parameters
+        ----------
+        salesforce_object_name : str, optional
+            A salesforce object.
+
+        Return
+        ------
+        List[str]
+            List of the required fields that a salesforce object need to be created.
+
+        """
+        if salesforce_object_name not in self._salesforce_object_required_fields_cache:
+            self._validate_salesforce_object = False
+            response = self.do_request(
+                method="GET", path="sobjects/{}/describe".format(salesforce_object_name)
+            )
+
+            self._salesforce_object_required_fields_cache[salesforce_object_name] = [
+                fields["name"]
+                for fields in json.loads(response)["fields"]
+                if not fields["nillable"]
+                and not fields["defaultedOnCreate"]
+                and fields["createable"]
+            ]
+
+        return self._salesforce_object_required_fields_cache[salesforce_object_name]
 
     def _obtain_salesforce_object_name_from_path(self, path: str) -> str:
         # Extract salesforce_object_name taking into account that we'll find something like...
@@ -180,12 +244,28 @@ class ObjectsHandler:
 
         return salesforce_object_name
 
-    def _validate_payload_content(
+    def _validate_payload_fields(
         self, payload: Dict[str, str], object_fields: List[str]
     ) -> None:
-        for field in payload.keys():
+        for field in payload:
             if field not in object_fields:
-                raise ValueError("{} isn't a valid field".format(field))
+                raise ValueError("`{}` isn't a valid field".format(field))
+
+    def _validate_required_fields_in_payload(
+        self, payload: Dict[str, str], object_required_fields: List[str]
+    ) -> None:
+        for field in object_required_fields:
+            if field not in payload:
+                raise ValueError(
+                    "`{}` is a required field and does not appear in the payload.".format(
+                        field
+                    )
+                )
+            else:
+                if not payload[field]:
+                    raise ValueError(
+                        "`{}` is a required field and must not be empty.".format(field)
+                    )
 
     def do_request(
         self, method: str, path: str, payload: Optional[Dict[str, str]] = None,
@@ -241,9 +321,17 @@ class ObjectsHandler:
                     object_fields = self.get_salesforce_object_fields(
                         salesforce_object_name
                     )
-                    self._validate_payload_content(
+                    self._validate_payload_fields(
                         payload=payload, object_fields=object_fields
                     )
+                    if method == "POST":
+                        object_required_fields = self.get_salesforce_object_required_fields(
+                            salesforce_object_name
+                        )
+                        self._validate_required_fields_in_payload(
+                            payload=payload,
+                            object_required_fields=object_required_fields,
+                        )
 
                 # We use reflection to choose which method (POST or PATCH) to execute.
                 response = getattr(requests, method.lower())(
