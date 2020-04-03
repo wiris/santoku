@@ -202,7 +202,7 @@ class ObjectsHandler:
         that some records of objects need specific fields to be given when they are created. We have
         observed that fields are `required` when they cannot be null and their value can only be
         assigned manually by the user.
-        For more information about sboject fields : [1]
+        For more information about sobject fields: [1]
 
         References
         ----------
