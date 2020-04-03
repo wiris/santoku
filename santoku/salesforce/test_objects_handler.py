@@ -2,7 +2,6 @@ import os
 import requests
 import pytest
 import json
-import time
 from ..salesforce.objects_handler import ObjectsHandler
 from typing import List, Dict, Any
 
