@@ -2,6 +2,7 @@ import os
 import requests
 import pytest
 import json
+import time
 from ..salesforce.objects_handler import ObjectsHandler
 from typing import List, Dict, Any
 
@@ -200,15 +201,19 @@ class TestObjectsHandler:
         obtained_contacts = oh.do_query_with_SOQL(
             "SELECT Id, Name from contact WHERE Id = '{}'".format(expected_id)
         )
-        assert len(obtained_contacts) == 1
-        assert obtained_contacts[0]["Name"] == expected_name
+        assert (
+            len(obtained_contacts) == 1
+            and obtained_contacts[0]["Name"] == expected_name
+        )
 
         # Read a specific contact with SOQL by Name. Success expected.
         obtained_contacts = oh.do_query_with_SOQL(
             "SELECT Name from contact WHERE Name = '{}'".format(expected_name)
         )
-        assert len(obtained_contacts) == 1
-        assert obtained_contacts[0]["Name"] == expected_name
+        assert (
+            len(obtained_contacts) == 1
+            and obtained_contacts[0]["Name"] == expected_name
+        )
 
         # Query a contact that does not exists with SOQL. Success expected.
         obtained_contacts = oh.do_query_with_SOQL(
@@ -276,8 +281,10 @@ class TestObjectsHandler:
                 obtained_contacts[0]["Id"]
             )
         )
-        assert obtained_contacts[0]["Name"] == expected_contact_name
-        assert obtained_contacts[0]["Email"] == contact_payload["Email"]
+        assert (
+            obtained_contacts[0]["Name"] == expected_contact_name
+            and obtained_contacts[0]["Email"] == contact_payload["Email"]
+        )
 
         # Modify a Contact that does not exist. Failure expected.
         contact_payload = {"FirstName": "ANYNAME"}
@@ -442,8 +449,10 @@ class TestObjectsHandler:
                 expected_contact_id
             )
         )
-        assert obtained_contacts[0]["Name"] == expected_contact_name
-        assert obtained_contacts[0]["Email"] == contact_payload["Email"]
+        assert (
+            obtained_contacts[0]["Name"] == expected_contact_name
+            and obtained_contacts[0]["Email"] == contact_payload["Email"]
+        )
 
         # Modify a Contact that does not exist. Failure expected.
         contact_payload = {"FirstName": "ANYNAME"}
@@ -500,18 +509,3 @@ class TestObjectsHandler:
         # Delete a Contact that does not exist. Failure expected.
         with pytest.raises(requests.exceptions.RequestException) as e:
             oh.delete_record(sobject="Contact", record_id=obtained_ids[0])
-
-    def test_get_remaining_daily_api_requests(self):
-        oh = ObjectsHandler(
-            auth_url=SANDBOX_AUTH_URL,
-            username=SANDBOX_USR,
-            password=SANDBOX_PSW,
-            client_id=SANDBOX_CLIENT_USR,
-            client_secret=SANDBOX_CLIENT_PSW,
-        )
-
-        # Get the maximum number of daily api requests. Success expected.
-        remaining_requests = oh.get_remaining_daily_api_requests()
-        response = oh.do_request(method="GET", path="limits")
-        maximum_requests = json.loads(response)["DailyApiRequests"]["Max"]
-        assert remaining_requests >= 0 and remaining_requests <= maximum_requests

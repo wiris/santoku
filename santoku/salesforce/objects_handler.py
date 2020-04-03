@@ -29,7 +29,7 @@ class ObjectsHandler:
     References
     ----------
     [1] :
-        https://developer.salesforce.com/docs/atlas.en-us.api_rest.meta/api_rest/quickstart.htm
+    https://developer.salesforce.com/docs/atlas.en-us.api_rest.meta/api_rest/quickstart.htm
 
     """
 
@@ -184,7 +184,7 @@ class ObjectsHandler:
         self, salesforce_object_name: str
     ) -> List[str]:
         """
-        Return the mandatory arguments that an sobject need to be created.
+        Return the mandatory arguments that an sobject needs to be created.
 
         Parameters
         ----------
@@ -194,7 +194,20 @@ class ObjectsHandler:
         Return
         ------
         List[str]
-            List of the required fields that a salesforce object need to be created.
+            List of the required fields that a salesforce object needs to be created.
+
+        Notes
+        -----
+        Salesforce has not made a definition of what should be `required`. However, we have found
+        that some records of objects need specific fields to be given when they are created. We have
+        observed that fields are `required` when they cannot be null and their value can only be
+        assigned manually by the user.
+        For more information about sboject fields : [1]
+
+        References
+        ----------
+        [1] :
+        https://developer.salesforce.com/docs/atlas.en-us.api.meta/api/sforce_api_objects_list.htm
 
         """
         if salesforce_object_name not in self._salesforce_object_required_fields_cache:
@@ -203,6 +216,8 @@ class ObjectsHandler:
                 method="GET", path="sobjects/{}/describe".format(salesforce_object_name)
             )
 
+            # A required field cannot be null, its value will not be assigned automatically by
+            # salesforce when the record is created, and its value can be assigned by the user.
             self._salesforce_object_required_fields_cache[salesforce_object_name] = [
                 fields["name"]
                 for fields in json.loads(response)["fields"]
@@ -396,10 +411,17 @@ class ObjectsHandler:
 
         References
         ----------
-        [1] https://developer.salesforce.com/docs/atlas.en-us.soql_sosl.meta/soql_sosl/sforce_api_calls_soql.htm
-        [2] https://developer.salesforce.com/docs/atlas.en-us.soql_sosl.meta/soql_sosl/sforce_api_calls_soql_select.htm
-        [3] https://developer.salesforce.com/docs/atlas.en-us.api_rest.meta/api_rest/resources_query.htm
-        [4] https://developer.salesforce.com/docs/atlas.en-us.salesforce_app_limits_cheatsheet.meta/salesforce_app_limits_cheatsheet/salesforce_app_limits_platform_soslsoql.htm
+        [1] :
+        https://developer.salesforce.com/docs/atlas.en-us.soql_sosl.meta/soql_sosl/sforce_api_calls_soql.htm
+
+        [2] :
+        https://developer.salesforce.com/docs/atlas.en-us.soql_sosl.meta/soql_sosl/sforce_api_calls_soql_select.htm
+
+        [3] :
+        https://developer.salesforce.com/docs/atlas.en-us.api_rest.meta/api_rest/resources_query.htm
+
+        [4] :
+        https://developer.salesforce.com/docs/atlas.en-us.salesforce_app_limits_cheatsheet.meta/salesforce_app_limits_cheatsheet/salesforce_app_limits_platform_soslsoql.htm
 
         """
         response = self.do_request(
@@ -547,7 +569,8 @@ class ObjectsHandler:
 
         References
         ----------
-        [1] https://developer.salesforce.com/docs/atlas.en-us.api_rest.meta/api_rest/dome_limits.htm
+        [1] :
+        https://developer.salesforce.com/docs/atlas.en-us.api_rest.meta/api_rest/dome_limits.htm
 
         """
         response = self.do_request(method="GET", path="limits")
