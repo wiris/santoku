@@ -1,6 +1,16 @@
 import boto3
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List
 from botocore import exceptions
+
+
+class MessageAttributeError(Exception):
+    def __init__(self, message):
+        super().__init__(message)
+
+
+class MessageBatchError(Exception):
+    def __init__(self, message):
+        super().__init__(message)
 
 
 class SQSHandler:
@@ -8,9 +18,9 @@ class SQSHandler:
     Class to manage operations of Amazon Simple Queue Service (SQS).
 
     This class is intended to be run on AWS Glue jobs (Python Shell). SQS consists in hosted queues
-    that allows sending and receiving messages. This class provides methods to interact with SQS
-    queues and makes easy some usual operations. The connection to the SQS queues are done using the
-    service class Client of the library boto3.
+    that allow sending and receiving messages. This class provides methods to interact with SQS
+    queues and makes easy some usual operations. The connection to the SQS queues is done using the
+    service class Client of the boto3 library.
 
     """
 
@@ -21,17 +31,25 @@ class SQSHandler:
         Parameters
         ----------
         region_name : str
-            Region to which the AWS account is associated. All the queues to handle must be created
-            in this region.
+            AWS Region in which to operate the service.
+
+        Notes
+        -----
+            More information on the available regions: [1]
+
+        References
+        ----------
+        [1] :
+        https://aws.amazon.com/about-aws/global-infrastructure/regions_az/
 
         """
         self.client = boto3.client("sqs", region_name=region_name)
         # Cache to store the url of each queue.
-        self.queue_names_urls: Dict[str, str] = {}
+        self.queue_url: Dict[str, str] = {}
 
-    def queue_exist(self, queue_name: str) -> bool:
+    def check_queue_existence(self, queue_name: str) -> bool:
         """
-        Check if a queue is created.
+        Check if a queue exists.
 
         Parameters
         ----------
@@ -41,7 +59,7 @@ class SQSHandler:
         Returns
         -------
         bool
-            True if the there is a queue with `queue_name` created.
+            True if the there's a queue called `queue_name`.
 
         """
         try:
@@ -53,7 +71,7 @@ class SQSHandler:
                 raise
         return True
 
-    def queue_is_fifo(self, queue_name: str) -> bool:
+    def check_queue_is_fifo(self, queue_name: str) -> bool:
         """
         Check if a queue is of type FIFO.
 
@@ -70,7 +88,7 @@ class SQSHandler:
         """
         return queue_name[-5:] == ".fifo"
 
-    def get_queue_url_by_name(self, queue_name: str) -> str:
+    def get_queue_url(self, queue_name: str) -> str:
         """
         Return the url of the queue.
 
@@ -95,7 +113,7 @@ class SQSHandler:
         https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-general-identifiers.html
 
         """
-        if self.queue_exist(queue_name=queue_name):
+        if self.check_queue_existence(queue_name=queue_name):
             queue_url = self.client.get_queue_url(QueueName=queue_name)["QueueUrl"]
         else:
             raise Exception("The queue `{}` does not exist.".format(queue_name))
@@ -103,7 +121,7 @@ class SQSHandler:
 
     def message_attributes_well_formed(
         self, message_attributes: Dict[str, Dict[str, str]]
-    ) -> Tuple[bool, str]:
+    ) -> None:
         """
         Check whether the message attributes are correct.
 
@@ -120,6 +138,11 @@ class SQSHandler:
         Tuple[bool, str]
             True and an empty message will be returned if the message attributes are correclty
             formed. False and an error message explaining the error will be returned otherwise.
+
+        Raises
+        ------
+        MessageAttributeError
+            If the message attributes are not correclty structured.
 
         Notes
         -----
@@ -139,44 +162,44 @@ class SQSHandler:
 
         if len(message_attributes) > 10:
             error_message = "Messages can have up to 10 attributes."
-            return (False, error_message)
+            raise MessageAttributeError(error_message)
 
         for _, attribute_content in message_attributes.items():
 
             if not isinstance(attribute_content, dict):
                 error_message = "Each message attribute must be a dictionary containing 'DataType' and 'StringValue' arguments."
-                return (False, error_message)
+                raise MessageAttributeError(error_message)
 
             if "DataType" not in attribute_content:
                 error_message = "'DataType' argument is missing in message attribute."
-                return (False, error_message)
+                raise MessageAttributeError(error_message)
 
             if attribute_content["DataType"] not in ["Binary", "Number", "String"]:
                 error_message = "The supported types for 'DataType' argument are: Binary, Number and String."
-                return (False, error_message)
+                raise MessageAttributeError(error_message)
 
             if (
                 attribute_content["DataType"] == "String"
                 and "StringValue" not in attribute_content
             ):
                 error_message = "'StringValue' argument is required for message attributes of type String."
-                return (False, error_message)
+                raise MessageAttributeError(error_message)
 
             if (
                 attribute_content["DataType"] == "Number"
                 and "StringValue" not in attribute_content
             ):
                 error_message = "'StringValue' argument is required for message attributes of type Number."
-                return (False, error_message)
+                raise MessageAttributeError(error_message)
 
             if (
                 attribute_content["DataType"] == "Binary"
                 and "BinaryValue" not in attribute_content
             ):
                 error_message = "'BinaryValue' argument is required for message attributes of type Binary."
-                return (False, error_message)
+                raise MessageAttributeError(error_message)
 
-        return (True, "")
+        return None
 
     def send_message(
         self,
@@ -202,18 +225,18 @@ class SQSHandler:
         Returns
         -------
         Dict[str, Any]
-            A response containing information about the message sent. Among these information we
-            can find the message id that identifies the message, and metadata containing the http
-            status code.
+            A response containing information about messages sent. In these information we can find
+            the message id that identifies the message, and metadata containing the HTTP status code
+            of each message.
 
         Raises
         ------
-        AssertionError
+        MessageAttributeError
             If the message argument is not correclty structured.
 
         See Also
         --------
-        get_queue_url_by_name : this method retreives the queue url with the given queue name.
+        get_queue_url : this method retreives the queue url with the given queue name.
         message_attributes_well_formed : this methods check the message attributes given.
 
         Notes
@@ -223,18 +246,20 @@ class SQSHandler:
         """
 
         # Update the urls if not registered yet.
-        if queue_name in self.queue_names_urls:
-            queue_url = self.queue_names_urls[queue_name]
+        if queue_name in self.queue_url:
+            queue_url = self.queue_url[queue_name]
         else:
-            queue_url = self.get_queue_url_by_name(queue_name)
-            self.queue_names_urls[queue_name] = queue_url
+            queue_url = self.get_queue_url(queue_name=queue_name)
+            self.queue_url[queue_name] = queue_url
 
         if message_attributes:
             # Check whether the message attributes are correctly structured.
-            well_formed, error_message = self.message_attributes_well_formed(
-                message_attributes=message_attributes
-            )
-            assert well_formed, error_message
+            try:
+                self.message_attributes_well_formed(
+                    message_attributes=message_attributes
+                )
+            except MessageAttributeError:
+                raise
 
             response = self.client.send_message(
                 QueueUrl=queue_url,
@@ -269,19 +294,19 @@ class SQSHandler:
         Returns
         -------
         Dict[str, Any]
-            A response containing information about all the sent messages. Among these information
+            A response containing information about messages sent. In this information
             we can find the message id that identifies each message, and metadata containing the
-            http status code of all the messages.
+            HTTP status code of each message.
 
         Raises
         ------
-        AssertionError
+        MessageAttributeError
             If any message does not contain id or message body, if the ids are not unique, or if the
             message attributes are not correctly structured.
 
         See Also
         --------
-        get_queue_url_by_name : this method retreives the queue url with the given queue name.
+        get_queue_url : this method retreives the queue url with the given queue name.
         message_attributes_well_formed : this method checks the message attributes given.
 
         Notes
@@ -291,41 +316,45 @@ class SQSHandler:
         messages (message body and attributes all together) cannot exceed 256KB.
 
         """
-        assert entries, "The list of 'entries' cannot be emtpy."
+        if not entries:
+            error_message = "The list of 'entries' cannot be emtpy."
+            raise MessageBatchError(error_message)
 
-        assert (
-            len(entries) <= 10
-        ), "The maximum number of messages allowed in a batch is 10."
+        if len(entries) > 10:
+            error_message = "The maximum number of messages allowed in a batch is 10."
+            raise MessageBatchError(error_message)
 
-        # Check if all the messages are have the required attributes and the message attributes are
+        # Check if all message have the required attributes and if the message attributes are
         # correctly structured.
         entries_ids = []
         for entry in entries:
 
-            assert "Id" in entry, "'Id' attribute is required for each message."
+            if "Id" not in entry:
+                error_message = "'Id' attribute is required for each message."
+                raise MessageBatchError(error_message)
             entries_ids.append(entry["Id"])
 
-            assert (
-                "MessageBody" in entry
-            ), "'MessageBody' attribute is required for each message."
+            if "MessageBody" not in entry:
+                error_message = "'MessageBody' attribute is required for each message."
+                raise MessageBatchError(error_message)
 
             if "MessageAttributes" in entry:
-                well_formed, error_meesage = self.message_attributes_well_formed(
-                    entry["MessageAttributes"]
-                )
-                assert well_formed, error_meesage
+                try:
+                    self.message_attributes_well_formed(entry["MessageAttributes"])
+                except MessageAttributeError:
+                    raise
 
         # Check the message ids are unique along the batch.
-        assert len(entries_ids) == len(
-            set(entries_ids)
-        ), "'ID' attribute must be unique along all the messages."
+        if len(entries_ids) != len(set(entries_ids)):
+            error_message = "'ID' attribute must be unique along all the messages."
+            raise MessageBatchError(error_message)
 
         # Update the urls if not registered yet.
-        if queue_name in self.queue_names_urls:
-            queue_url = self.queue_names_urls[queue_name]
+        if queue_name in self.queue_url:
+            queue_url = self.queue_url[queue_name]
         else:
-            queue_url = self.get_queue_url_by_name(queue_name)
-            self.queue_names_urls[queue_name] = queue_url
+            queue_url = self.get_queue_url(queue_name=queue_name)
+            self.queue_url[queue_name] = queue_url
 
         response = self.client.send_message_batch(QueueUrl=queue_name, Entries=entries)
         return response
@@ -342,20 +371,20 @@ class SQSHandler:
         Returns
         -------
         Dict[str, Any]
-            A response containing information about all the received messages. Among these
-            information we can find the message id that identifies each message, the receipt
-            handle used to delte the message, and the content of the message such as the message
-            body and message attributes.
+            A response containing information about the received messages. In these information we
+            can find the message id that identifies each message, the receipt handle used to delte
+            the message, and the content of the message such as the message body and message
+            attributes.
 
         Raises
         ------
-        AssertionError
+        MessageAttributeError
             If any message does not contain id or message body, if the ids are not unique, if the
             message attributes are not correctly structured.
 
         See Also
         --------
-        get_queue_url_by_name : this method retreives the queue url with the given queue name.
+        get_queue_url : this method retreives the queue url with the given queue name.
         message_attributes_well_formed : this method checks the message attributes given.
 
         Notes
@@ -372,11 +401,11 @@ class SQSHandler:
 
         """
         # Update the urls if not registered yet.
-        if queue_name in self.queue_names_urls:
-            queue_url = self.queue_names_urls[queue_name]
+        if queue_name in self.queue_url:
+            queue_url = self.queue_url[queue_name]
         else:
-            queue_url = self.get_queue_url_by_name(queue_name)
-            self.queue_names_urls[queue_name] = queue_url
+            queue_url = self.get_queue_url(queue_name=queue_name)
+            self.queue_url[queue_name] = queue_url
 
         response = self.client.receive_message(
             QueueUrl=queue_url, MaxNumberOfMessages=10
@@ -402,7 +431,7 @@ class SQSHandler:
 
         See Also
         --------
-        get_queue_url_by_name : this method retreives the queue url with the given queue name.
+        get_queue_url : this method retreives the queue url with the given queue name.
 
         Notes
         -----
@@ -419,11 +448,11 @@ class SQSHandler:
 
         """
         # Update the urls if not registered yet.
-        if queue_name in self.queue_names_urls:
-            queue_url = self.queue_names_urls[queue_name]
+        if queue_name in self.queue_url:
+            queue_url = self.queue_url[queue_name]
         else:
-            queue_url = self.get_queue_url_by_name(queue_name)
-            self.queue_names_urls[queue_name] = queue_url
+            queue_url = self.get_queue_url(queue_name=queue_name)
+            self.queue_url[queue_name] = queue_url
 
         self.client.delete_message(QueueUrl=queue_url, ReceiptHandle=receipt_handle)
         return None

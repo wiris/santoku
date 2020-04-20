@@ -146,7 +146,7 @@ class S3Handler:
         ):
             yield result["Key"]
 
-    def object_exist(self, bucket: str, object_key: str) -> bool:
+    def check_object_exist(self, bucket: str, object_key: str) -> bool:
         """
         Check whether an object exist.
 
@@ -203,7 +203,7 @@ class S3Handler:
             If the object called `object_key` does not exist in the `bucket`.
 
         """
-        if self.object_exist(bucket=bucket, object_key=object_key):
+        if self.check_object_exist(bucket=bucket, object_key=object_key):
             object_to_read = self.resource.Object(bucket_name=bucket, key=object_key)
             file_content = object_to_read.get()["Body"].read().decode(encoding)
         else:
