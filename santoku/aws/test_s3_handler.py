@@ -216,7 +216,7 @@ class TestS3Handler:
         obtained_objects = list(self.s3_handler.list_objects(bucket=TEST_BUCKET,))
         assert expected_objects == obtained_objects
 
-    def test_object_exist(self, tmpdir):
+    def test_check_object_exist(self, tmpdir):
         file_names = ["first_object.json", "second_object.json"]
         contents = ["", ""]
         generate_fixture_files(
@@ -227,18 +227,20 @@ class TestS3Handler:
         )
 
         # The method gives true when an object exist in the bucket. Success expected.
-        obtained_result = self.s3_handler.object_exist(
-            bucket=TEST_BUCKET, object_key="test_object_exist/{}".format(file_names[0]),
+        obtained_result = self.s3_handler.check_object_exist(
+            bucket=TEST_BUCKET,
+            object_key="test_check_object_exist/{}".format(file_names[0]),
         )
         assert obtained_result
 
-        obtained_result = self.s3_handler.object_exist(
-            bucket=TEST_BUCKET, object_key="test_object_exist/{}".format(file_names[1]),
+        obtained_result = self.s3_handler.check_object_exist(
+            bucket=TEST_BUCKET,
+            object_key="test_check_object_exist/{}".format(file_names[1]),
         )
         assert obtained_result
 
         # The method gives false when an object does not exist in the bucket. Success expected.
-        obtained_result = self.s3_handler.object_exist(
+        obtained_result = self.s3_handler.check_object_exist(
             bucket=TEST_BUCKET, object_key=file_names[1]
         )
         assert not obtained_result

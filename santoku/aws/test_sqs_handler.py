@@ -5,10 +5,12 @@ from botocore import client
 from botocore import exceptions
 from moto import mock_sqs
 from ..aws.sqs_handler import SQSHandler
+from ..aws.sqs_handler import MessageAttributeError
+from ..aws.sqs_handler import MessageBatchError
 
-TEST_REGION = "eu-central-1"
-TEST_SQS_QUEUE = "test_standard_queue"
-TEST_SQS_QUEUE_FIFO = "test_fifo_queue.fifo"
+REGION = "eu-central-1"
+STANDARD_SQS_NAME = "test_standard_queue"
+FIFO_SQS_NAME = "test_fifo_queue.fifo"
 
 
 def delete_queue(sqs_client: client, queue_name):
@@ -21,70 +23,77 @@ class TestSQSHandler:
         self.mock_sqs = mock_sqs()
         self.mock_sqs.start()
 
-        self.sqs_handler = SQSHandler(region_name=TEST_REGION)
+        self.sqs_handler = SQSHandler(region_name=REGION)
         self.client = boto3.client(
             "sqs",
-            region_name=TEST_REGION,
+            region_name=REGION,
             aws_access_key_id="fake_access_key",
             aws_secret_access_key="fake_secret_key",
         )
 
         # Create a standard queue.
         try:
-            self.client.get_queue_url(QueueName=TEST_SQS_QUEUE)
+            self.client.get_queue_url(QueueName=STANDARD_SQS_NAME)
         except exceptions.ClientError:
-            # By catching the exception we check the queue certainly do not exist.
+            # By catching the exception we check the queue certainly does not exist.
             pass
         else:
             raise EnvironmentError(
-                "{queue_name} should not exist.".format(queue_name=TEST_SQS_QUEUE)
+                "{queue_name} should not exist.".format(queue_name=STANDARD_SQS_NAME)
             )
-        self.client.create_queue(QueueName=TEST_SQS_QUEUE)
+        self.client.create_queue(QueueName=STANDARD_SQS_NAME)
 
         # Create a FIFO queue.
         try:
-            self.client.get_queue_url(QueueName=TEST_SQS_QUEUE_FIFO)
+            self.client.get_queue_url(QueueName=FIFO_SQS_NAME)
         except exceptions.ClientError:
             pass
         else:
             raise EnvironmentError(
-                "{queue_name} should not exist.".format(queue_name=TEST_SQS_QUEUE_FIFO)
+                "{queue_name} should not exist.".format(queue_name=FIFO_SQS_NAME)
             )
         self.client.create_queue(
-            QueueName=TEST_SQS_QUEUE_FIFO, Attributes={"FifoQueue": "true"}
+            QueueName=FIFO_SQS_NAME, Attributes={"FifoQueue": "true"}
         )
 
     def teardown_method(self):
-        delete_queue(sqs_client=self.client, queue_name=TEST_SQS_QUEUE)
-        delete_queue(sqs_client=self.client, queue_name=TEST_SQS_QUEUE_FIFO)
+        delete_queue(sqs_client=self.client, queue_name=STANDARD_SQS_NAME)
+        delete_queue(sqs_client=self.client, queue_name=FIFO_SQS_NAME)
         self.mock_sqs.stop()
 
-    def test_queue_exist(self):
+    def test_check_queue_existence(self):
         # Test an existing queue. Success expected.
-        assert self.sqs_handler.queue_exist(queue_name=TEST_SQS_QUEUE)
+        assert self.sqs_handler.check_queue_existence(queue_name=STANDARD_SQS_NAME)
 
         # Test a non-existent queue. Failure expected.
-        assert not self.sqs_handler.queue_exist(queue_name="WRONG_QUEUE_NAME")
+        assert not self.sqs_handler.check_queue_existence(queue_name="WRONG_QUEUE_NAME")
 
-    def test_queue_is_fifo(self):
+    def test_check_queue_is_fifo(self):
         # Test a fifo queue. Success expected.
-        assert self.sqs_handler.queue_is_fifo(queue_name=TEST_SQS_QUEUE_FIFO)
+        assert self.sqs_handler.check_queue_is_fifo(queue_name=FIFO_SQS_NAME)
 
         # Test a standard queue. Failure expected.
-        assert not self.sqs_handler.queue_is_fifo(queue_name=TEST_SQS_QUEUE)
+        assert not self.sqs_handler.check_queue_is_fifo(queue_name=STANDARD_SQS_NAME)
 
-    def test_get_queue_url_by_name(self):
+    def test_get_queue_url(self):
         # Test getting the name of a queue that does exist. Success expected.
-        obtained_url = self.sqs_handler.get_queue_url_by_name(queue_name=TEST_SQS_QUEUE)
+        obtained_url = self.sqs_handler.get_queue_url(queue_name=STANDARD_SQS_NAME)
+
+        # Moto uses the following account id by default. Currently programatic access is not allowed,
+        # there is an issue in Moto's github repository: https://github.com/spulec/moto/issues/850.
+        # Currently Moto is supposed to allow mocking entire accounts but it’s bugged (check the
+        # follow link: https://github.com/spulec/moto/issues/2634). We should be patching when
+        # mocking accounts/profiles becomes stable.
         moto_aws_account = "123456789012"
+
         expected_url = "https://{region}.queue.amazonaws.com/{account}/{queue}".format(
-            region=TEST_REGION, account=moto_aws_account, queue=TEST_SQS_QUEUE
+            region=REGION, account=moto_aws_account, queue=STANDARD_SQS_NAME
         )
         assert obtained_url == expected_url
 
         # Test getting the name of a queue that does not exist. Failure expected.
         with pytest.raises(Exception) as e:
-            self.sqs_handler.get_queue_url_by_name(queue_name="WRONG_QUEUE_NAME")
+            self.sqs_handler.get_queue_url(queue_name="WRONG_QUEUE_NAME")
 
     def test_message_attributes_well_formed(self):
         # Message attributes correctly structured. Success expected.
@@ -99,10 +108,8 @@ class TestSQSHandler:
                 "BinaryValue": "Test binary value",
             },
         }
-        well_formed, _ = self.sqs_handler.message_attributes_well_formed(
-            message_attributes
-        )
-        assert well_formed
+
+        self.sqs_handler.message_attributes_well_formed(message_attributes)
 
         # Message with more than 10 attributes. Failure expected.
         num_attributes = len(message_attributes)
@@ -114,69 +121,51 @@ class TestSQSHandler:
 
         # Create 11 attributes.
         for i in range(num_attributes + 1, max_num_attributes + 2):
-            message_attributes["TestAttribute{i}".format(i=i)] = message_content
+            message_attributes[f"TestAttribute{i}"] = message_content
 
-        well_formed, obtained_message = self.sqs_handler.message_attributes_well_formed(
-            message_attributes
-        )
         expected_message = "Messages can have up to 10 attributes."
-        assert not well_formed
-        assert obtained_message == expected_message
+        with pytest.raises(MessageAttributeError, match=expected_message):
+            self.sqs_handler.message_attributes_well_formed(message_attributes)
 
         # Message attributes not correctly structured. Failure expected.
         message_attributes = {"WrongAttribute": "WrongValue"}
-        well_formed, obtained_message = self.sqs_handler.message_attributes_well_formed(
-            message_attributes
-        )
         expected_message = "Each message attribute must be a dictionary containing 'DataType' and 'StringValue' arguments."
-        assert not well_formed
-        assert obtained_message == expected_message
+        with pytest.raises(MessageAttributeError, match=expected_message):
+            self.sqs_handler.message_attributes_well_formed(message_attributes)
 
         # Message attributes that does not contain the required arguments. Failure
         # expected.
         message_attributes = {"WrongAttribute": {"StringValue": "Test string Value"}}
-        well_formed, obtained_message = self.sqs_handler.message_attributes_well_formed(
-            message_attributes
-        )
         expected_message = "'DataType' argument is missing in message attribute."
-        assert not well_formed
-        assert obtained_message == expected_message
+        with pytest.raises(MessageAttributeError, match=expected_message):
+            self.sqs_handler.message_attributes_well_formed(message_attributes)
 
         message_attributes = {
             "WrongAttribute": {"DataType": "String", "BinaryValue": "Test string value"}
         }
-        well_formed, obtained_message = self.sqs_handler.message_attributes_well_formed(
-            message_attributes
-        )
         expected_message = (
             "'StringValue' argument is required for message attributes of type String."
         )
-        assert not well_formed
-        assert obtained_message == expected_message
+        with pytest.raises(MessageAttributeError, match=expected_message):
+            self.sqs_handler.message_attributes_well_formed(message_attributes)
 
         message_attributes = {
             "WrongAttribute": {"DataType": "Number", "BinaryValue": "1"}
         }
-        well_formed, obtained_message = self.sqs_handler.message_attributes_well_formed(
-            message_attributes
-        )
         expected_message = (
             "'StringValue' argument is required for message attributes of type Number."
         )
-        assert not well_formed
-        assert obtained_message == expected_message
+        with pytest.raises(MessageAttributeError, match=expected_message):
+            self.sqs_handler.message_attributes_well_formed(message_attributes)
 
         message_attributes = {
             "WrongAttribute": {"DataType": "Binary", "StringValue": "Test binary value"}
         }
-        well_formed, obtained_message = self.sqs_handler.message_attributes_well_formed(
-            message_attributes
-        )
         expected_message = (
             "'BinaryValue' argument is required for message attributes of type Binary."
         )
-        assert not well_formed
-        assert obtained_message == expected_message
+        with pytest.raises(MessageAttributeError, match=expected_message):
+            self.sqs_handler.message_attributes_well_formed(message_attributes)
 
     def test_send_message(self):
         # Send a message to a standard queue. Success expected.
@@ -193,16 +182,16 @@ class TestSQSHandler:
             },
         }
         response = self.sqs_handler.send_message(
-            queue_name=TEST_SQS_QUEUE,
+            queue_name=STANDARD_SQS_NAME,
             message_body=message_body,
             message_attributes=message_attributes,
         )
         assert response["ResponseMetadata"]["HTTPStatusCode"] == 200
 
-        # Check whether the received message id coincide with the one sent.
+        # Check if the received ids match the sent ones.
         expected_message_id = response["MessageId"]
 
-        queue_url = self.client.get_queue_url(QueueName=TEST_SQS_QUEUE)["QueueUrl"]
+        queue_url = self.client.get_queue_url(QueueName=STANDARD_SQS_NAME)["QueueUrl"]
         response = self.client.receive_message(QueueUrl=queue_url)
         obtained_message_id = response["Messages"][0]["MessageId"]
         assert obtained_message_id == expected_message_id
@@ -224,9 +213,9 @@ class TestSQSHandler:
 
         # Send a batch without messages to a standard queue. Failure expected.
         error_message = "The list of 'entries' cannot be emtpy."
-        with pytest.raises(AssertionError, match=error_message):
+        with pytest.raises(MessageBatchError, match=error_message):
             self.sqs_handler.send_message_batch(
-                queue_name=TEST_SQS_QUEUE, entries=entries,
+                queue_name=STANDARD_SQS_NAME, entries=entries,
             )
 
         # Send a batch of n messages to a standard queue. Success expected.
@@ -244,7 +233,7 @@ class TestSQSHandler:
             entries.append(message)
 
         response = self.sqs_handler.send_message_batch(
-            queue_name=TEST_SQS_QUEUE, entries=entries,
+            queue_name=STANDARD_SQS_NAME, entries=entries,
         )
         assert response["ResponseMetadata"]["HTTPStatusCode"] == 200
 
@@ -257,7 +246,7 @@ class TestSQSHandler:
 
         # We use sets because the reception order is not guaranteed.
         obtained_message_ids = set()
-        queue_url = self.client.get_queue_url(QueueName=TEST_SQS_QUEUE)["QueueUrl"]
+        queue_url = self.client.get_queue_url(QueueName=STANDARD_SQS_NAME)["QueueUrl"]
 
         # Set the maximum number of messages, by default it was 1.
         response = self.client.receive_message(
@@ -283,9 +272,9 @@ class TestSQSHandler:
             entries.append(message)
 
         error_message = "The maximum number of messages allowed in a batch is 10."
-        with pytest.raises(AssertionError, match=error_message):
+        with pytest.raises(MessageBatchError, match=error_message):
             self.sqs_handler.send_message_batch(
-                queue_name=TEST_SQS_QUEUE, entries=entries,
+                queue_name=STANDARD_SQS_NAME, entries=entries,
             )
 
         # Send a batch with repeated ids. Failure expected.
@@ -301,9 +290,9 @@ class TestSQSHandler:
         entries.append(message)
 
         error_message = "'ID' attribute must be unique along all the messages."
-        with pytest.raises(AssertionError, match=error_message):
+        with pytest.raises(MessageBatchError, match=error_message):
             self.sqs_handler.send_message_batch(
-                queue_name=TEST_SQS_QUEUE, entries=entries,
+                queue_name=STANDARD_SQS_NAME, entries=entries,
             )
 
     def test_receive_message(self):
@@ -321,12 +310,12 @@ class TestSQSHandler:
             },
         }
         self.sqs_handler.send_message(
-            queue_name=TEST_SQS_QUEUE,
+            queue_name=STANDARD_SQS_NAME,
             message_body=message_body,
             message_attributes=message_attributes,
         )
 
-        response = self.sqs_handler.receive_message(queue_name=TEST_SQS_QUEUE)
+        response = self.sqs_handler.receive_message(queue_name=STANDARD_SQS_NAME)
         message = response["Messages"][0]
         obtained_message_body = message["Body"]
         obtained_message_attributes = message["MessageAttributes"]
@@ -363,22 +352,22 @@ class TestSQSHandler:
             },
         }
         self.sqs_handler.send_message(
-            queue_name=TEST_SQS_QUEUE,
+            queue_name=STANDARD_SQS_NAME,
             message_body=message_body,
             message_attributes=message_attributes,
         )
 
         # Get the receipt handler.
-        queue_url = self.client.get_queue_url(QueueName=TEST_SQS_QUEUE)["QueueUrl"]
+        queue_url = self.client.get_queue_url(QueueName=STANDARD_SQS_NAME)["QueueUrl"]
         response = self.client.receive_message(QueueUrl=queue_url)
         message = response["Messages"][0]
         receipt_handle = message["ReceiptHandle"]
 
         self.sqs_handler.delete_message(
-            queue_name=TEST_SQS_QUEUE, receipt_handle=receipt_handle
+            queue_name=STANDARD_SQS_NAME, receipt_handle=receipt_handle
         )
 
         # Read the messages in the queue.
-        queue_url = self.client.get_queue_url(QueueName=TEST_SQS_QUEUE)["QueueUrl"]
+        queue_url = self.client.get_queue_url(QueueName=STANDARD_SQS_NAME)["QueueUrl"]
         response = self.client.receive_message(QueueUrl=queue_url)
         assert "Messages" not in response
