@@ -29,9 +29,9 @@ def upload_fixture_files(
     ]
     # The uploaded files will have the name of the calling method in their object key.
     for path in fixture_paths:
-        key = "{}/{}".format(
-            os.path.basename(fixture_dir)[:-1], os.path.relpath(path, fixture_dir),
-        )
+        base_name = os.path.basename(fixture_dir)[:-1]
+        rel_path = os.path.relpath(path, fixture_dir)
+        key = f"{base_name}/{rel_path}"
         s3_client.upload_file(Filename=path, Bucket=bucket, Key=key)
 
 
@@ -67,9 +67,7 @@ class TestS3Handler:
         except botocore.exceptions.ClientError:
             pass
         else:
-            raise EnvironmentError(
-                "{bucket} should not exist.".format(bucket=TEST_BUCKET)
-            )
+            raise EnvironmentError(f"{TEST_BUCKET} should not exist.")
         self.client.create_bucket(Bucket=TEST_BUCKET)
 
     def teardown_method(self):
@@ -83,23 +81,23 @@ class TestS3Handler:
         file_name = "test_file.test"
 
         # Bucket without folder nor file. Success expected.
-        expected_path = "s3://{}/".format(TEST_BUCKET)
+        expected_path = f"s3://{TEST_BUCKET}/"
         obtained_path = self.s3_handler.get_uri(bucket=TEST_BUCKET)
         assert obtained_path == expected_path
 
         # File in a bucket without folder.
-        expected_path = "s3://{}/{}".format(TEST_BUCKET, file_name)
+        expected_path = f"s3://{TEST_BUCKET}/{file_name}"
         obtained_path = self.s3_handler.get_uri(bucket=TEST_BUCKET, file_name=file_name)
         assert obtained_path == expected_path
 
         # Folder in a bucket without file. Success expected.
         folder = "folder"
-        expected_path = "s3://{}/{}/".format(TEST_BUCKET, folder)
+        expected_path = f"s3://{TEST_BUCKET}/{folder}/"
         obtained_path = self.s3_handler.get_uri(bucket=TEST_BUCKET, folder_path=folder,)
         assert obtained_path == expected_path
 
         # Folder in a bucket with file. Success expected.
-        expected_path = "s3://{}/{}/{}".format(TEST_BUCKET, folder, file_name)
+        expected_path = f"s3://{TEST_BUCKET}/{folder}/{file_name}"
         obtained_path = self.s3_handler.get_uri(
             bucket=TEST_BUCKET, folder_path=folder, file_name=file_name,
         )
@@ -107,7 +105,7 @@ class TestS3Handler:
 
         # Folder in a bucket with a / at the begining. Success expected.
         folder = "/folder"
-        expected_path = "s3://{}{}/{}".format(TEST_BUCKET, folder, file_name)
+        expected_path = f"s3://{TEST_BUCKET}{folder}/{file_name}"
         obtained_path = self.s3_handler.get_uri(
             bucket=TEST_BUCKET, folder_path=folder, file_name=file_name,
         )
@@ -115,7 +113,7 @@ class TestS3Handler:
 
         # Folder in a bucket with subfolder. Success expected.
         folder = "folder/subfolder"
-        expected_path = "s3://{}/{}/{}".format(TEST_BUCKET, folder, file_name)
+        expected_path = f"s3://{TEST_BUCKET}/{folder}/{file_name}"
         obtained_path = self.s3_handler.get_uri(
             bucket=TEST_BUCKET, folder_path=folder, file_name=file_name,
         )
@@ -147,7 +145,7 @@ class TestS3Handler:
             "Bucket": TEST_BUCKET,
             "Prefix": "test_paginate/second",
         }
-        expected_objects = ["test_paginate/{}".format(file_names[1])]
+        expected_objects = [f"test_paginate/{file_names[1]}"]
         obtained_objects = []
         for result in self.s3_handler.paginate(
             method=self.client.list_objects_v2.__name__, **args
@@ -160,7 +158,7 @@ class TestS3Handler:
             "Bucket": TEST_BUCKET,
             "PaginationConfig": {"MaxItems": 1},
         }
-        expected_objects = ["test_paginate/{}".format(file_names[0])]
+        expected_objects = [f"test_paginate/{file_names[0]}"]
         obtained_objects = []
         for result in self.s3_handler.paginate(
             method=self.client.list_objects_v2.__name__, **args
@@ -187,36 +185,36 @@ class TestS3Handler:
             "Prefix": "test_list_objects/second",
         }
         expected_objects = [
-            "test_list_objects/{}".format(file_names[1]),
-            "test_list_objects/{}".format(file_names[2]),
+            f"test_list_objects/{file_names[1]}",
+            f"test_list_objects/{file_names[2]}",
         ]
         obtained_objects = list(
             self.s3_handler.list_objects(bucket=TEST_BUCKET, **args)
         )
-        assert expected_objects == obtained_objects
+        assert obtained_objects == expected_objects
 
         # List objects starting from a specific key. Success expected.
         args = {
-            "StartAfter": "test_list_objects/{}".format(file_names[1]),
+            "StartAfter": f"test_list_objects/{file_names[1]}",
         }
         expected_objects = [
-            "test_list_objects/{}".format(file_names[2]),
+            f"test_list_objects/{file_names[2]}",
         ]
         obtained_objects = list(
             self.s3_handler.list_objects(bucket=TEST_BUCKET, **args)
         )
-        assert expected_objects == obtained_objects
+        assert obtained_objects == expected_objects
 
         # List all objects. Success expected.
         expected_objects = [
-            "test_list_objects/{}".format(file_names[0]),
-            "test_list_objects/{}".format(file_names[1]),
-            "test_list_objects/{}".format(file_names[2]),
+            f"test_list_objects/{file_names[0]}",
+            f"test_list_objects/{file_names[1]}",
+            f"test_list_objects/{file_names[2]}",
         ]
         obtained_objects = list(self.s3_handler.list_objects(bucket=TEST_BUCKET,))
-        assert expected_objects == obtained_objects
+        assert obtained_objects == expected_objects
 
-    def test_check_object_exist(self, tmpdir):
+    def test_check_object_exists(self, tmpdir):
         file_names = ["first_object.json", "second_object.json"]
         contents = ["", ""]
         generate_fixture_files(
@@ -227,20 +225,18 @@ class TestS3Handler:
         )
 
         # The method gives true when an object exist in the bucket. Success expected.
-        obtained_result = self.s3_handler.check_object_exist(
-            bucket=TEST_BUCKET,
-            object_key="test_check_object_exist/{}".format(file_names[0]),
+        obtained_result = self.s3_handler.check_object_exists(
+            bucket=TEST_BUCKET, object_key=f"test_check_object_exists/{file_names[0]}",
         )
         assert obtained_result
 
-        obtained_result = self.s3_handler.check_object_exist(
-            bucket=TEST_BUCKET,
-            object_key="test_check_object_exist/{}".format(file_names[1]),
+        obtained_result = self.s3_handler.check_object_exists(
+            bucket=TEST_BUCKET, object_key=f"test_check_object_exists/{file_names[1]}",
         )
         assert obtained_result
 
         # The method gives false when an object does not exist in the bucket. Success expected.
-        obtained_result = self.s3_handler.check_object_exist(
+        obtained_result = self.s3_handler.check_object_exists(
             bucket=TEST_BUCKET, object_key=file_names[1]
         )
         assert not obtained_result
@@ -257,8 +253,7 @@ class TestS3Handler:
 
         # Test reading an existing object. Sucess expected.
         obtained_content = self.s3_handler.read_object_content(
-            bucket=TEST_BUCKET,
-            object_key="test_read_object_content/{}".format(file_names[1]),
+            bucket=TEST_BUCKET, object_key=f"test_read_object_content/{file_names[1]}",
         )
         expected_content = contents[1]
         assert obtained_content == expected_content
@@ -280,7 +275,7 @@ class TestS3Handler:
         )
 
         # Put content to a new object. Success expected.
-        new_object_key = "{}/second_object.json".format("test_put_object")
+        new_object_key = "test_put_object/second_object.json"
         content_to_write = "Content2"
         self.s3_handler.put_object(
             bucket=TEST_BUCKET, object_key=new_object_key, content=content_to_write
@@ -292,7 +287,7 @@ class TestS3Handler:
 
         # Put content to an object that already exist. Verify the content is overwriten.
         # Success expected.
-        object_key = "test_put_object/{}".format(file_names[0])
+        object_key = f"test_put_object/{file_names[0]}"
         read_object = self.resource.Object(bucket_name=TEST_BUCKET, key=object_key)
         content_read = read_object.get()["Body"].read().decode("utf-8")
         assert content_read == contents[0]
@@ -317,7 +312,7 @@ class TestS3Handler:
         )
 
         # Validate that an object does not exist anymore after being deleted. Failure expected.
-        object_key = "test_delete_key/{}".format(file_names[0])
+        object_key = f"test_delete_key/{file_names[0]}"
         self.resource.Object(bucket_name=TEST_BUCKET, key=object_key).get()
         self.s3_handler.delete_key(bucket=TEST_BUCKET, object_key=object_key)
 
@@ -342,7 +337,7 @@ class TestS3Handler:
         expected_content = "Column1,Column2\n" "Value11,Value12\n" "Value21,Value22\n"
         read_object = self.resource.Object(bucket_name=TEST_BUCKET, key=object_key)
         obtained_content = read_object.get()["Body"].read().decode("utf-8")
-        assert expected_content == obtained_content
+        assert obtained_content == expected_content
 
     def test_generate_quicksight_manifest(self, tmpdir):
         file_names: List[str] = [
@@ -356,14 +351,10 @@ class TestS3Handler:
             s3_client=self.client, tmpdir=tmpdir, file_names=[], contents=[]
         )
         key_paths = [
-            "s3://{}/{}/{}".format(
-                TEST_BUCKET, "test_generate_quicksight_manifest", file_names[0]
-            ),
+            f"s3://{TEST_BUCKET}/test_generate_quicksight_manifest/{file_names[0]}"
         ]
         uri_prefix_paths = [
-            "s3://{}/{}/{}".format(
-                TEST_BUCKET, "test_generate_quicksight_manifest", "second"
-            ),
+            f"s3://{TEST_BUCKET}/test_generate_quicksight_manifest/second"
         ]
         upload_settings = {
             "format": "CSV",
@@ -377,7 +368,7 @@ class TestS3Handler:
         }
 
         expected_manifest = json.dumps(data, indent=4, sort_keys=True)
-        manifest_key = "{}/manifest.json".format("test_generate_quicksight_manifest")
+        manifest_key = "test_generate_quicksight_manifest/manifest.json"
         self.s3_handler.generate_quicksight_manifest(
             bucket=TEST_BUCKET,
             object_key=manifest_key,
@@ -400,4 +391,4 @@ class TestS3Handler:
         obtained_manifest = json.dumps(
             obtained_manifest_dictionary, indent=4, sort_keys=True
         )
-        assert expected_manifest == obtained_manifest
+        assert obtained_manifest == expected_manifest
