@@ -232,12 +232,12 @@ class SQSHandler:
         Raises
         ------
         MessageAttributeError
-            If the message argument is not correclty structured.
+            If the message argument is not correctly structured.
 
         See Also
         --------
-        get_queue_url : this method retreives the queue url with the given queue name.
-        check_message_attributes_are_well_formed : this methods check the message attributes given.
+        get_queue_url : this method retrieves the queue url with the given queue name.
+        check_message_attributes_are_well_formed : this method checks the given message attritutes.
 
         Notes
         -----
