@@ -3,6 +3,7 @@ import re
 import requests
 
 from typing import List, Dict, Any, Optional
+from urllib import parse
 
 
 class ObjectsHandler:
@@ -420,7 +421,9 @@ class ObjectsHandler:
         https://developer.salesforce.com/docs/atlas.en-us.salesforce_app_limits_cheatsheet.meta/salesforce_app_limits_cheatsheet/salesforce_app_limits_platform_soslsoql.htm
 
         """
-        query.replace(" ", "+")
+        # Encode the query to clean possible special characters to fit in the url.
+        encoded_query = parse.quote_plus(query)
+        query = parse.unquote(encoded_query)
         response = self.do_request(method="GET", path=f"query?q={query}")
         response_dict = json.loads(response)
         records = response_dict["records"]
