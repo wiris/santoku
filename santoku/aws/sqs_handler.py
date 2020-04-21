@@ -116,10 +116,10 @@ class SQSHandler:
         if self.check_queue_existence(queue_name=queue_name):
             queue_url = self.client.get_queue_url(QueueName=queue_name)["QueueUrl"]
         else:
-            raise Exception("The queue `{}` does not exist.".format(queue_name))
+            raise Exception(f"The queue `{queue_name}` does not exist.")
         return queue_url
 
-    def message_attributes_well_formed(
+    def check_message_attributes_are_well_formed(
         self, message_attributes: Dict[str, Dict[str, str]]
     ) -> None:
         """
@@ -237,7 +237,7 @@ class SQSHandler:
         See Also
         --------
         get_queue_url : this method retreives the queue url with the given queue name.
-        message_attributes_well_formed : this methods check the message attributes given.
+        check_message_attributes_are_well_formed : this methods check the message attributes given.
 
         Notes
         -----
@@ -255,7 +255,7 @@ class SQSHandler:
         if message_attributes:
             # Check whether the message attributes are correctly structured.
             try:
-                self.message_attributes_well_formed(
+                self.check_message_attributes_are_well_formed(
                     message_attributes=message_attributes
                 )
             except MessageAttributeError:
@@ -307,7 +307,7 @@ class SQSHandler:
         See Also
         --------
         get_queue_url : this method retreives the queue url with the given queue name.
-        message_attributes_well_formed : this method checks the message attributes given.
+        check_message_attributes_are_well_formed : this method checks the message attributes given.
 
         Notes
         -----
@@ -340,7 +340,9 @@ class SQSHandler:
 
             if "MessageAttributes" in entry:
                 try:
-                    self.message_attributes_well_formed(entry["MessageAttributes"])
+                    self.check_message_attributes_are_well_formed(
+                        entry["MessageAttributes"]
+                    )
                 except MessageAttributeError:
                     raise
 
@@ -385,7 +387,7 @@ class SQSHandler:
         See Also
         --------
         get_queue_url : this method retreives the queue url with the given queue name.
-        message_attributes_well_formed : this method checks the message attributes given.
+        check_message_attributes_are_well_formed : this method checks the message attributes given.
 
         Notes
         -----

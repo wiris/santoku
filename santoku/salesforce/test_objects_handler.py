@@ -13,12 +13,12 @@ SANDBOX_CLIENT_PSW = os.environ["DATA_SCIENCE_SALESFORCE_SANDBOX_CLIENT_PSW"]
 
 
 def delete_records(oh: ObjectsHandler, sobject: str):
-    obtained_records = oh.do_query_with_SOQL("SELECT Id from {}".format(sobject))
+    obtained_records = oh.do_query_with_SOQL(f"SELECT Id from {sobject}")
 
     for obtained_record in obtained_records:
+        record_id = obtained_record["Id"]
         oh.do_request(
-            method="DELETE",
-            path="sobjects/{}/{}".format(sobject, obtained_record["Id"]),
+            method="DELETE", path=f"sobjects/{sobject}/{record_id}",
         )
 
 
@@ -176,11 +176,9 @@ class TestObjectsHandler:
         # Read the n Contacts inserted with SOQL. Success expected.
         expected_names = []
         for contact_payload in contact_payloads:
-            expected_names.append(
-                "{} {}".format(
-                    contact_payload["FirstName"], contact_payload["LastName"]
-                )
-            )
+            first_name = contact_payload["FirstName"]
+            last_name = contact_payload["LastName"]
+            expected_names.append(f"{first_name} {last_name}")
 
         obtained_contacts = oh.do_query_with_SOQL("SELECT Id, Name from Contact")
         assert len(obtained_contacts) == len(contact_payloads)
@@ -198,7 +196,7 @@ class TestObjectsHandler:
         expected_id = obtained_ids[0]
         expected_name = obtained_names[0]
         obtained_contacts = oh.do_query_with_SOQL(
-            "SELECT Id, Name from contact WHERE Id = '{}'".format(expected_id)
+            f"SELECT Id, Name from contact WHERE Id = '{expected_id}'"
         )
         assert (
             len(obtained_contacts) == 1
@@ -207,7 +205,7 @@ class TestObjectsHandler:
 
         # Read a specific contact with SOQL by Name. Success expected.
         obtained_contacts = oh.do_query_with_SOQL(
-            "SELECT Name from contact WHERE Name = '{}'".format(expected_name)
+            f"SELECT Name from contact WHERE Name = '{expected_name}'"
         )
         assert (
             len(obtained_contacts) == 1
@@ -241,44 +239,44 @@ class TestObjectsHandler:
             )
 
         # Modify an existing contact's FirstName and LastName. Success expected.
+        first_name = contact_payloads[0]["FirstName"]
+        last_name = contact_payloads[0]["LastName"]
         obtained_contacts = oh.do_query_with_SOQL(
-            "SELECT Id, Name from Contact WHERE Name = '{} {}'".format(
-                contact_payloads[0]["FirstName"], contact_payloads[0]["LastName"]
-            )
+            f"SELECT Id, Name from Contact WHERE Name = '{first_name} {last_name}'"
         )
         contact_payload = {"FirstName": "Ken", "LastName": "Williams"}
 
+        contact_id = obtained_contacts[0]["Id"]
         oh.do_request(
             method="PATCH",
-            path="sobjects/Contact/{}".format(obtained_contacts[0]["Id"]),
+            path=f"sobjects/Contact/{contact_id}",
             payload=contact_payload,
         )
 
+        contact_id = obtained_contacts[0]["Id"]
         obtained_contacts = oh.do_query_with_SOQL(
-            "SELECT Id, Name from Contact WHERE Id = '{}'".format(
-                obtained_contacts[0]["Id"]
-            )
+            f"SELECT Id, Name from Contact WHERE Id = '{contact_id}'"
         )
-        expected_contact_name = "{} {}".format(
-            contact_payload["FirstName"], contact_payload["LastName"]
-        )
+
+        first_name = contact_payload["FirstName"]
+        last_name = contact_payload["LastName"]
+        expected_contact_name = f"{first_name} {last_name}"
         assert obtained_contacts[0]["Name"] == expected_contact_name
 
         # Modify an existing contact's Email. Success expected.
-        contact_payload = {
-            "Email": "{}@example.com".format(contact_payload["FirstName"].lower())
-        }
+        first_name = contact_payload["FirstName"].lower()
+        contact_payload = {"Email": f"{first_name}@example.com"}
 
+        contact_id = obtained_contacts[0]["Id"]
         oh.do_request(
             method="PATCH",
-            path="sobjects/Contact/{}".format(obtained_contacts[0]["Id"]),
+            path=f"sobjects/Contact/{contact_id}",
             payload=contact_payload,
         )
 
+        contact_id = obtained_contacts[0]["Id"]
         obtained_contacts = oh.do_query_with_SOQL(
-            "SELECT Id, Name, Email from Contact WHERE Id = '{}'".format(
-                obtained_contacts[0]["Id"]
-            )
+            f"SELECT Id, Name, Email from Contact WHERE Id = '{contact_id}'"
         )
         assert (
             obtained_contacts[0]["Name"] == expected_contact_name
@@ -290,7 +288,7 @@ class TestObjectsHandler:
         with pytest.raises(requests.exceptions.RequestException) as e:
             response = oh.do_request(
                 method="PATCH",
-                path="sobjects/Contact/{}".format("WRONGID"),
+                path="sobjects/Contact/WRONGID",
                 payload=contact_payload,
             )
 
@@ -332,23 +330,23 @@ class TestObjectsHandler:
             obtained_ids.append(obtained_contact["Id"])
 
         oh.do_request(
-            method="DELETE", path="sobjects/Contact/{}".format(obtained_ids[0]),
+            method="DELETE", path=f"sobjects/Contact/{obtained_ids[0]}",
         )
 
         obtained_contacts = oh.do_query_with_SOQL(
-            "SELECT Name from Contact WHERE Name = '{}'".format(obtained_names[0])
+            f"SELECT Name from Contact WHERE Name = '{obtained_names[0]}'"
         )
         assert len(obtained_contacts) == 0
 
         obtained_contacts = oh.do_query_with_SOQL(
-            "SELECT Name from contact WHERE Name = '{}'".format(obtained_names[1])
+            f"SELECT Name from contact WHERE Name = '{obtained_names[1]}'"
         )
         assert len(obtained_contacts) == len(contact_payloads) - 1
 
         # Delete a Contact that does not exist. Failure expected.
         with pytest.raises(requests.exceptions.RequestException) as e:
             oh.do_request(
-                method="DELETE", path="sobjects/Contact/{}".format(obtained_ids[0]),
+                method="DELETE", path=f"sobjects/Contact/{obtained_ids[0]}",
             )
 
     def test_contact_insertion_high_level(self):
@@ -414,10 +412,10 @@ class TestObjectsHandler:
             )
 
         # Modify an existing contact's FirstName and LastName. Success expected.
+        first_name = contact_payloads[0]["FirstName"]
+        last_name = contact_payloads[0]["LastName"]
         obtained_contacts = oh.do_query_with_SOQL(
-            "SELECT Id, Name from Contact WHERE Name = '{} {}'".format(
-                contact_payloads[0]["FirstName"], contact_payloads[0]["LastName"]
-            )
+            f"SELECT Id, Name from Contact WHERE Name = '{first_name} {last_name}'"
         )
         contact_payload = {"FirstName": "Ralph", "LastName": "Alexander"}
 
@@ -427,26 +425,23 @@ class TestObjectsHandler:
         )
 
         obtained_contacts = oh.do_query_with_SOQL(
-            "SELECT Id, Name from Contact WHERE Id = '{}'".format(expected_contact_id)
+            f"SELECT Id, Name from Contact WHERE Id = '{expected_contact_id}'"
         )
-        expected_contact_name = "{} {}".format(
-            contact_payload["FirstName"], contact_payload["LastName"]
-        )
+        first_name = contact_payload["FirstName"]
+        last_name = contact_payload["LastName"]
+        expected_contact_name = f"{first_name} {last_name}"
         assert obtained_contacts[0]["Name"] == expected_contact_name
 
         # Modify an existing contact's Email. Success expected.
-        contact_payload = {
-            "Email": "{}@example.com".format(contact_payload["FirstName"].lower())
-        }
+        first_name = contact_payload["FirstName"].lower()
+        contact_payload = {"Email": f"{first_name}@example.com"}
 
         oh.modify_record(
             sobject="Contact", record_id=expected_contact_id, payload=contact_payload,
         )
 
         obtained_contacts = oh.do_query_with_SOQL(
-            "SELECT Id, Name, Email from Contact WHERE Id = '{}'".format(
-                expected_contact_id
-            )
+            f"SELECT Id, Name, Email from Contact WHERE Id = '{expected_contact_id}'"
         )
         assert (
             obtained_contacts[0]["Name"] == expected_contact_name
@@ -496,12 +491,12 @@ class TestObjectsHandler:
         oh.delete_record(sobject="Contact", record_id=obtained_ids[0])
 
         obtained_contacts = oh.do_query_with_SOQL(
-            "SELECT Name from Contact WHERE Name = '{}'".format(obtained_names[0])
+            f"SELECT Name from Contact WHERE Name = '{obtained_names[0]}'"
         )
         assert len(obtained_contacts) == 0
 
         obtained_contacts = oh.do_query_with_SOQL(
-            "SELECT Name from contact WHERE Name = '{}'".format(obtained_names[1])
+            f"SELECT Name from contact WHERE Name = '{obtained_names[1]}'"
         )
         assert len(obtained_contacts) == len(contact_payloads) - 1
 

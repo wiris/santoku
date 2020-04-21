@@ -118,9 +118,7 @@ class ObjectsHandler:
             self._instance_scheme_and_authority = response_as_dict["instance_url"]
             self._access_token = response_as_dict["access_token"]
             # Update header with OAuth access token.
-            self.request_headers["Authorization"] = "OAuth {}".format(
-                self._access_token
-            )
+            self.request_headers["Authorization"] = f"OAuth {self._access_token}"
 
     def get_salesforce_object_names(self) -> List[str]:
         """
@@ -162,7 +160,7 @@ class ObjectsHandler:
         if salesforce_object_name not in self._salesforce_object_fields_cache:
             self._validate_salesforce_object = False
             response = self.do_request(
-                method="GET", path="sobjects/{}/describe".format(salesforce_object_name)
+                method="GET", path=f"sobjects/{salesforce_object_name}/describe"
             )
 
             self._salesforce_object_fields_cache[salesforce_object_name] = [
@@ -213,7 +211,7 @@ class ObjectsHandler:
         if salesforce_object_name not in self._salesforce_object_required_fields_cache:
             self._validate_salesforce_object = False
             response = self.do_request(
-                method="GET", path="sobjects/{}/describe".format(salesforce_object_name)
+                method="GET", path=f"sobjects/{salesforce_object_name}/describe"
             )
 
             # A required field cannot be null, its value will not be assigned automatically by
@@ -236,13 +234,13 @@ class ObjectsHandler:
         elif "query?q=SELECT" in path:
             # ...query?q=SELECT+one+or+more+fields+FROM+an+object+WHERE+filter+statements
             if "WHERE" in path:
-                matches = re.search("{}(.*){}".format("FROM+", "+WHERE"), path)
+                matches = re.search("FROM+(.*)+WHERE", path)
                 if matches:
                     salesforce_object_name = matches.group(1)
                 else:
                     salesforce_object_name = ""
             else:
-                matches = re.search("{}(.*)".format("FROM+"), path)
+                matches = re.search("FROM+(.*)", path)
                 if matches:
                     salesforce_object_name = matches.group(1)
                 else:
@@ -264,7 +262,7 @@ class ObjectsHandler:
     ) -> None:
         for field in payload:
             if field not in object_fields:
-                raise ValueError("`{}` isn't a valid field".format(field))
+                raise ValueError(f"`{field}` isn't a valid field")
 
     def _validate_required_fields_in_payload(
         self, payload: Dict[str, str], object_required_fields: List[str]
@@ -272,14 +270,12 @@ class ObjectsHandler:
         for field in object_required_fields:
             if field not in payload:
                 raise ValueError(
-                    "`{}` is a required field and does not appear in the payload.".format(
-                        field
-                    )
+                    f"`{field}` is a required field and does not appear in the payload."
                 )
             else:
                 if not payload[field]:
                     raise ValueError(
-                        "`{}` is a required field and must not be empty.".format(field)
+                        f"`{field}` is a required field and must not be empty."
                     )
 
     def do_request(
@@ -322,7 +318,7 @@ class ObjectsHandler:
             if salesforce_object_name:
                 assert (
                     salesforce_object_name in self.get_salesforce_object_names()
-                ), "{} isn't a valid object".format(salesforce_object_name)
+                ), f"{salesforce_object_name} isn't a valid object"
 
         url = self._url_to_format.format(
             self._instance_scheme_and_authority, self._api_version, path,
@@ -424,18 +420,15 @@ class ObjectsHandler:
         https://developer.salesforce.com/docs/atlas.en-us.salesforce_app_limits_cheatsheet.meta/salesforce_app_limits_cheatsheet/salesforce_app_limits_platform_soslsoql.htm
 
         """
-        response = self.do_request(
-            method="GET", path="query?q={}".format(query.replace(" ", "+"))
-        )
+        query.replace(" ", "+")
+        response = self.do_request(method="GET", path=f"query?q={query}")
         response_dict = json.loads(response)
         records = response_dict["records"]
         while "nextRecordsUrl" in response_dict:
             next_url = response_dict["nextRecordsUrl"]
             # The nextRecordsUrl field has the form .../query/query_identifier
             query_identifier = next_url.split("/")[-1]
-            response = self.do_request(
-                method="GET", path="query/{}".format(query_identifier)
-            )
+            response = self.do_request(method="GET", path=f"query/{query_identifier}")
             response_dict = json.loads(response)
             records.extend(response_dict["records"])
         return records
@@ -470,7 +463,7 @@ class ObjectsHandler:
 
         """
         return self.do_request(
-            method="POST", path="sobjects/{}".format(sobject), payload=payload,
+            method="POST", path=f"sobjects/{sobject}", payload=payload,
         )
 
     def modify_record(
@@ -510,9 +503,7 @@ class ObjectsHandler:
 
         """
         return self.do_request(
-            method="PATCH",
-            path="sobjects/{}/{}".format(sobject, record_id),
-            payload=payload,
+            method="PATCH", path=f"sobjects/{sobject}/{record_id}", payload=payload,
         )
 
     def delete_record(self, sobject: str, record_id: str) -> str:
@@ -546,9 +537,7 @@ class ObjectsHandler:
         do_request : this method does a request of type DELETE.
 
         """
-        return self.do_request(
-            method="DELETE", path="sobjects/{}/{}".format(sobject, record_id),
-        )
+        return self.do_request(method="DELETE", path=f"sobjects/{sobject}/{record_id}",)
 
     def get_remaining_daily_api_requests(self) -> int:
         """
