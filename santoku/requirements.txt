@@ -1,0 +1,7 @@
+botocore==1.12.232
+boto3==1.9.232
+moto==1.3.14
+pytest==5.4.1
+py==1.8.1
+requests==2.23.0
+pandas==1.0.3
