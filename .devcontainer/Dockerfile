@@ -1,6 +1,14 @@
 FROM python:3.8.1-buster
 
-RUN pip --no-cache-dir install -U boto3 moto pandas black mypy pytest bump2version
+# Adding requirements file to current directory
+# just this file first to cache the pip install step when code changes
+COPY env_requirements.txt .
+
+RUN pip --no-cache-dir install -r env_requirements.txt
+#boto3 moto pandas black mypy pytest bump2version
+
+# copy code itself from context to image
+COPY . .
 
 # install AWS CLI
 RUN curl -s "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" && \
@@ -8,4 +16,4 @@ RUN curl -s "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscl
 	./aws/install && \
 	rm -rf aws*
 
-RUN apt-get update && apt-get install -y vim
+RUN apt update && apt install -y vim zip
