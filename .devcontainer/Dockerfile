@@ -2,7 +2,7 @@ FROM python:3.8.1-buster
 
 # Adding requirements file to current directory
 # just this file first to cache the pip install step when code changes
-COPY env_requirements.txt .
+COPY .devcontainer/env_requirements.txt .
 
 RUN pip --no-cache-dir install -r env_requirements.txt
 #boto3 moto pandas black mypy pytest bump2version
