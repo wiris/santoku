@@ -9,18 +9,24 @@
     // Set *default* container specific settings.json values on container create.
     "settings": {
         "terminal.integrated.shell.linux": null,
-        "python.formatting.provider": "black",
         "editor.formatOnSave": true,
+        "editor.rulers": [
+            100
+        ],
+        "python.pythonPath": "/usr/local/bin/python",
         "python.linting.enabled": true,
         "python.linting.pylintEnabled": false,
         "python.linting.mypyEnabled": true,
-        "editor.rulers": [
-            100
+        "python.formatting.provider": "black",
+        "python.formatting.blackArgs": [
+            "--line-length",
+            "100"
         ]
     },
     // Add the IDs of extensions you want installed when the container is created.
     "extensions": [
-        "ms-python.python"
+        "ms-python.python",
+        "ms-vsliveshare.vsliveshare"
     ],
     // Use 'forwardPorts' to make a list of ports inside the container available locally.
     // "forwardPorts": [],
@@ -29,19 +35,16 @@
     // - copies ssh mounted directory as .ssh directory inside the container
     //     (this is a workaround for windows hosts. Windows doesn't transmit correctly file
     //      permissions to Linux and SSH specifies restrictive file permissions to private keys)
-    "postCreateCommand": "echo source /usr/share/bash-completion/completions/git >> /root/.bashrc && mkdir -p /root/.ssh && cp /root/ssh/* /root/.ssh/ && chmod 600 /root/.ssh/*",
+    "postCreateCommand": "echo source /usr/share/bash-completion/completions/git >> /root/.bashrc",
     // Uncomment when using a ptrace-based debugger like C++, Go, and Rust
     // This find the environment variables
     "runArgs": [
         "--env-file",
-        "${localEnv:HOME}${localEnv:USERPROFILE}/.env"
+        "${localWorkspaceFolder}/.env"
     ],
     // Uncomment to use the Docker CLI from inside the container. See
     // https://aka.ms/vscode-remote/samples/docker-in-docker.
     // "mounts": [ "source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind" ],
-    "mounts": [
-        "source=${localEnv:HOME}${localEnv:USERPROFILE}/.ssh,target=/root/ssh,type=bind"
-    ],
     // Uncomment to connect as a non-root user. See https://aka.ms/vscode-remote/containers/non-root.
     // "remoteUser": "vscode"
 }

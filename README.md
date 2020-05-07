@@ -2,6 +2,10 @@
 
 This repository contains a set of tools to be used in AWS services like Amazon's ETL: AWS Glue.
 
+## Sharing Git credentials with your container
+
+More info [here](https://code.visualstudio.com/docs/remote/containers#_using-ssh-keys) and it works for Windows and Linux.
+
 ## Packaging
 
 To create the package execute:
