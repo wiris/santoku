@@ -19,5 +19,5 @@ setup(
     author="Didac Fernández, Daniel Martín-Albo and Henry Qiu",
     description="ETL Toolkit for handling AWS, Salesforce and many more things.",
     packages=find_packages(),
-    install_requires=load_requirements("santoku/requirements.txt"),
+    install_requires=load_requirements("requirements.txt"),
 )
