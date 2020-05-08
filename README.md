@@ -4,6 +4,7 @@ This repository contains a set of tools to be used in AWS services like Amazon's
 
 ## Sharing Git credentials with your container
 
+The containerized environment will automatically forward your local SSH agent if one is running.
 More info [here](https://code.visualstudio.com/docs/remote/containers#_using-ssh-keys) and it works for Windows and Linux.
 
 ## Packaging
