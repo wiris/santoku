@@ -15,7 +15,7 @@ def load_requirements(fname):
 
 setup(
     name="santoku",
-    version="0.15",
+    version="0.16",
     author="Didac Fernández, Daniel Martín-Albo and Henry Qiu",
     description="ETL Toolkit for handling AWS, Salesforce and many more things.",
     packages=find_packages(),
