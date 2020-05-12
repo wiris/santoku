@@ -7,17 +7,25 @@ from moto import mock_secretsmanager
 from ..aws.secrets_manager_handler import SecretsManagerError
 from ..aws.secrets_manager_handler import SecretsManagerHandler
 
+TEST_REGION = "eu-central-1"
+TEST_SECRET = "test/secret_name"
+
 
 class TestSecretsManagerHandler:
     def setup_method(self):
         self.mock_secretsmanager = mock_secretsmanager()
         self.mock_secretsmanager.start()
 
-        self.secrets_manager_handler = SecretsManagerHandler()
-        self.client = boto3.client("secretsmanager")
+        self.secrets_manager_handler = SecretsManagerHandler(region_name=TEST_REGION)
+        self.client = boto3.client("secretsmanager", region_name=TEST_REGION)
+
+    def teardown_method(self):
+        # Delete the test secret.
+        self.client.delete_secret(SecretId=TEST_SECRET)
+        self.mock_secretsmanager.stop()
 
     def test_get_string_secret(self):
-        secret_name = "test/secret_name"
+        secret_name = TEST_SECRET
         username = "test_user"
         password = "test_password"
         expected_secret = {"username": username, "password": password}
@@ -31,9 +39,10 @@ class TestSecretsManagerHandler:
         )
         assert obtained_secret["username"] == expected_secret["username"]
         assert obtained_secret["password"] == expected_secret["password"]
+        self.client.create_secret(Name="caca", SecretString="coco")
 
     def test_get_binary_secret(self):
-        secret_name = "test/secret_name"
+        secret_name = TEST_SECRET
         username = "test_user"
         password = "test_password"
         expected_secret = {"username": username, "password": password}
@@ -49,7 +58,7 @@ class TestSecretsManagerHandler:
         assert obtained_secret["password"] == expected_secret["password"]
 
     def test_get_non_existent_secret(self):
-        secret_name = "test/secret_name"
+        secret_name = TEST_SECRET
         username = "test_user"
         password = "test_password"
         expected_secret = {"username": username, "password": password}
