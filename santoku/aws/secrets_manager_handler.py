@@ -16,16 +16,38 @@ class SecretsManagerHandler:
     """
     Class to manage operations of Amazon Secrets Manager Service (SQS).
 
-    This class is intended to be used in other projects when the use of confidential secrets are
-    required. Scremets Manager allows the storage and retreiving of secrets in a safely way. The
+    This class is intended to be used in other projects when the use of confidential secrets is
+    required. Scremets Manager allows the storage and retreiving of secrets in a safe way. The
     connection to the Secrets Manager service is done using the service class Client of the boto3
     library.
 
     """
 
-    def __init__(self):
-        """ Instantiate the services classes. """
-        self.client = boto3.client(service_name="secretsmanager")
+    def __init__(self, region_name: str = ""):
+        """
+        Instantiate the services classes.
+
+        Parameters
+        ----------
+        region_name : str
+            AWS Region in which to operate the service.
+
+        Notes
+        -----
+            More information on the available regions: [1]
+
+        References
+        ----------
+        [1] :
+        https://aws.amazon.com/about-aws/global-infrastructure/regions_az/
+
+        """
+        if region_name:
+            self.client = boto3.client(
+                service_name="secretsmanager", region_name=region_name
+            )
+        else:
+            self.client = boto3.client(service_name="secretsmanager")
 
     def get_secret_value(self, secret_name: str) -> Dict[str, Any]:
         """
@@ -41,7 +63,7 @@ class SecretsManagerHandler:
         SecretsManagerError
             If the secret cannot be decrypted correctly, if there was an error on the server side,
             if there were invalid parameters, if a parameter is not valid for the current state of
-            the resource, if the secret was not find.
+            the resource, if the secret was not found.
 
         Returns
         -------
@@ -69,7 +91,7 @@ class SecretsManagerHandler:
                 error_message = "Secrets Manager can't find the resource you asked for."
                 raise SecretsManagerError(error_message)
         else:
-            # Depending on wether the secret is binary or string one of these fields will be populated.
+            # Depending on whether the secret is binary or string one of these fields will be populated.
             if "SecretString" in secret_value_response:
                 secret_str = secret_value_response["SecretString"]
             else:
