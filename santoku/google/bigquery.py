@@ -23,7 +23,8 @@ class BigQueryHandler:
         ----------
         kwargs
             Additional arguments to be passed to google.cloud.bigquery.client.Client. If an argument
-            is necessary but not provided, Google's API tries to infer it from the environment.
+            is necessary but not provided, Google's API tries to infer it from Application Default
+            Credentials.
         
         Raises
         ------
@@ -35,9 +36,9 @@ class BigQueryHandler:
         Documentation for google.cloud.bigquery.client.Client in [1].
         More on authentication methods in [2] and [3].
         More on Application Default Credentials in [4].
-        More on authentication via service account in [6].
-        More on authentication as an end user in [7].
-        To create a Credentials object, follow the google-auth guide in [5].
+        More on authentication via service account in [5].
+        More on authentication as an end user in [6].
+        To create a Credentials object, follow the google-auth guide in [7].
 
         References
         ----------
@@ -50,21 +51,85 @@ class BigQueryHandler:
         [4] :
         https://cloud.google.com/docs/authentication/production
         [5] :
-        https://google-auth.readthedocs.io/en/latest/user-guide.html#service-account-private-key-files
-        [6] :
         https://cloud.google.com/docs/authentication/production#obtaining_and_providing_service_account_credentials_manually
-        [7] :
+        [6] :
         https://cloud.google.com/docs/authentication/end-user
+        [7] :
+        https://google-auth.readthedocs.io/en/latest/user-guide.html#service-account-private-key-files
         """
         self.client = bq.Client(**kwargs)
 
     @classmethod
-    def from_service_account_file(cls, file_name: str):
+    def from_service_account_file(cls, file_name: str) -> BigQueryHandler:
+        """
+        Authenticate via service account credentials, passed as a JSON file.
+
+        Parameters
+        ----------
+        file_name : str
+            path to the file containing the credential information for a service account
+        
+        Notes
+        -----
+        The credentials file must look like this:
+        ```
+        {
+            "type": "service_account",
+            "project_id": "<project name>",
+            "private_key_id": "<private key id>",
+            "private_key": "<private key>",
+            "client_email": "<service account email>",
+            "client_id": "<client id>",
+            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+            "token_uri": "https://accounts.google.com/o/oauth2/token",
+            "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+            "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/<service account email>"
+        }
+        ```
+        See [1] for instructions how to generate such file.
+
+        References
+        ----------
+        [1] :
+        https://cloud.google.com/iam/docs/creating-managing-service-account-keys#creating_service_account_keys
+        """
         credentials = service_account.Credentials.from_service_account_file(file_name=file_name)
         return cls(credentials=credentials)
 
     @classmethod
-    def from_service_account_info(cls, credential_info: Dict[str, str]):
+    def from_service_account_info(cls, credential_info: Dict[str, str]) -> BigQueryHandler:
+        """
+        Authenticate via service account credentials, parsed as a dictionary.
+
+        Parameters
+        ----------
+        credential_info: Dict[str, str]
+            Credentials for a Google Cloud service account in dictionary form.
+
+        Notes
+        -----
+        The credentials JSON must look like this:
+        ```
+        {
+            "type": "service_account",
+            "project_id": "<project name>",
+            "private_key_id": "<private key id>",
+            "private_key": "<private key>",
+            "client_email": "<service account email>",
+            "client_id": "<client id>",
+            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+            "token_uri": "https://accounts.google.com/o/oauth2/token",
+            "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+            "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/<service account email>"
+        }
+        ```
+        See [1] for instructions how to generate such file.
+
+        References
+        ----------
+        [1] :
+        https://cloud.google.com/iam/docs/creating-managing-service-account-keys#creating_service_account_keys
+        """
         credentials = service_account.Credentials.from_service_account_info(info=credential_info)
         return cls(credentials=credentials)
 
@@ -105,14 +170,9 @@ class BigQueryHandler:
         https://cloud.google.com/iam/docs/creating-managing-service-account-keys#creating_service_account_keys
 
         """
-        credential_info = cls._get_credential_info_from_secrets_manager(secret_name=secret_name)
-        return cls(credential_info=credential_info)
-
-    @staticmethod
-    def _get_credential_info_from_secrets_manager(secret_name: str) -> Dict[str, str]:
         secrets_manager = SecretsManagerHandler()
         credential_info = secrets_manager.get_secret_value(secrets_manager=secret_name)
-        return credential_info
+        return cls(credential_info=credential_info)
 
     def run_query(self, query: str, **kwargs) -> bq.job.QueryJob:
         """
