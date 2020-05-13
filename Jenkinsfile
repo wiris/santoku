@@ -16,7 +16,7 @@ pipeline {
     }
     environment {
         // this creates AWS_ACCESS_CREDENTIALS_USR and AWS_ACCESS_CREDENTIALS_PSW
-        AWS_ACCESS_CREDENTIALS=credentials('aws_datascience_s3-rw')
+        AWS_ACCESS_CREDENTIALS=credentials('aws_datascience_jenkins')
         // this creates DATA_SCIENCE_SALESFORCE_SANDBOX_USR and DATA_SCIENCE_SALESFORCE_SANDBOX_PSW
         DATA_SCIENCE_SALESFORCE_SANDBOX=credentials("salesforce_datascience_sandbox")
         DATA_SCIENCE_SALESFORCE_SANDBOX_CLIENT=credentials("salesforce_datascience_sandbox_client")
