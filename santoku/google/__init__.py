@@ -1,4 +1,4 @@
-from .bigquery_handler import BigQueryHandler
+from .bigquery import BigQueryHandler
 
 """
 This module handles all interactions with Google's cloud services. It makes use of the official
