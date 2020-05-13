@@ -82,6 +82,9 @@ class SecretsManagerHandler:
             elif e.response["Error"]["Code"] == "ResourceNotFoundException":
                 error_message = "Secrets Manager can't find the resource you asked for."
                 raise SecretsManagerError(error_message)
+            else:
+                # unknown error
+                raise e
         else:
             # Depending on whether the secret is binary or string one of these fields will be populated.
             if "SecretString" in secret_value_response:
