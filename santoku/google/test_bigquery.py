@@ -9,4 +9,6 @@ TODO: investigate the possibility of mocking BigQuery (and other Google services
 
 class TestS3Handler:
     def test_run_query(self):
-        pass
+        bigquery = BigQueryHandler.from_aws_secrets_manager(
+            secret_name="gcloud/datascience_query_service_account"
+        )

@@ -7,3 +7,4 @@ mypy
 pytest
 bump2version
 pipreqs
+google-cloud-bigquery
