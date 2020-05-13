@@ -17,7 +17,8 @@ class BigQueryHandler:
 
     def __init__(self, **kwargs) -> None:
         """
-        Base constructor. For alternative methods of authentication use the given class methods.
+        Base constructor. Use this to authenticate using Application Default Credentials.
+        For alternative methods of authentication use the given class methods.
 
         Parameters
         ----------
