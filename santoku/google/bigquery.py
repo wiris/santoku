@@ -61,44 +61,7 @@ class BigQueryHandler:
         self.client = bq.Client(**kwargs)
 
     @classmethod
-    def from_service_account_file(cls, file_name: str) -> BigQueryHandler:
-        """
-        Authenticate via service account credentials, passed as a JSON file.
-
-        Parameters
-        ----------
-        file_name : str
-            path to the file containing the credential information for a service account
-        
-        Notes
-        -----
-        The credentials file must look like this:
-        ```
-        {
-            "type": "service_account",
-            "project_id": "<project name>",
-            "private_key_id": "<private key id>",
-            "private_key": "<private key>",
-            "client_email": "<service account email>",
-            "client_id": "<client id>",
-            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-            "token_uri": "https://accounts.google.com/o/oauth2/token",
-            "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-            "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/<service account email>"
-        }
-        ```
-        See [1] for instructions how to generate such file.
-
-        References
-        ----------
-        [1] :
-        https://cloud.google.com/iam/docs/creating-managing-service-account-keys#creating_service_account_keys
-        """
-        credentials = service_account.Credentials.from_service_account_file(file_name=file_name)
-        return cls(credentials=credentials)
-
-    @classmethod
-    def from_service_account_info(cls, credential_info: Dict[str, str]) -> BigQueryHandler:
+    def from_service_account_info(cls, credential_info: Dict[str, str]):
         """
         Authenticate via service account credentials, parsed as a dictionary.
 
@@ -132,10 +95,10 @@ class BigQueryHandler:
         https://cloud.google.com/iam/docs/creating-managing-service-account-keys#creating_service_account_keys
         """
         credentials = service_account.Credentials.from_service_account_info(info=credential_info)
-        return cls(credentials=credentials)
+        return cls(project=credential_info["project_id"], credentials=credentials)
 
     @classmethod
-    def from_aws_secrets_manager(cls, secret_name: str) -> BigQueryHandler:
+    def from_aws_secrets_manager(cls, secret_name: str):
         """
         Retrieve the necessary information to generate service account credentials from AWS Secrets Manager.
         Requires that AWS credentials with the appropriate permissions are located somewhere on the AWS credential chain in the local machine.
@@ -172,8 +135,8 @@ class BigQueryHandler:
 
         """
         secrets_manager = SecretsManagerHandler()
-        credential_info = secrets_manager.get_secret_value(secrets_manager=secret_name)
-        return cls(credential_info=credential_info)
+        credential_info = secrets_manager.get_secret_value(secret_name=secret_name)
+        return BigQueryHandler.from_service_account_info(credential_info=credential_info)
 
     def run_query(self, query: str, **kwargs) -> bq.job.QueryJob:
         """
