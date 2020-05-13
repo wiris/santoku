@@ -1,3 +1,4 @@
+import os
 import json
 import boto3
 import pytest
@@ -7,70 +8,70 @@ from moto import mock_secretsmanager
 from ..aws.secrets_manager_handler import SecretsManagerError
 from ..aws.secrets_manager_handler import SecretsManagerHandler
 
-TEST_REGION = "eu-central-1"
-TEST_SECRET = "test/secret_name"
+
+@pytest.fixture(scope="class")
+def aws_credentials():
+    """Mocked AWS Credentials for moto."""
+    os.environ["AWS_ACCESS_KEY_ID"] = "testing"
+    os.environ["AWS_SECRET_ACCESS_KEY"] = "testing"
+    os.environ["AWS_DEFAULT_REGION"] = "eu-west-1"
+
+
+@pytest.fixture(scope="class")
+def secrets_manager(aws_credentials):
+    with mock_secretsmanager():
+        secrets_manager = SecretsManagerHandler()
+        yield secrets_manager
+
+
+@pytest.fixture(scope="function")
+def string_secret(secrets_manager):
+    test_secret = "test/secret_name"
+    username = "test_user"
+    password = "test_password"
+    secret_content = {"username": username, "password": password}
+    secrets_manager.client.create_secret(Name=test_secret, SecretString=json.dumps(secret_content))
+    yield test_secret
+    secrets_manager.client.delete_secret(SecretId=test_secret, ForceDeleteWithoutRecovery=True)
+
+
+@pytest.fixture(scope="function")
+def binary_secret(secrets_manager):
+    test_secret = "test/secret_name"
+    username = "test_user"
+    password = "test_password"
+    secret_content = {"username": username, "password": password}
+    secret_binary = b64encode(json.dumps(secret_content).encode())
+    secrets_manager.client.create_secret(Name=test_secret, SecretBinary=secret_binary)
+    yield test_secret
+    secrets_manager.client.delete_secret(SecretId=test_secret, ForceDeleteWithoutRecovery=True)
 
 
 class TestSecretsManagerHandler:
-    def setup_method(self):
-        self.mock_secretsmanager = mock_secretsmanager()
-        self.mock_secretsmanager.start()
-
-        self.secrets_manager_handler = SecretsManagerHandler(region_name=TEST_REGION)
-        self.client = boto3.client("secretsmanager", region_name=TEST_REGION)
-
-    def teardown_method(self):
-        # Delete the test secret.
-        self.client.delete_secret(SecretId=TEST_SECRET)
-        self.mock_secretsmanager.stop()
-
-    def test_get_string_secret(self):
-        secret_name = TEST_SECRET
+    def test_get_string_secret(self, secrets_manager, string_secret):
         username = "test_user"
         password = "test_password"
         expected_secret = {"username": username, "password": password}
-        self.client.create_secret(
-            Name=secret_name, SecretString=json.dumps(expected_secret)
-        )
 
         # Retrieve a string secret. Success expected.
-        obtained_secret = self.secrets_manager_handler.get_secret_value(
-            secret_name=secret_name
-        )
+        obtained_secret = secrets_manager.get_secret_value(secret_name=string_secret)
         assert obtained_secret["username"] == expected_secret["username"]
         assert obtained_secret["password"] == expected_secret["password"]
-        self.client.create_secret(Name="caca", SecretString="coco")
 
-    def test_get_binary_secret(self):
-        secret_name = TEST_SECRET
+    def test_get_binary_secret(self, secrets_manager, binary_secret):
         username = "test_user"
         password = "test_password"
         expected_secret = {"username": username, "password": password}
 
-        secret_binary = b64encode(json.dumps(expected_secret).encode())
-        self.client.create_secret(Name=secret_name, SecretBinary=secret_binary)
-
-        # Retrieve a binary secret. Success expected.
-        obtained_secret = self.secrets_manager_handler.get_secret_value(
-            secret_name=secret_name
-        )
+        # Retrieve a string secret. Success expected.
+        obtained_secret = secrets_manager.get_secret_value(secret_name=binary_secret)
         assert obtained_secret["username"] == expected_secret["username"]
         assert obtained_secret["password"] == expected_secret["password"]
 
-    def test_get_non_existent_secret(self):
-        secret_name = TEST_SECRET
-        username = "test_user"
-        password = "test_password"
-        expected_secret = {"username": username, "password": password}
-
-        secret_binary = b64encode(json.dumps(expected_secret).encode())
-        self.client.create_secret(Name=secret_name, SecretBinary=secret_binary)
-
+    def test_get_non_existent_secret(self, secrets_manager):
         # Retreive a secret that does not exist. Failure expected.
         expected_message = "Secrets Manager can't find the resource you asked for."
         with pytest.raises(SecretsManagerError, match=expected_message) as e:
-            obtained_secret = self.secrets_manager_handler.get_secret_value(
-                secret_name="wrong_name"
-            )
+            obtained_secret = secrets_manager.get_secret_value(secret_name="wrong_secret")
 
     # TODO: Test with an KMS encripted key.

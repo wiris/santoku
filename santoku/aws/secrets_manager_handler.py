@@ -14,23 +14,18 @@ class SecretsManagerError(Exception):
 
 class SecretsManagerHandler:
     """
-    Class to manage operations of Amazon Secrets Manager Service (SQS).
+    Class to manage operations of AWS Secrets Manager Service (SQS).
 
-    This class is intended to be used in other projects when the use of confidential secrets is
-    required. Scremets Manager allows the storage and retreiving of secrets in a safe way. The
+    This class is intended to be used in other projects when the use of secrets is required.
+    Secrets Manager allows the storage and retreiving of secrets in a safe way. The
     connection to the Secrets Manager service is done using the service class Client of the boto3
     library.
 
     """
 
-    def __init__(self, region_name: str = ""):
+    def __init__(self):
         """
-        Instantiate the services classes.
-
-        Parameters
-        ----------
-        region_name : str
-            AWS Region in which to operate the service.
+        Initializes the services classes.
 
         Notes
         -----
@@ -42,12 +37,7 @@ class SecretsManagerHandler:
         https://aws.amazon.com/about-aws/global-infrastructure/regions_az/
 
         """
-        if region_name:
-            self.client = boto3.client(
-                service_name="secretsmanager", region_name=region_name
-            )
-        else:
-            self.client = boto3.client(service_name="secretsmanager")
+        self.client = boto3.client(service_name="secretsmanager")
 
     def get_secret_value(self, secret_name: str) -> Dict[str, Any]:
         """
@@ -76,7 +66,9 @@ class SecretsManagerHandler:
             secret_value_response = self.client.get_secret_value(SecretId=secret_name)
         except ClientError as e:
             if e.response["Error"]["Code"] == "DecryptionFailureException":
-                error_message = "Secrets Manager can't decrypt the protected secret using the provided KMS key."
+                error_message = (
+                    "Secrets Manager can't decrypt the protected secret using the provided KMS key."
+                )
                 raise SecretsManagerError(error_message)
             elif e.response["Error"]["Code"] == "InternalServiceErrorException":
                 error_message = "An error occured on the server side."
