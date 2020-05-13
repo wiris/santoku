@@ -24,49 +24,51 @@ def secrets_manager(aws_credentials):
         yield secrets_manager
 
 
-@pytest.fixture(scope="function")
-def string_secret(secrets_manager):
-    test_secret = "test/secret_name"
+@pytest.fixture(scope="class")
+def secret_content():
     username = "test_user"
     password = "test_password"
     secret_content = {"username": username, "password": password}
+    yield secret_content
+
+
+@pytest.fixture(scope="function")
+def string_secret(secrets_manager, secret_content, request):
+    test_secret = "test/secret_name"
     secrets_manager.client.create_secret(Name=test_secret, SecretString=json.dumps(secret_content))
     yield test_secret
-    secrets_manager.client.delete_secret(SecretId=test_secret, ForceDeleteWithoutRecovery=True)
+
+    def teardown():
+        secrets_manager.client.delete_secret(SecretId=test_secret, ForceDeleteWithoutRecovery=True)
+
+    request.addfinalizer(teardown)
 
 
 @pytest.fixture(scope="function")
-def binary_secret(secrets_manager):
+def binary_secret(secrets_manager, secret_content, request):
     test_secret = "test/secret_name"
-    username = "test_user"
-    password = "test_password"
-    secret_content = {"username": username, "password": password}
     secret_binary = b64encode(json.dumps(secret_content).encode())
     secrets_manager.client.create_secret(Name=test_secret, SecretBinary=secret_binary)
     yield test_secret
-    secrets_manager.client.delete_secret(SecretId=test_secret, ForceDeleteWithoutRecovery=True)
+
+    def teardown():
+        secrets_manager.client.delete_secret(SecretId=test_secret, ForceDeleteWithoutRecovery=True)
+
+    request.addfinalizer(teardown)
 
 
 class TestSecretsManagerHandler:
-    def test_get_string_secret(self, secrets_manager, string_secret):
-        username = "test_user"
-        password = "test_password"
-        expected_secret = {"username": username, "password": password}
-
+    def test_get_string_secret(self, secrets_manager, secret_content, string_secret):
         # Retrieve a string secret. Success expected.
         obtained_secret = secrets_manager.get_secret_value(secret_name=string_secret)
-        assert obtained_secret["username"] == expected_secret["username"]
-        assert obtained_secret["password"] == expected_secret["password"]
+        assert obtained_secret["username"] == secret_content["username"]
+        assert obtained_secret["password"] == secret_content["password"]
 
-    def test_get_binary_secret(self, secrets_manager, binary_secret):
-        username = "test_user"
-        password = "test_password"
-        expected_secret = {"username": username, "password": password}
-
+    def test_get_binary_secret(self, secrets_manager, secret_content, binary_secret):
         # Retrieve a string secret. Success expected.
         obtained_secret = secrets_manager.get_secret_value(secret_name=binary_secret)
-        assert obtained_secret["username"] == expected_secret["username"]
-        assert obtained_secret["password"] == expected_secret["password"]
+        assert obtained_secret["username"] == secret_content["username"]
+        assert obtained_secret["password"] == secret_content["password"]
 
     def test_get_non_existent_secret(self, secrets_manager):
         # Retreive a secret that does not exist. Failure expected.
