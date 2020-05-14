@@ -237,7 +237,7 @@ class BigQueryHandler:
         max_results: int = None,
         retry: Retry = DEFAULT_RETRY,
         timeout: float = None,
-        dtypes: Dict[str, Union[str, pd.Series.dtype]] = None,
+        dtypes: Dict[str, Union[str, Any]] = None,
         progress_bar_type: str = None,
         **kwargs,
     ) -> pd.DataFrame:
@@ -256,7 +256,7 @@ class BigQueryHandler:
             Argument for `self.get_query_results`
         timeout: float
             Argument for `self.get_query_results`
-        dtypes: Dict[str, Union[str, pd.Series.dtype]]
+        dtypes: Dict[str, Union[str, Any]]
             A dictionary of column names to pandas dtypes used when constructing the series for the 
             column specified. Otherwise, the default pandas behavior is used.
         progress_bar_type: str
