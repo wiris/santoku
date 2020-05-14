@@ -1,6 +1,6 @@
 import pandas as pd
 
-from typing import Dict, Union, Iterator, Any
+from typing import Dict, Union, Any
 
 from google.cloud import bigquery as bq
 from ..aws.secrets_manager_handler import SecretsManagerHandler
