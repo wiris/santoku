@@ -3,7 +3,9 @@ import re
 import requests
 
 from typing import List, Dict, Any, Optional
+
 from urllib import parse
+from ..aws.secrets_manager_handler import SecretsManagerHandler
 
 
 class ObjectsHandler:
@@ -95,6 +97,81 @@ class ObjectsHandler:
         self._validate_salesforce_object = True
         self._is_authenticated = False
 
+    @classmethod
+    def from_aws_secrets_manager(
+        cls,
+        secret_name: str,
+        secret_keys: Dict[str, str] = {
+            "auth_url_key": "AUTH_URL",
+            "username_key": "USR",
+            "password_key": "PSW",
+            "client_id_key": "CLIENT_USR",
+            "client_secret_key": "CLIENT_PSW",
+        },
+        api_version: float = 47.0,
+        grant_type: str = "password",
+    ):
+        """
+        Retrieve the salesforce credentials from AWS Secrets Manager and initialize the class.
+        Requires that AWS credentials with the appropriate permissions are located somewhere on the
+        AWS credential chain in the local machine.
+
+        Parameters
+        ----------
+        secret_name : str
+            Name or ARN for the secret containing the JSON needed for the salesforce authentication.
+        secret_keys : Dict[str, str], optional
+            Sepecification of the secret keys used in AWS Secrets Manager to store the credentials.
+            (By default "AUTH_URL", "USR", "PSW", "CLIENT_USR", "CLIENT_PSW" will be the keys that
+            stores the salesforce credentials.)
+        api_version : float, optional
+            Version of the Salesforce API used (the default is 47.0).
+        grant_type : str, optional
+            Type of credentials used to authenticate with salesforce(the default is 'password').
+
+        See Also
+        --------
+        __init__ : this method calls the constructor.
+
+        Notes
+        -----
+        The `secret_keys` parameter must be a JSON containing fixed attributes:
+        ```
+        {
+            "auth_url_key": <auth url>,
+            "username_key": <username>,
+            "password_key": <password>,
+            "client_id_key": <client id>,
+            "client_secret_key": <clientsecret>,
+        }
+        ```
+
+        """
+        for key in [
+            "auth_url_key",
+            "username_key",
+            "password_key",
+            "client_id_key",
+            "client_secret_key",
+        ]:
+            if key not in secret_keys:
+                raise ValueError(
+                    "The `secret_keys` argument does not contain keys in the required format."
+                )
+
+        secrets_manager = SecretsManagerHandler()
+        credential_info = secrets_manager.get_secret_value(secret_name=secret_name)
+
+        return cls(
+            auth_url=credential_info[secret_keys["auth_url_key"]],
+            username=credential_info[secret_keys["username_key"]],
+            password=credential_info[secret_keys["password_key"]],
+            client_id=credential_info[secret_keys["client_id_key"]],
+            client_secret=credential_info[secret_keys["client_secret_key"]],
+            api_version=api_version,
+            grant_type=grant_type,
+        )
+
     def _authenticate(self) -> None:
         try:
             response = requests.post(
@@ -179,9 +256,7 @@ class ObjectsHandler:
 
         return self._salesforce_object_fields_cache[salesforce_object_name]
 
-    def get_salesforce_object_required_fields(
-        self, salesforce_object_name: str
-    ) -> List[str]:
+    def get_salesforce_object_required_fields(self, salesforce_object_name: str) -> List[str]:
         """
         Return the mandatory arguments that an sobject needs to be created.
 
@@ -258,9 +333,7 @@ class ObjectsHandler:
 
         return salesforce_object_name
 
-    def _validate_payload_fields(
-        self, payload: Dict[str, str], object_fields: List[str]
-    ) -> None:
+    def _validate_payload_fields(self, payload: Dict[str, str], object_fields: List[str]) -> None:
         for field in payload:
             if field not in object_fields:
                 raise ValueError(f"`{field}` isn't a valid field")
@@ -275,13 +348,9 @@ class ObjectsHandler:
                 )
             else:
                 if not payload[field]:
-                    raise ValueError(
-                        f"`{field}` is a required field and must not be empty."
-                    )
+                    raise ValueError(f"`{field}` is a required field and must not be empty.")
 
-    def do_request(
-        self, method: str, path: str, payload: Optional[Dict[str, str]] = None,
-    ) -> str:
+    def do_request(self, method: str, path: str, payload: Optional[Dict[str, str]] = None,) -> str:
         """
         Construct and send a request.
 
@@ -330,19 +399,14 @@ class ObjectsHandler:
                 assert payload, "Payload must be defined for a POST, PATCH request."
 
                 if self._validate_salesforce_object:
-                    object_fields = self.get_salesforce_object_fields(
-                        salesforce_object_name
-                    )
-                    self._validate_payload_fields(
-                        payload=payload, object_fields=object_fields
-                    )
+                    object_fields = self.get_salesforce_object_fields(salesforce_object_name)
+                    self._validate_payload_fields(payload=payload, object_fields=object_fields)
                     if method == "POST":
                         object_required_fields = self.get_salesforce_object_required_fields(
                             salesforce_object_name
                         )
                         self._validate_required_fields_in_payload(
-                            payload=payload,
-                            object_required_fields=object_required_fields,
+                            payload=payload, object_required_fields=object_required_fields,
                         )
 
                 # We use reflection to choose which method (POST or PATCH) to execute.
@@ -350,9 +414,7 @@ class ObjectsHandler:
                     url=url, json=payload, headers=self.request_headers,
                 )
             else:  # method == "GET" or method == "DELETE":
-                response = getattr(requests, method.lower())(
-                    url=url, headers=self.request_headers
-                )
+                response = getattr(requests, method.lower())(url=url, headers=self.request_headers)
 
             # Call Response.raise_for_status method to raise exceptions from http errors (e.g. 401
             # Unauthorized).
@@ -365,9 +427,7 @@ class ObjectsHandler:
         # Response is returned as is, it's caller's responsability to do the parsing.
         return response.text
 
-    def do_query_with_SOQL(
-        self, query="SELECT Name from Account"
-    ) -> List[Dict[str, Any]]:
+    def do_query_with_SOQL(self, query="SELECT Name from Account") -> List[Dict[str, Any]]:
         """
         Constructs and sends a request using SOQL.
 
@@ -465,13 +525,9 @@ class ObjectsHandler:
         do_request : this method does a request of type POST.
 
         """
-        return self.do_request(
-            method="POST", path=f"sobjects/{sobject}", payload=payload,
-        )
+        return self.do_request(method="POST", path=f"sobjects/{sobject}", payload=payload,)
 
-    def modify_record(
-        self, sobject: str, record_id: str, payload: Dict[str, str],
-    ) -> str:
+    def modify_record(self, sobject: str, record_id: str, payload: Dict[str, str],) -> str:
         """
         Update an instance of a salesforce object.
 
