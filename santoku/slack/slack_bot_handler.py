@@ -52,18 +52,22 @@ class SlackBotHandler:
     @classmethod
     def from_aws_secrets_manager(cls, secret_name: str, secret_key: str = "API_TOKEN"):
         """
-        Retrieve the secret id where the slack app oauth token is stored from AWS Secrets Manager.
-        Requires that AWS credentials with the appropriate permissions are located somewhere on the
-        AWS credential chain in the local machine.
+        Retrieve the the slack app oauth token from AWS Secrets Manager and initialize the slack
+        client. Requires that AWS credentials with the appropriate permissions are located somewhere
+        on the AWS credential chain in the local machine.
 
         Paramaters
         ----------
         secret_name : str
-            Name or ARN for the secret containing the JSON needed for the Slack bot authentication.
+            Name or ARN for the secret containing the token needed for the Slack bot authentication.
 
         secret_key : str, optional
-            Key of the stored secret. By default "API_TOKEN" will be the convention we use to call
-            the keys of the slack app oauth tokens.
+            Key of the stored secret. (By default "API_TOKEN" will be the key that stores the slack
+            app oauth token.)
+
+        See Also
+        --------
+        __init__ : this method calls the constructor.
 
         """
         secrets_manager = SecretsManagerHandler()

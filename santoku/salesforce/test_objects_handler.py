@@ -2,14 +2,82 @@ import os
 import requests
 import pytest
 import json
+
+from moto import mock_secretsmanager
 from ..salesforce.objects_handler import ObjectsHandler
-from typing import List, Dict, Any
+from ..aws import SecretsManagerHandler
 
 SANDBOX_AUTH_URL = os.environ["DATA_SCIENCE_SALESFORCE_SANDBOX_AUTH_URL"]
 SANDBOX_USR = os.environ["DATA_SCIENCE_SALESFORCE_SANDBOX_USR"]
 SANDBOX_PSW = os.environ["DATA_SCIENCE_SALESFORCE_SANDBOX_PSW"]
 SANDBOX_CLIENT_USR = os.environ["DATA_SCIENCE_SALESFORCE_SANDBOX_CLIENT_USR"]
 SANDBOX_CLIENT_PSW = os.environ["DATA_SCIENCE_SALESFORCE_SANDBOX_CLIENT_PSW"]
+
+
+@pytest.fixture(scope="class")
+def aws_credentials():
+    """Mocked AWS Credentials for moto."""
+    os.environ["AWS_ACCESS_KEY_ID"] = "testing"
+    os.environ["AWS_SECRET_ACCESS_KEY"] = "testing"
+    os.environ["AWS_SECURITY_TOKEN"] = "testing"
+    os.environ["AWS_SESSION_TOKEN"] = "testing"
+    os.environ["AWS_DEFAULT_REGION"] = "eu-west-1"
+
+
+@pytest.fixture(scope="class")
+def secrets_manager(aws_credentials):
+    with mock_secretsmanager():
+        secrets_manager = SecretsManagerHandler()
+        yield secrets_manager
+
+
+@pytest.fixture(scope="function")
+def secret_with_default_keys(secrets_manager, request):
+    secret_name = "test/secret_with_default_keys"
+    secret_content = {
+        "AUTH_URL": os.environ["DATA_SCIENCE_SALESFORCE_SANDBOX_AUTH_URL"],
+        "USR": os.environ["DATA_SCIENCE_SALESFORCE_SANDBOX_USR"],
+        "PSW": os.environ["DATA_SCIENCE_SALESFORCE_SANDBOX_PSW"],
+        "CLIENT_USR": os.environ["DATA_SCIENCE_SALESFORCE_SANDBOX_CLIENT_USR"],
+        "CLIENT_PSW": os.environ["DATA_SCIENCE_SALESFORCE_SANDBOX_CLIENT_PSW"],
+    }
+    secrets_manager.client.create_secret(Name=secret_name, SecretString=json.dumps(secret_content))
+    yield secret_name
+
+    def teardown():
+        secrets_manager.client.delete_secret(SecretId=secret_name, ForceDeleteWithoutRecovery=True)
+
+    request.addfinalizer(teardown)
+
+
+@pytest.fixture(scope="function")
+def secret_keys():
+    yield {
+        "auth_url_key": "DATA_SCIENCE_SALESFORCE_SANDBOX_AUTH_URL",
+        "username_key": "DATA_SCIENCE_SALESFORCE_SANDBOX_USR",
+        "password_key": "DATA_SCIENCE_SALESFORCE_SANDBOX_PSW",
+        "client_id_key": "DATA_SCIENCE_SALESFORCE_SANDBOX_CLIENT_USR",
+        "client_secret_key": "DATA_SCIENCE_SALESFORCE_SANDBOX_CLIENT_PSW",
+    }
+
+
+@pytest.fixture(scope="function")
+def secret_with_not_default_key(secrets_manager, secret_keys, request):
+    secret_name = "test/secret_with_not_default_key"
+    secret_content = {
+        secret_keys["auth_url_key"]: os.environ["DATA_SCIENCE_SALESFORCE_SANDBOX_AUTH_URL"],
+        secret_keys["username_key"]: os.environ["DATA_SCIENCE_SALESFORCE_SANDBOX_USR"],
+        secret_keys["password_key"]: os.environ["DATA_SCIENCE_SALESFORCE_SANDBOX_PSW"],
+        secret_keys["client_id_key"]: os.environ["DATA_SCIENCE_SALESFORCE_SANDBOX_CLIENT_USR"],
+        secret_keys["client_secret_key"]: os.environ["DATA_SCIENCE_SALESFORCE_SANDBOX_CLIENT_PSW"],
+    }
+    secrets_manager.client.create_secret(Name=secret_name, SecretString=json.dumps(secret_content))
+    yield secret_name
+
+    def teardown():
+        secrets_manager.client.delete_secret(SecretId=secret_name, ForceDeleteWithoutRecovery=True)
+
+    request.addfinalizer(teardown)
 
 
 def delete_records(oh: ObjectsHandler, sobject: str):
@@ -38,11 +106,7 @@ class TestObjectsHandler:
 
     def test_wrong_credentials(self):
         contact_payloads = [
-            {
-                "FirstName": "Janie",
-                "LastName": "Goodman",
-                "Email": "janie@example.com",
-            },
+            {"FirstName": "Janie", "LastName": "Goodman", "Email": "janie@example.com",},
         ]
 
         # Connect Salesforce with wrong credentials. Failure expected.
@@ -108,16 +172,8 @@ class TestObjectsHandler:
 
         # Insert n Contacts that do not exist. Success expected.
         contact_payloads = [
-            {
-                "FirstName": "Randall D.",
-                "LastName": "Youngblood",
-                "Email": "randall@example.com",
-            },
-            {
-                "FirstName": "Amani Cantara",
-                "LastName": "Fakhoury",
-                "Email": "amani@example.com",
-            },
+            {"FirstName": "Randall D.", "LastName": "Youngblood", "Email": "randall@example.com",},
+            {"FirstName": "Amani Cantara", "LastName": "Fakhoury", "Email": "amani@example.com",},
             {
                 "FirstName": "Mika-Matti",
                 "LastName": "Ridanpää",
@@ -145,6 +201,57 @@ class TestObjectsHandler:
             )
             assert response
 
+    def test_init_handler_from_secrets_manager(
+        self, secret_with_default_keys, secret_with_not_default_key, secret_keys
+    ):
+        oh = ObjectsHandler.from_aws_secrets_manager(secret_name=secret_with_default_keys)
+
+        # Initialize the handler from secrets using the default secret keys by convention and insert
+        # a Contact that do not exist. Success expected.
+        contact_payloads = [
+            {"FirstName": "Abbie", "LastName": "Cochran", "Email": "abbie@example.com",},
+        ]
+
+        for contact_payload in contact_payloads:
+            response = oh.do_request(
+                method="POST", path="sobjects/Contact", payload=contact_payload
+            )
+            assert response
+
+        # Initialize the handler from secrets using secret keys different the default ones and
+        # insert a Contact that do not exist. Success expected.
+        oh = ObjectsHandler.from_aws_secrets_manager(
+            secret_name=secret_with_not_default_key, secret_keys=secret_keys
+        )
+
+        contact_payloads = [
+            {"FirstName": "Mira", "LastName": "Berger", "Email": "mira@example.com",},
+        ]
+
+        for contact_payload in contact_payloads:
+            response = oh.do_request(
+                method="POST", path="sobjects/Contact", payload=contact_payload
+            )
+            assert response
+
+        # Initialize the handler from secrets using secret keys different the default ones but with
+        # an incorrect format. Failure expected.
+        bad_secret_keys = {
+            "wrong_auth_url_key": "AUTH_URL",
+            "wrong_username_key": "USR",
+            "wrong_password_key": "PSW",
+            "wrong_client_id_key": "CLIENT_USR",
+            "wrong_client_secret_key": "CLIENT_PSW",
+        }
+
+        expected_message = (
+            "The `secret_keys` argument does not contain keys in the required format."
+        )
+        with pytest.raises(ValueError, match=expected_message) as e:
+            ObjectsHandler.from_aws_secrets_manager(
+                secret_name=secret_with_not_default_key, secret_keys=bad_secret_keys
+            )
+
     def test_contact_query(self):
         oh = ObjectsHandler(
             auth_url=SANDBOX_AUTH_URL,
@@ -160,18 +267,12 @@ class TestObjectsHandler:
 
         # Insert n Contacts.
         contact_payloads = [
-            {
-                "FirstName": "Angel",
-                "LastName": "Collins",
-                "Email": "angel@example.com",
-            },
+            {"FirstName": "Angel", "LastName": "Collins", "Email": "angel@example.com",},
             {"FirstName": "June", "LastName": "Ross", "Email": "june@example.com",},
         ]
 
         for contact_payload in contact_payloads:
-            oh.do_request(
-                method="POST", path="sobjects/Contact", payload=contact_payload
-            )
+            oh.do_request(method="POST", path="sobjects/Contact", payload=contact_payload)
 
         # Read the n Contacts inserted with SOQL. Success expected.
         expected_names = []
@@ -198,19 +299,13 @@ class TestObjectsHandler:
         obtained_contacts = oh.do_query_with_SOQL(
             f"SELECT Id, Name from contact WHERE Id = '{expected_id}'"
         )
-        assert (
-            len(obtained_contacts) == 1
-            and obtained_contacts[0]["Name"] == expected_name
-        )
+        assert len(obtained_contacts) == 1 and obtained_contacts[0]["Name"] == expected_name
 
         # Read a specific contact with SOQL by Name. Success expected.
         obtained_contacts = oh.do_query_with_SOQL(
             f"SELECT Name from contact WHERE Name = '{expected_name}'"
         )
-        assert (
-            len(obtained_contacts) == 1
-            and obtained_contacts[0]["Name"] == expected_name
-        )
+        assert len(obtained_contacts) == 1 and obtained_contacts[0]["Name"] == expected_name
 
         # Query a contact that does not exists with SOQL. Success expected.
         obtained_contacts = oh.do_query_with_SOQL(
@@ -248,9 +343,7 @@ class TestObjectsHandler:
 
         contact_id = obtained_contacts[0]["Id"]
         oh.do_request(
-            method="PATCH",
-            path=f"sobjects/Contact/{contact_id}",
-            payload=contact_payload,
+            method="PATCH", path=f"sobjects/Contact/{contact_id}", payload=contact_payload,
         )
 
         contact_id = obtained_contacts[0]["Id"]
@@ -269,9 +362,7 @@ class TestObjectsHandler:
 
         contact_id = obtained_contacts[0]["Id"]
         oh.do_request(
-            method="PATCH",
-            path=f"sobjects/Contact/{contact_id}",
-            payload=contact_payload,
+            method="PATCH", path=f"sobjects/Contact/{contact_id}", payload=contact_payload,
         )
 
         contact_id = obtained_contacts[0]["Id"]
@@ -287,9 +378,7 @@ class TestObjectsHandler:
         contact_payload = {"FirstName": "ANYNAME"}
         with pytest.raises(requests.exceptions.RequestException) as e:
             response = oh.do_request(
-                method="PATCH",
-                path="sobjects/Contact/WRONGID",
-                payload=contact_payload,
+                method="PATCH", path="sobjects/Contact/WRONGID", payload=contact_payload,
             )
 
     def test_contact_deletion(self):
@@ -303,16 +392,8 @@ class TestObjectsHandler:
 
         # Insert n Contacts.
         contact_payloads = [
-            {
-                "FirstName": "Brian",
-                "LastName": "Cunningham",
-                "Email": "brian@example.com",
-            },
-            {
-                "FirstName": "Julius",
-                "LastName": "Marsh",
-                "Email": "julius@example.com",
-            },
+            {"FirstName": "Brian", "LastName": "Cunningham", "Email": "brian@example.com",},
+            {"FirstName": "Julius", "LastName": "Marsh", "Email": "julius@example.com",},
         ]
 
         for contact_payload in contact_payloads:
@@ -361,16 +442,8 @@ class TestObjectsHandler:
         # Insert n Contacts that do not exist. Success expected.
         contact_payloads = [
             {"FirstName": "Kim", "LastName": "George", "Email": "kim@example.com",},
-            {
-                "FirstName": "Wilfred",
-                "LastName": "Craig",
-                "Email": "wilfred@example.com",
-            },
-            {
-                "FirstName": "Whitney",
-                "LastName": "Ross",
-                "Email": "whitney@example.com",
-            },
+            {"FirstName": "Wilfred", "LastName": "Craig", "Email": "wilfred@example.com",},
+            {"FirstName": "Whitney", "LastName": "Ross", "Email": "whitney@example.com",},
         ]
 
         for contact_payload in contact_payloads:
@@ -399,11 +472,7 @@ class TestObjectsHandler:
         # Insert n Contacts.
         contact_payloads = [
             {"FirstName": "Boyd", "LastName": "Johnston", "Email": "boyd@example.com",},
-            {
-                "FirstName": "Zachary",
-                "LastName": "Singleton",
-                "Email": "zachary@example.com",
-            },
+            {"FirstName": "Zachary", "LastName": "Singleton", "Email": "zachary@example.com",},
         ]
 
         for contact_payload in contact_payloads:
@@ -466,11 +535,7 @@ class TestObjectsHandler:
 
         # Insert n Contacts.
         contact_payloads = [
-            {
-                "FirstName": "Elaine",
-                "LastName": "Mullins",
-                "Email": "elaine@example.com",
-            },
+            {"FirstName": "Elaine", "LastName": "Mullins", "Email": "elaine@example.com",},
             {"FirstName": "Tami", "LastName": "Joseph", "Email": "tami@example.com",},
         ]
 
