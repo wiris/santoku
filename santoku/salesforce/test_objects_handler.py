@@ -52,7 +52,7 @@ def secret_with_default_keys(secrets_manager, request):
 
 @pytest.fixture(scope="function")
 def secret_keys():
-    yield {
+    return {
         "auth_url_key": "DATA_SCIENCE_SALESFORCE_SANDBOX_AUTH_URL",
         "username_key": "DATA_SCIENCE_SALESFORCE_SANDBOX_USR",
         "password_key": "DATA_SCIENCE_SALESFORCE_SANDBOX_PSW",
@@ -62,8 +62,8 @@ def secret_keys():
 
 
 @pytest.fixture(scope="function")
-def secret_with_not_default_key(secrets_manager, secret_keys, request):
-    secret_name = "test/secret_with_not_default_key"
+def secret_with_non_default_keys(secrets_manager, secret_keys, request):
+    secret_name = "test/secret_with_non_default_keys"
     secret_content = {
         secret_keys["auth_url_key"]: os.environ["DATA_SCIENCE_SALESFORCE_SANDBOX_AUTH_URL"],
         secret_keys["username_key"]: os.environ["DATA_SCIENCE_SALESFORCE_SANDBOX_USR"],
@@ -202,7 +202,7 @@ class TestObjectsHandler:
             assert response
 
     def test_init_handler_from_secrets_manager(
-        self, secret_with_default_keys, secret_with_not_default_key, secret_keys
+        self, secret_with_default_keys, secret_with_non_default_keys, secret_keys
     ):
         oh = ObjectsHandler.from_aws_secrets_manager(secret_name=secret_with_default_keys)
 
@@ -218,10 +218,10 @@ class TestObjectsHandler:
             )
             assert response
 
-        # Initialize the handler from secrets using secret keys different the default ones and
-        # insert a Contact that do not exist. Success expected.
+        # Initialize the handler from secrets using non default secret keys and insert a Contact
+        # that do not exist. Success expected.
         oh = ObjectsHandler.from_aws_secrets_manager(
-            secret_name=secret_with_not_default_key, secret_keys=secret_keys
+            secret_name=secret_with_non_default_keys, secret_keys=secret_keys
         )
 
         contact_payloads = [
@@ -249,7 +249,7 @@ class TestObjectsHandler:
         )
         with pytest.raises(ValueError, match=expected_message) as e:
             ObjectsHandler.from_aws_secrets_manager(
-                secret_name=secret_with_not_default_key, secret_keys=bad_secret_keys
+                secret_name=secret_with_non_default_keys, secret_keys=bad_secret_keys
             )
 
     def test_contact_query(self):
