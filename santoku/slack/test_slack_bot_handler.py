@@ -27,7 +27,7 @@ def secrets_manager(aws_credentials):
 
 @pytest.fixture(scope="class")
 def secret_token():
-    yield os.environ["SLACK_BOT_API_TOKEN"]
+    return os.environ["SLACK_BOT_API_TOKEN"]
 
 
 @pytest.fixture(scope="function")
@@ -45,12 +45,12 @@ def secret_with_default_key(secrets_manager, secret_token, request):
 
 @pytest.fixture(scope="function")
 def secret_key():
-    yield "SLACK_BOT_API_TOKEN"
+    return "SLACK_BOT_API_TOKEN"
 
 
 @pytest.fixture(scope="function")
-def secret_with_not_default_key(secrets_manager, secret_key, secret_token, request):
-    secret_name = "test/secret_with_not_default_key"
+def secret_with_non_default_keys(secrets_manager, secret_key, secret_token, request):
+    secret_name = "test/secret_with_non_default_keys"
     secret_content = {secret_key: secret_token}
     secrets_manager.client.create_secret(Name=secret_name, SecretString=json.dumps(secret_content))
     yield secret_name
@@ -62,50 +62,65 @@ def secret_with_not_default_key(secrets_manager, secret_key, secret_token, reque
 
 
 @pytest.fixture(scope="class")
-def chanel_name():
-    yield "bi-notifications-test"
+def channel_name():
+    return "bi-notifications-test"
 
 
 class TestSlackBotHandler:
-    def test_send_message_to_channel(self, chanel_name, secret_token):
-        # Test sending a message to the testing chanel. Success expected.
+    def test_send_message_to_channel(self, channel_name, secret_token):
+        # Test sending a message to the testing channel. Success expected.
         slack_bot = SlackBotHandler(api_token=secret_token)
         message = "`test_send_message_to_channel` is running."
-        slack_bot.send_message(channel=chanel_name, message=message)
+        try:
+            slack_bot.send_message(channel=channel_name, message=message)
+        except:
+            assert False
+        else:
+            assert True
 
     def test_init_handler_from_secrets_manager(
-        self, secret_with_default_key, secret_with_not_default_key, secret_key, chanel_name
+        self, secret_with_default_key, secret_with_non_default_keys, secret_key, channel_name
     ):
-        # Test sending a message to the test chanel from a secret created in secrets manager using
+        # Test sending a message to the test channel from a secret created in secrets manager using
         # the default secret key by convention. Success expected.
         slack_bot = SlackBotHandler.from_aws_secrets_manager(secret_name=secret_with_default_key)
         message = (
             "`test_init_handler_from_secrets_manager` using the default secret key is running."
         )
-        slack_bot.send_message(channel=chanel_name, message=message)
+        try:
+            slack_bot.send_message(channel=channel_name, message=message)
+        except:
+            assert False
+        else:
+            assert True
 
-        # Test sending a message to the test chanel from a secret created in secrets manager using
+        # Test sending a message to the test channel from a secret created in secrets manager using
         # a secret key different that the default one. Success expected.
         message = (
-            "`test_init_handler_from_secrets_manager` not using the default secret key is running."
+            "`test_init_handler_from_secrets_manager` using non-default secret key is running."
         )
         slack_bot = SlackBotHandler.from_aws_secrets_manager(
-            secret_name=secret_with_not_default_key, secret_key=secret_key
+            secret_name=secret_with_non_default_keys, secret_key=secret_key
         )
-        slack_bot.send_message(channel=chanel_name, message=message)
+        try:
+            slack_bot.send_message(channel=channel_name, message=message)
+        except:
+            assert False
+        else:
+            assert True
 
-    def test_send_message_with_invalid_auth(self, chanel_name):
+    def test_send_message_with_invalid_auth(self, channel_name):
         # Test sending a message using invalid slack credentials. Failure expected.
         slack_bot = SlackBotHandler(api_token="wrong_token")
         expected_message = "The authentication token is invalid."
         message = "`test_send_message_with_invalid_auth` test is running."
         with pytest.raises(SlackBotError, match=expected_message) as e:
-            slack_bot.send_message(channel=chanel_name, message=message)
+            slack_bot.send_message(channel=channel_name, message=message)
 
-    def test_send_message_to_wrong_chanel(self, secret_token):
+    def test_send_message_to_wrong_channel(self, secret_token):
         # Test sending a message to a channel that does not exist. Failure expected.
         slack_bot = SlackBotHandler(api_token=secret_token)
         expected_message = "The channel was not found."
-        message = "`test_send_message_to_wrong_chanel` test is running."
+        message = "`test_send_message_to_wrong_channel` test is running."
         with pytest.raises(SlackBotError, match=expected_message) as e:
-            slack_bot.send_message(channel="wrong_chanel", message=message)
+            slack_bot.send_message(channel="wrong_channel", message=message)
