@@ -52,9 +52,9 @@ class SlackBotHandler:
     @classmethod
     def from_aws_secrets_manager(cls, secret_name: str, secret_key: str = "API_TOKEN"):
         """
-        Retrieve the the slack app oauth token from AWS Secrets Manager and initialize the slack
-        client. Requires that AWS credentials with the appropriate permissions are located somewhere
-        on the AWS credential chain in the local machine.
+        Retrieve the slack app oauth token from AWS Secrets Manager and initialize the slack client.
+        Requires that AWS credentials with the appropriate permissions are located somewhere on the
+        AWS credential chain in the local machine.
 
         Paramaters
         ----------
@@ -92,9 +92,9 @@ class SlackBotHandler:
 
         Notes
         -----
-            So that the sending of message can be successful, the bot must be added to the
-            workspace, it also needs to have the scopes to send message to the specified channel
-            approved, this can be configured in: [1].
+            In order to successfully send the message, the bot must be added to the workspace, it
+            also needs to have the scopes to send message to the specified channel approved, this
+            can be configured in: [1].
 
         References
         ----------
