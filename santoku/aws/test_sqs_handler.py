@@ -48,9 +48,7 @@ class TestSQSHandler:
             pass
         else:
             raise EnvironmentError(f"{FIFO_SQS_NAME} should not exist.")
-        self.client.create_queue(
-            QueueName=FIFO_SQS_NAME, Attributes={"FifoQueue": "true"}
-        )
+        self.client.create_queue(QueueName=FIFO_SQS_NAME, Attributes={"FifoQueue": "true"})
 
     def teardown_method(self):
         delete_queue(sqs_client=self.client, queue_name=STANDARD_SQS_NAME)
@@ -82,7 +80,9 @@ class TestSQSHandler:
         # mocking accounts/profiles becomes stable.
         moto_aws_account = "123456789012"
 
-        expected_url = f"https://{REGION}.queue.amazonaws.com/{moto_aws_account}/{STANDARD_SQS_NAME}"
+        expected_url = (
+            f"https://{REGION}.queue.amazonaws.com/{moto_aws_account}/{STANDARD_SQS_NAME}"
+        )
         assert obtained_url == expected_url
 
         # Test getting the name of a queue that does not exist. Failure expected.
@@ -92,18 +92,9 @@ class TestSQSHandler:
     def test_check_message_attributes_are_well_formed(self):
         # Message attributes correctly structured. Success expected.
         message_attributes = {
-            "TestAttribute1": {
-                "DataType": "String",
-                "StringValue": "Test string value",
-            },
-            "TestAttribute2": {
-                "DataType": "Number",
-                "StringValue": "1000000000000000",
-            },
-            "TestAttribute3": {
-                "DataType": "Binary",
-                "BinaryValue": "Test binary value",
-            },
+            "TestAttribute1": {"DataType": "String", "StringValue": "Test string value",},
+            "TestAttribute2": {"DataType": "Number", "StringValue": "1000000000000000",},
+            "TestAttribute3": {"DataType": "Binary", "BinaryValue": "Test binary value",},
         }
 
         self.sqs_handler.check_message_attributes_are_well_formed(message_attributes)
@@ -122,26 +113,20 @@ class TestSQSHandler:
 
         expected_message = "Messages can have up to 10 attributes."
         with pytest.raises(MessageAttributeError, match=expected_message):
-            self.sqs_handler.check_message_attributes_are_well_formed(
-                message_attributes
-            )
+            self.sqs_handler.check_message_attributes_are_well_formed(message_attributes)
 
         # Message attributes not correctly structured. Failure expected.
         message_attributes = {"WrongAttribute": "WrongValue"}
         expected_message = "Each message attribute must be a dictionary containing 'DataType' and 'StringValue' arguments."
         with pytest.raises(MessageAttributeError, match=expected_message):
-            self.sqs_handler.check_message_attributes_are_well_formed(
-                message_attributes
-            )
+            self.sqs_handler.check_message_attributes_are_well_formed(message_attributes)
 
         # Message attributes that does not contain the required arguments. Failure
         # expected.
         message_attributes = {"WrongAttribute": {"StringValue": "Test string Value"}}
         expected_message = "'DataType' argument is missing in message attribute."
         with pytest.raises(MessageAttributeError, match=expected_message):
-            self.sqs_handler.check_message_attributes_are_well_formed(
-                message_attributes
-            )
+            self.sqs_handler.check_message_attributes_are_well_formed(message_attributes)
 
         message_attributes = {
             "WrongAttribute": {"DataType": "String", "BinaryValue": "Test string value"}
@@ -150,20 +135,14 @@ class TestSQSHandler:
             "'StringValue' argument is required for message attributes of type String."
         )
         with pytest.raises(MessageAttributeError, match=expected_message):
-            self.sqs_handler.check_message_attributes_are_well_formed(
-                message_attributes
-            )
+            self.sqs_handler.check_message_attributes_are_well_formed(message_attributes)
 
-        message_attributes = {
-            "WrongAttribute": {"DataType": "Number", "BinaryValue": "1"}
-        }
+        message_attributes = {"WrongAttribute": {"DataType": "Number", "BinaryValue": "1"}}
         expected_message = (
             "'StringValue' argument is required for message attributes of type Number."
         )
         with pytest.raises(MessageAttributeError, match=expected_message):
-            self.sqs_handler.check_message_attributes_are_well_formed(
-                message_attributes
-            )
+            self.sqs_handler.check_message_attributes_are_well_formed(message_attributes)
 
         message_attributes = {
             "WrongAttribute": {"DataType": "Binary", "StringValue": "Test binary value"}
@@ -172,26 +151,15 @@ class TestSQSHandler:
             "'BinaryValue' argument is required for message attributes of type Binary."
         )
         with pytest.raises(MessageAttributeError, match=expected_message):
-            self.sqs_handler.check_message_attributes_are_well_formed(
-                message_attributes
-            )
+            self.sqs_handler.check_message_attributes_are_well_formed(message_attributes)
 
     def test_send_message(self):
         # Send a message to a standard queue. Success expected.
         message_body = "Test message body."
         message_attributes = {
-            "TestAttribute1": {
-                "DataType": "String",
-                "StringValue": "Test string value",
-            },
-            "TestAttribute2": {
-                "DataType": "Number",
-                "StringValue": "1000000000000000",
-            },
-            "TestAttribute3": {
-                "DataType": "Binary",
-                "BinaryValue": "Test binary value",
-            },
+            "TestAttribute1": {"DataType": "String", "StringValue": "Test string value",},
+            "TestAttribute2": {"DataType": "Number", "StringValue": "1000000000000000",},
+            "TestAttribute3": {"DataType": "Binary", "BinaryValue": "Test binary value",},
         }
         response = self.sqs_handler.send_message(
             queue_name=STANDARD_SQS_NAME,
@@ -210,18 +178,9 @@ class TestSQSHandler:
 
     def test_send_message_batch(self):
         message_attributes = {
-            "TestAttribute1": {
-                "DataType": "String",
-                "StringValue": "Test string value",
-            },
-            "TestAttribute2": {
-                "DataType": "Number",
-                "StringValue": "1000000000000000",
-            },
-            "TestAttribute3": {
-                "DataType": "Binary",
-                "BinaryValue": "Test binary value",
-            },
+            "TestAttribute1": {"DataType": "String", "StringValue": "Test string value",},
+            "TestAttribute2": {"DataType": "Number", "StringValue": "1000000000000000",},
+            "TestAttribute3": {"DataType": "Binary", "BinaryValue": "Test binary value",},
         }
 
         entries = []
@@ -310,18 +269,9 @@ class TestSQSHandler:
         # Send a message to a standard queue. Success expected.
         message_body = "Test message body."
         message_attributes = {
-            "TestAttribute1": {
-                "DataType": "String",
-                "StringValue": "Test string value",
-            },
-            "TestAttribute2": {
-                "DataType": "Number",
-                "StringValue": "1000000000000000",
-            },
-            "TestAttribute3": {
-                "DataType": "Binary",
-                "BinaryValue": "Test binary value",
-            },
+            "TestAttribute1": {"DataType": "String", "StringValue": "Test string value",},
+            "TestAttribute2": {"DataType": "Number", "StringValue": "1000000000000000",},
+            "TestAttribute3": {"DataType": "Binary", "BinaryValue": "Test binary value",},
         }
         self.sqs_handler.send_message(
             queue_name=STANDARD_SQS_NAME,
@@ -346,27 +296,15 @@ class TestSQSHandler:
                     == message_attributes[obtained_attribute_name]["BinaryValue"]
                 )
             else:
-                assert (
-                    obtained_attribute_content
-                    == message_attributes[obtained_attribute_name]
-                )
+                assert obtained_attribute_content == message_attributes[obtained_attribute_name]
 
     def test_delete_message(self):
         # Read a message after it is deleted in the queue. Failure expected.
         message_body = "Test message body."
         message_attributes = {
-            "TestAttribute1": {
-                "DataType": "String",
-                "StringValue": "Test string value",
-            },
-            "TestAttribute2": {
-                "DataType": "Number",
-                "StringValue": "1000000000000000",
-            },
-            "TestAttribute3": {
-                "DataType": "Binary",
-                "BinaryValue": "Test binary value",
-            },
+            "TestAttribute1": {"DataType": "String", "StringValue": "Test string value",},
+            "TestAttribute2": {"DataType": "Number", "StringValue": "1000000000000000",},
+            "TestAttribute3": {"DataType": "Binary", "BinaryValue": "Test binary value",},
         }
         self.sqs_handler.send_message(
             queue_name=STANDARD_SQS_NAME,
@@ -380,9 +318,7 @@ class TestSQSHandler:
         message = response["Messages"][0]
         receipt_handle = message["ReceiptHandle"]
 
-        self.sqs_handler.delete_message(
-            queue_name=STANDARD_SQS_NAME, receipt_handle=receipt_handle
-        )
+        self.sqs_handler.delete_message(queue_name=STANDARD_SQS_NAME, receipt_handle=receipt_handle)
 
         # Read the messages in the queue.
         queue_url = self.client.get_queue_url(QueueName=STANDARD_SQS_NAME)["QueueUrl"]
