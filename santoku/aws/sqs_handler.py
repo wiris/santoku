@@ -175,28 +175,27 @@ class SQSHandler:
                 raise MessageAttributeError(error_message)
 
             if attribute_content["DataType"] not in ["Binary", "Number", "String"]:
-                error_message = "The supported types for 'DataType' argument are: Binary, Number and String."
+                error_message = (
+                    "The supported types for 'DataType' argument are: Binary, Number and String."
+                )
                 raise MessageAttributeError(error_message)
 
-            if (
-                attribute_content["DataType"] == "String"
-                and "StringValue" not in attribute_content
-            ):
-                error_message = "'StringValue' argument is required for message attributes of type String."
+            if attribute_content["DataType"] == "String" and "StringValue" not in attribute_content:
+                error_message = (
+                    "'StringValue' argument is required for message attributes of type String."
+                )
                 raise MessageAttributeError(error_message)
 
-            if (
-                attribute_content["DataType"] == "Number"
-                and "StringValue" not in attribute_content
-            ):
-                error_message = "'StringValue' argument is required for message attributes of type Number."
+            if attribute_content["DataType"] == "Number" and "StringValue" not in attribute_content:
+                error_message = (
+                    "'StringValue' argument is required for message attributes of type Number."
+                )
                 raise MessageAttributeError(error_message)
 
-            if (
-                attribute_content["DataType"] == "Binary"
-                and "BinaryValue" not in attribute_content
-            ):
-                error_message = "'BinaryValue' argument is required for message attributes of type Binary."
+            if attribute_content["DataType"] == "Binary" and "BinaryValue" not in attribute_content:
+                error_message = (
+                    "'BinaryValue' argument is required for message attributes of type Binary."
+                )
                 raise MessageAttributeError(error_message)
 
         return None
@@ -255,28 +254,20 @@ class SQSHandler:
         if message_attributes:
             # Check whether the message attributes are correctly structured.
             try:
-                self.check_message_attributes_are_well_formed(
-                    message_attributes=message_attributes
-                )
+                self.check_message_attributes_are_well_formed(message_attributes=message_attributes)
             except MessageAttributeError:
                 raise
 
             response = self.client.send_message(
-                QueueUrl=queue_url,
-                MessageBody=message_body,
-                MessageAttributes=message_attributes,
+                QueueUrl=queue_url, MessageBody=message_body, MessageAttributes=message_attributes,
             )
 
         else:
-            response = self.client.send_message(
-                QueueUrl=queue_url, MessageBody=message_body
-            )
+            response = self.client.send_message(QueueUrl=queue_url, MessageBody=message_body)
 
         return response
 
-    def send_message_batch(
-        self, queue_name: str, entries: List[Dict[str, Any]]
-    ) -> Dict[str, Any]:
+    def send_message_batch(self, queue_name: str, entries: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
         Deliver a list of messages to a SQS Queue.
 
@@ -340,9 +331,7 @@ class SQSHandler:
 
             if "MessageAttributes" in entry:
                 try:
-                    self.check_message_attributes_are_well_formed(
-                        entry["MessageAttributes"]
-                    )
+                    self.check_message_attributes_are_well_formed(entry["MessageAttributes"])
                 except MessageAttributeError:
                     raise
 
@@ -358,7 +347,7 @@ class SQSHandler:
             queue_url = self.get_queue_url(queue_name=queue_name)
             self.queue_url[queue_name] = queue_url
 
-        response = self.client.send_message_batch(QueueUrl=queue_name, Entries=entries)
+        response = self.client.send_message_batch(QueueUrl=queue_url, Entries=entries)
         return response
 
     def receive_message(self, queue_name: str) -> Dict[str, Any]:
@@ -409,9 +398,7 @@ class SQSHandler:
             queue_url = self.get_queue_url(queue_name=queue_name)
             self.queue_url[queue_name] = queue_url
 
-        response = self.client.receive_message(
-            QueueUrl=queue_url, MaxNumberOfMessages=10
-        )
+        response = self.client.receive_message(QueueUrl=queue_url, MaxNumberOfMessages=10)
         return response
 
     def delete_message(self, queue_name: str, receipt_handle: str) -> None:
