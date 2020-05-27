@@ -23,12 +23,17 @@ class TestSQSHandler:
         self.mock_sqs = mock_sqs()
         self.mock_sqs.start()
 
-        self.sqs_handler = SQSHandler(region_name=REGION)
+        self.sqs_handler = SQSHandler(
+            aws_access_key_id="testing",
+            aws_secret_access_key="testing",
+            aws_session_token="testing",
+        )
         self.client = boto3.client(
             "sqs",
+            aws_access_key_id="testing",
+            aws_secret_access_key="testing",
+            aws_session_token="testing",
             region_name=REGION,
-            aws_access_key_id="fake_access_key",
-            aws_secret_access_key="fake_secret_key",
         )
 
         # Create a standard queue.

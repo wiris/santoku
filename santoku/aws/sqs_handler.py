@@ -24,7 +24,7 @@ class SQSHandler:
 
     """
 
-    def __init__(self, region_name: str):
+    def __init__(self, **kwargs) -> None:
         """
         Instantiate the services classes.
 
@@ -43,7 +43,7 @@ class SQSHandler:
         https://aws.amazon.com/about-aws/global-infrastructure/regions_az/
 
         """
-        self.client = boto3.client("sqs", region_name=region_name)
+        self.client = boto3.client("sqs", **kwargs)
         # Cache to store the url of each queue.
         self.queue_url: Dict[str, str] = {}
 
