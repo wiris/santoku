@@ -32,19 +32,10 @@
     // "forwardPorts": [],
     // postCreateCommand runs commands after the container is created:
     // - enables git autocomplete and...
-    // - copies ssh mounted directory as .ssh directory inside the container
-    //     (this is a workaround for windows hosts. Windows doesn't transmit correctly file
-    //      permissions to Linux and SSH specifies restrictive file permissions to private keys)
     "postCreateCommand": "echo source /usr/share/bash-completion/completions/git >> /root/.bashrc",
-    // Uncomment when using a ptrace-based debugger like C++, Go, and Rust
-    // This find the environment variables
+    // This includes your dotenv file inside the container.
     "runArgs": [
         "--env-file",
         "${localWorkspaceFolder}/.env"
     ],
-    // Uncomment to use the Docker CLI from inside the container. See
-    // https://aka.ms/vscode-remote/samples/docker-in-docker.
-    // "mounts": [ "source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind" ],
-    // Uncomment to connect as a non-root user. See https://aka.ms/vscode-remote/containers/non-root.
-    // "remoteUser": "vscode"
 }
