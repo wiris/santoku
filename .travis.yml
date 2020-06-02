@@ -1,0 +1,19 @@
+language: python
+python:
+  - "3.8"
+install:
+  - pip install -r requirements.txt
+script:
+  - pytest
+  - bash .travis/bump_and_push.sh
+  - python setup.py bdist_wheel
+branches:
+  only:
+    - develop
+deploy:
+  provider: pypi
+  user: "__token__"
+  password: "replace with our PyPI API token, including the pypi- prefix"
+  skip_cleanup: true
+  on:
+    tags: true
