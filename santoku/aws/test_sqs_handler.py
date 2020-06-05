@@ -27,6 +27,7 @@ class TestSQSHandler:
             aws_access_key_id="testing",
             aws_secret_access_key="testing",
             aws_session_token="testing",
+            region_name=REGION,
         )
         self.client = boto3.client(
             "sqs",
