@@ -4,7 +4,7 @@ from pip._internal.req import parse_requirements
 
 def load_requirements(fname):
     reqs = parse_requirements(fname, session="test")
-    return [str(ir.req) for ir in reqs]
+    return [str(ir.requirement) for ir in reqs]
 
 
 setup(

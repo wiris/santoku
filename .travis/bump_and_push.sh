@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 set -o errexit
 set -o pipefail
@@ -15,10 +15,10 @@ setup_git() {
 bump_version() {
   git checkout master
 
+  CURRENT_BUILD_NUM="$(awk -F"." '/version=/{print gsub($2, "\",")}' setup.py)"
   # set version using calver YYMMDD.buildno
-  OLD_BUILD_NUM="$(sed -ne '/version=/p' setup.py | awk -F"." '{print $2}')"
+  NEW_VERSION="$(date +%y%m%d).$((CURRENT_BUILD_NUM+1))"
 
-  NEW_VERSION="$(date +%y%m%d).$((OLD_BUILD_NUM+1))"
   sed -i "s/version=.*/version=\"${NEW_VERSION}\",/g" setup.py
 
   git commit -am "[skip ci] Bump to ${NEW_VERSION}"
@@ -31,4 +31,4 @@ push_changes() {
 
 setup_git
 bump_version
-push_changes
+#push_changes
