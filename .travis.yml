@@ -1,19 +1,25 @@
 language: python
 python:
-  - "3.8"
+- '3.8'
 install:
-  - pip install -r requirements.txt
-script:
-  - pytest
-  - bash .travis/bump_and_push.sh
-  - python setup.py bdist_wheel
+- pip install -r requirements.txt
 branches:
   only:
-    - develop
+  - master
+script:
+- pytest
+- bash .travis/bump_and_push.sh
+- python setup.py bdist_wheel
 deploy:
   provider: pypi
-  user: "__token__"
-  password: "replace with our PyPI API token, including the pypi- prefix"
+  user: __token__
+  password:
+    secure: cn9iPWlKU0meW+s+TBibTfGimI8WTEmhCp++AGFD0K9yold4yHDLdVJkqC4IE9O1URI1IoSdKM86baM+jQOWqjQExlLJcO+ST/yFVVvI/HQaxzHnnQXsuSlLPIDxWSoBqqBP7DTOU/073KoMPVsEk7ppkCAWNfX2/hzMxfueW6Rk/zCZ9f1NjConVUju0y92dHnUBA770Aqrg6kSi7dohsJuOoTFhOoCkJ2ouWME4dlAJp6Ex+OLVNKXw9XrorpwDJ8KJvVAYf77B9o7UFvRmw4jWCfz3Irqh1LRbsjQyH5dj5wICi5aAMP4zNMB1FGJxsGsDVPJJ0Q9g17U4mfAJendlXHGsz3zu5RjmDDQFWpliEXSZVU7+Rm0I6MT7Jcd4+Zt+mNWHIaTN6pEHpMjErRNVsUIPb0s4lAP4+CaioBG6rp185c2DTF18WKjAD6ngZTm4shYLRVwUPaTz+Q4mVlQO+b+UwbGuBiBGfpIVpts15U2vb1tfuHBBdiOsi64Fe434mN87uufT7oYHfBDsbUTPcm8ABTK7voRPq5sfdnhSkhlKCaIXtt2Ny/52sNK1jVzpETz/Vm1FQmH4Ng35z4f2HrTWIhy8D79JbqwshAJpyzBgWIrE6U1OdKtcjN+SIQlzK++OvzRYt3c/NUlrZ1CAQy7KfuCBcGjDLt4jVg=
   skip_cleanup: true
+  distributions: bdist_wheel
   on:
     tags: true
+env:
+  global:
+    # github
+    secure: WTDLDmrhJksDY5fQIk6OD1BdfB0MDwM/BZxrGJLuEKiKZOK4R58wqsRds4nrRKJzqz7DxAfEReqWV7sJBOYhxf/OK9tQgOb2+8tA4rV3fZkb/koBUDIF+a0tk1G8hpos9wU7EYhkZsrU+gOVDhe+C2tBMxsSr+aQH4Qbkq0hOgADjt4rbrKvxO3rrTE4xsYfbfNX4uuUsj9cVJukqIaBMIAem+ZZ6cR/9GZFp6yHUQw/SsE6qSpOOC1N4r7JwbBD/d02BW7gKJO2fl6APewlm3WEgwtfburs4Cs5sg+dlQJnHBF3UEa698s04aUlfWMOA+1mVDTafKbe4qC5knEZ4vEDW1D/Eyby0PP+Ab/NKc48cexOTnD9vzykskg7DbrBQB0FQ4n0LFotigxRKf8wDzlJr5MT08W5OSKQKZpGNU7sU1Vbe4z3F4FCjFff/emcj/SzgSh8RwjVWAfL36ZZPLWxWQ7/wyXQytV1bnghhT5jdOqwWRWvINGoNEDMPQYZO2Sg/Z52bO6qkXUtxkZhk3ueh5xugAmlI2LU0d8zFMMUxZ4yzEwod3ffPv4RKJxfY+vr/pAhdbcLd9sKBJ/tDOkLsqAnAn6xOac8qNHBT9Licm2cYXCIZU2WsNVl6n4iwaw3FfEg0s4fbIZ9uowGm7r174J8VMYmxy2giQUfjN8=
