@@ -57,7 +57,7 @@ The output of this command is the file `dist/santoku-*.whl`.
 
 This file can be uploaded to S3 and included in the list of Python library path for certain job. Several libraries can be provided as dependencies using a comma-separated list.
 
-## Why Santoku
+## Why Santoku?
 
 From Wikipedia:
 
