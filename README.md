@@ -1,13 +1,51 @@
-# Santoku: ETL Toolkit for handling AWS, Salesforce and many more things written in Python
+# What is Santoku?
 
-This repository contains a set of tools to be used in AWS services like Amazon's ETL: AWS Glue.
+Santoku is a toolkit written in Python for interacting with AWS services, Salesforce and many more things.
 
-## Sharing Git credentials with your container
+## Quickstart
+
+### Installation
+
+If you have a wheel, run the following command:
+
+```bash
+pip install --upgrade --force-reinstall dist/santoku-*.whl
+```
+
+### Installation with PIP
+
+Run the following command:
+
+```bash
+pip install santoku
+```
+
+### How To Use It
+
+You can use the package as follows:
+
+```python
+from santoku.slack import SlackBotHandler
+
+slack_bot = SlackBotHandler.from_aws_secrets_manager(...)
+
+# do something else...
+```
+
+## Development
+
+### Environment
+
+We provide a development environment that uses Visual Studio Code Remote - Containers extension. This extension lets...
+
+### Sharing Git credentials with your container
 
 The containerized environment will automatically forward your local SSH agent if one is running.
 More info [here](https://code.visualstudio.com/docs/remote/containers#_using-ssh-keys) and it works for Windows and Linux.
 
-## Packaging
+Talk about .env in home of the project
+
+### Packaging
 
 To create the package execute:
 
@@ -19,24 +57,10 @@ The output of this command is the file `dist/santoku-*.whl`.
 
 This file can be uploaded to S3 and included in the list of Python library path for certain job. Several libraries can be provided as dependencies using a comma-separated list.
 
-## Installing the wheel package
+## Why Santoku
 
-The wheel can be installed with the following command:
+From Wikipedia:
 
-```bash
-pip install --upgrade --force-reinstall dist/santoku-0.1-py3-none-any.whl
-```
-
-`--upgrade --force-reinstall` flags are used to force the reinstallation of the package when it's installed already.
-
-## Usage
-
-We can use the package by using the following command:
-
-```python
-from santoku.aws import S3
-
-s3_handler = S3()
-
-# do something
+```text
+The Santoku bōchō (Japanese: 三徳包丁; "three virtues" or "three uses") or Bunka bōchō (文化包丁) is a general-purpose kitchen knife originating in Japan. Its blade is typically between 13 and 20 cm (5 and 8 in) long, and has a flat edge and a sheepsfoot blade that curves down an angle approaching 60 degrees at the point. The term Santoku may refer to the wide variety of ingredients that the knife can handle: meat, fish and vegetables, or to the tasks it can perform: slicing, chopping and dicing, either interpretation indicating a multi-use, general-purpose kitchen knife.
 ```
