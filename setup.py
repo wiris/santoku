@@ -27,4 +27,5 @@ setup(
     python_requires="~=3.8",
 )
 
+# TODO: update this when doc is set up
 # "Topic :: Documentation :: Sphinx"
