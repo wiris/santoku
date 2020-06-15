@@ -11,4 +11,4 @@ RUN curl -s "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscl
 	./aws/install && \
 	rm -rf aws*
 
-RUN apt update && apt install -y vim zip
+RUN apt update && apt install -y vim zip ruby-dev rubygems
