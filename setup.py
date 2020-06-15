@@ -1,23 +1,30 @@
 from setuptools import setup, find_packages
 from pip._internal.req import parse_requirements
 
-PACKAGES_FOR_TESTING = ["moto", "pytest"]
-
 
 def load_requirements(fname):
     reqs = parse_requirements(fname, session="test")
-    return [
-        str(ir.req)
-        for ir in reqs
-        if str(ir.req).split("==")[0] not in ["moto", "pytest"]
-    ]
+    return [str(ir.req) for ir in reqs]
 
 
 setup(
     name="santoku",
-    version="0.20",
-    author="Didac Fernández, Daniel Martín-Albo and Henry Qiu",
-    description="ETL Toolkit for handling AWS, Salesforce and many more things.",
+    version="200615.0",
+    description="Custom Python wrapper around many third party APIs, including AWS, BigQuery, Slack and Salesforce.",
     packages=find_packages(),
     install_requires=load_requirements("requirements.txt"),
+    url="https://github.com/wiris/santoku",
+    classifiers=[
+        "Programming Language :: Python :: 3",
+        "License :: OSI Approved :: MIT License",
+        "Operating System :: OS Independent",
+        "Framework :: Pytest",
+        "Development Status :: 4 - Beta",
+        "Intended Audience :: Developers",
+        "Topic :: Software Development :: Build Tools",
+        "Programming Language :: Python :: 3.8",
+    ],
+    python_requires="~=3.8",
 )
+
+# "Topic :: Documentation :: Sphinx"
