@@ -1,5 +1,8 @@
 #!/bin/sh
 
+set -o errexit
+set -o pipefail
+
 # based on: https://gist.github.com/willprice/e07efd73fb7f13f917ea
 setup_git() {
   git config --global user.email "cicd@wiris.com"
