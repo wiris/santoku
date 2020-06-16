@@ -5,6 +5,9 @@ import json
 
 from moto import mock_secretsmanager
 from ..salesforce.objects_handler import ObjectsHandler
+from ..salesforce.objects_handler import SalesforceObjectError
+from ..salesforce.objects_handler import SalesforceObjectFieldError
+from ..salesforce.objects_handler import RequestMethodError
 from ..aws import SecretsManagerHandler
 
 SANDBOX_AUTH_URL = os.environ["DATA_SCIENCE_SALESFORCE_SANDBOX_AUTH_URL"]
@@ -117,7 +120,7 @@ class TestObjectsHandler:
             client_id=SANDBOX_CLIENT_USR,
             client_secret=SANDBOX_CLIENT_PSW,
         )
-        with pytest.raises(requests.exceptions.RequestException) as e:
+        with pytest.raises(requests.exceptions.RequestException):
             oh.do_request(
                 method="POST", path="sobjects/Contact", payload=contact_payloads[0],
             )
@@ -129,7 +132,7 @@ class TestObjectsHandler:
             client_id="false_client_id",
             client_secret="false_client_secret",
         )
-        with pytest.raises(requests.exceptions.RequestException) as e:
+        with pytest.raises(requests.exceptions.RequestException):
             oh.do_request(
                 method="POST", path="sobjects/Contact", payload=contact_payloads[0],
             )
@@ -143,20 +146,36 @@ class TestObjectsHandler:
             client_secret=SANDBOX_CLIENT_PSW,
         )
 
+        # Test inserting an invalid field. Failure expected.
+        invalid_field = "InvalidField"
+        contact_payload = {
+            invalid_field: "InvalidValue",
+        }
+        expected_message = f"`{invalid_field}` isn't a valid field."
+        with pytest.raises(SalesforceObjectFieldError, match=expected_message):
+            oh.do_request(
+                method="POST", path="sobjects/Contact", payload=contact_payload,
+            )
+
         # Test inserting a contact without a required field. Failure expected.
         contact_payload = {
             "FirstName": "Larry",
             "Email": "larry@example.com",
         }
-        with pytest.raises(ValueError) as e:
+
+        missing_field = "LastName"
+        expected_message = (
+            f"`{missing_field}` is a required field and does not appear in the payload."
+        )
+        with pytest.raises(SalesforceObjectFieldError, match=expected_message):
             oh.do_request(
                 method="POST", path="sobjects/Contact", payload=contact_payload,
             )
 
         # Test inserting a contact with an empty required field. Failure expected.
-        contact_payload["LastName"] = ""
-
-        with pytest.raises(ValueError) as e:
+        contact_payload[missing_field] = ""
+        expected_message = f"`{missing_field}` is a required field and must not be empty."
+        with pytest.raises(SalesforceObjectFieldError, match=expected_message):
             oh.do_request(
                 method="POST", path="sobjects/Contact", payload=contact_payload,
             )
@@ -195,7 +214,7 @@ class TestObjectsHandler:
         assert response
 
         # Insert a Contact that already exist. Failure expected.
-        with pytest.raises(requests.exceptions.RequestException) as e:
+        with pytest.raises(requests.exceptions.RequestException):
             response = oh.do_request(
                 method="POST", path="sobjects/Contact", payload=contact_payloads[0],
             )
@@ -244,13 +263,34 @@ class TestObjectsHandler:
             "wrong_client_secret_key": "CLIENT_PSW",
         }
 
-        expected_message = (
-            "The `secret_keys` argument does not contain keys in the required format."
-        )
-        with pytest.raises(ValueError, match=expected_message) as e:
+        expected_message = "The `secret_keys` argument does not contain the required key."
+        with pytest.raises(ValueError, match=expected_message):
             ObjectsHandler.from_aws_secrets_manager(
                 secret_name=secret_with_non_default_keys, secret_keys=bad_secret_keys
             )
+
+    def test_different_query_syntaxes(self):
+        oh = ObjectsHandler(
+            auth_url=SANDBOX_AUTH_URL,
+            username=SANDBOX_USR,
+            password=SANDBOX_PSW,
+            client_id=SANDBOX_CLIENT_USR,
+            client_secret=SANDBOX_CLIENT_PSW,
+        )
+
+        # Do a query written in uppercase. Success expected.
+        obtained_contacts = oh.do_query_with_SOQL("SELECT ID, NAME FROM CONTACT")
+        assert not obtained_contacts
+
+        # Do a query written in lowercase. Success expected.
+        obtained_contacts = oh.do_query_with_SOQL("select id, name from contact")
+        assert not obtained_contacts
+
+        # Do a query to a non-existent object. Failure expected.
+        wrong_object_name = "Contacts"
+        expected_message = f"{wrong_object_name} isn't a valid object"
+        with pytest.raises(SalesforceObjectError, match=expected_message):
+            obtained_contacts = oh.do_query_with_SOQL(f"SELECT Id, Name From {wrong_object_name}")
 
     def test_contact_query(self):
         oh = ObjectsHandler(
@@ -329,9 +369,7 @@ class TestObjectsHandler:
         ]
 
         for contact_payload in contact_payloads:
-            response = oh.do_request(
-                method="POST", path="sobjects/Contact", payload=contact_payload
-            )
+            oh.do_request(method="POST", path="sobjects/Contact", payload=contact_payload)
 
         # Modify an existing contact's FirstName and LastName. Success expected.
         first_name = contact_payloads[0]["FirstName"]
@@ -376,8 +414,8 @@ class TestObjectsHandler:
 
         # Modify a Contact that does not exist. Failure expected.
         contact_payload = {"FirstName": "ANYNAME"}
-        with pytest.raises(requests.exceptions.RequestException) as e:
-            response = oh.do_request(
+        with pytest.raises(requests.exceptions.RequestException):
+            oh.do_request(
                 method="PATCH", path="sobjects/Contact/WRONGID", payload=contact_payload,
             )
 
@@ -425,7 +463,7 @@ class TestObjectsHandler:
         assert len(obtained_contacts) == len(contact_payloads) - 1
 
         # Delete a Contact that does not exist. Failure expected.
-        with pytest.raises(requests.exceptions.RequestException) as e:
+        with pytest.raises(requests.exceptions.RequestException):
             oh.do_request(
                 method="DELETE", path=f"sobjects/Contact/{obtained_ids[0]}",
             )
@@ -456,7 +494,7 @@ class TestObjectsHandler:
         assert response
 
         # Insert a Contact that already exist. Failure expected.
-        with pytest.raises(requests.exceptions.RequestException) as e:
+        with pytest.raises(requests.exceptions.RequestException):
             response = oh.insert_record(sobject="Contact", payload=contact_payload)
             assert response
 
@@ -519,7 +557,7 @@ class TestObjectsHandler:
 
         # Modify a Contact that does not exist. Failure expected.
         contact_payload = {"FirstName": "ANYNAME"}
-        with pytest.raises(requests.exceptions.RequestException) as e:
+        with pytest.raises(requests.exceptions.RequestException):
             oh.modify_record(
                 sobject="Contact", record_id="WRONGID", payload=contact_payload,
             )
@@ -566,5 +604,5 @@ class TestObjectsHandler:
         assert len(obtained_contacts) == len(contact_payloads) - 1
 
         # Delete a Contact that does not exist. Failure expected.
-        with pytest.raises(requests.exceptions.RequestException) as e:
+        with pytest.raises(requests.exceptions.RequestException):
             oh.delete_record(sobject="Contact", record_id=obtained_ids[0])
