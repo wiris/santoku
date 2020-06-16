@@ -31,4 +31,4 @@ push_changes() {
 
 setup_git
 bump_version
-#push_changes
+push_changes
