@@ -15,8 +15,6 @@ deploy:
     secure: cn9iPWlKU0meW+s+TBibTfGimI8WTEmhCp++AGFD0K9yold4yHDLdVJkqC4IE9O1URI1IoSdKM86baM+jQOWqjQExlLJcO+ST/yFVVvI/HQaxzHnnQXsuSlLPIDxWSoBqqBP7DTOU/073KoMPVsEk7ppkCAWNfX2/hzMxfueW6Rk/zCZ9f1NjConVUju0y92dHnUBA770Aqrg6kSi7dohsJuOoTFhOoCkJ2ouWME4dlAJp6Ex+OLVNKXw9XrorpwDJ8KJvVAYf77B9o7UFvRmw4jWCfz3Irqh1LRbsjQyH5dj5wICi5aAMP4zNMB1FGJxsGsDVPJJ0Q9g17U4mfAJendlXHGsz3zu5RjmDDQFWpliEXSZVU7+Rm0I6MT7Jcd4+Zt+mNWHIaTN6pEHpMjErRNVsUIPb0s4lAP4+CaioBG6rp185c2DTF18WKjAD6ngZTm4shYLRVwUPaTz+Q4mVlQO+b+UwbGuBiBGfpIVpts15U2vb1tfuHBBdiOsi64Fe434mN87uufT7oYHfBDsbUTPcm8ABTK7voRPq5sfdnhSkhlKCaIXtt2Ny/52sNK1jVzpETz/Vm1FQmH4Ng35z4f2HrTWIhy8D79JbqwshAJpyzBgWIrE6U1OdKtcjN+SIQlzK++OvzRYt3c/NUlrZ1CAQy7KfuCBcGjDLt4jVg=
   skip_cleanup: true
   distributions: bdist_wheel
-  on:
-    tags: true
 notifications:
   slack:
     rooms:
