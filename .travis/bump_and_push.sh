@@ -15,10 +15,11 @@ setup_git() {
 bump_version() {
   git checkout master
 
-  CURRENT_BUILD_NUM="$(awk -F"." '/version=/{print gsub($2, "\",")}' setup.py)"
+  CURRENT_BUILD_NUM="$(grep -oP 'version="[0-9]+\.\K[0-9]+' setup.py)"
+
   # set version using calver YYMMDD.buildno
   NEW_VERSION="$(date +%y%m%d).$((CURRENT_BUILD_NUM+1))"
-
+  echo "${CURRENT_BUILD_NUM} ${NEW_VERSION}"
   sed -i "s/version=.*/version=\"${NEW_VERSION}\",/g" setup.py
 
   git commit -am "[skip ci] Bump to ${NEW_VERSION}"
