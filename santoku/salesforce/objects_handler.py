@@ -8,6 +8,21 @@ from urllib import parse
 from ..aws.secrets_manager_handler import SecretsManagerHandler
 
 
+class SalesforceObjectError(Exception):
+    def __init__(self, message):
+        super().__init__(message)
+
+
+class SalesforceObjectFieldError(Exception):
+    def __init__(self, message):
+        super().__init__(message)
+
+
+class RequestMethodError(Exception):
+    def __init__(self, message):
+        super().__init__(message)
+
+
 class ObjectsHandler:
     """
     Class to manage operations on Salesforce content.
@@ -129,6 +144,15 @@ class ObjectsHandler:
         grant_type : str, optional
             Type of credentials used to authenticate with salesforce(the default is 'password').
 
+        Return
+        ------
+        None
+
+        Raises
+        ------
+        ValueError
+            If the `secret_keys` argument does not contain the required attributes.
+
         See Also
         --------
         __init__ : this method calls the constructor.
@@ -155,9 +179,7 @@ class ObjectsHandler:
             "client_secret_key",
         ]:
             if key not in secret_keys:
-                raise ValueError(
-                    "The `secret_keys` argument does not contain keys in the required format."
-                )
+                raise ValueError("The `secret_keys` argument does not contain the required key.")
 
         secrets_manager = SecretsManagerHandler()
         credential_info = secrets_manager.get_secret_value(secret_name=secret_name)
@@ -307,26 +329,30 @@ class ObjectsHandler:
         if "describe" in path:
             # ...sobjects/Account/describe
             salesforce_object_name = path.split("/")[1]
-        elif "query?q=SELECT" in path:
+
+        elif "query?q=" in path:
             # ...query?q=SELECT+one+or+more+fields+FROM+an+object+WHERE+filter+statements
-            if "WHERE" in path:
-                matches = re.search("FROM+(.*)+WHERE", path)
-                if matches:
-                    salesforce_object_name = matches.group(1)
-                else:
-                    salesforce_object_name = ""
+            query_start_pos = path.find("query?q=") + len("query?q=")
+            query = path[query_start_pos:]
+
+            if "WHERE" in query.upper():
+                pattern = "FROM\+(.*)\+WHERE"
             else:
-                matches = re.search("FROM+(.*)", path)
-                if matches:
-                    salesforce_object_name = matches.group(1)
-                else:
-                    salesforce_object_name = ""
-        elif "query" in path:
-            # ...query/identifier
+                pattern = "FROM\+(.*)"
+
+            matches = re.search(pattern, query, re.IGNORECASE)
+            if matches:
+                salesforce_object_name = matches.group(1)
+            else:
+                salesforce_object_name = ""
+
+        elif "query/" in path:
+            # ...query/identifier to get the next rows of a SOQL.
             salesforce_object_name = ""
 
         elif path == "sobjects" or path == "limits":
             salesforce_object_name = ""
+
         else:
             # ...sobjects/Account or ...sobjects/Account/ID
             salesforce_object_name = path.split("/")[path.index("sobjects") + 1]
@@ -336,19 +362,21 @@ class ObjectsHandler:
     def _validate_payload_fields(self, payload: Dict[str, str], object_fields: List[str]) -> None:
         for field in payload:
             if field not in object_fields:
-                raise ValueError(f"`{field}` isn't a valid field")
+                raise SalesforceObjectFieldError(f"`{field}` isn't a valid field.")
 
     def _validate_required_fields_in_payload(
         self, payload: Dict[str, str], object_required_fields: List[str]
     ) -> None:
         for field in object_required_fields:
             if field not in payload:
-                raise ValueError(
+                raise SalesforceObjectFieldError(
                     f"`{field}` is a required field and does not appear in the payload."
                 )
             else:
                 if not payload[field]:
-                    raise ValueError(f"`{field}` is a required field and must not be empty.")
+                    raise SalesforceObjectFieldError(
+                        f"`{field}` is a required field and must not be empty."
+                    )
 
     def do_request(self, method: str, path: str, payload: Optional[Dict[str, str]] = None,) -> str:
         """
@@ -370,25 +398,32 @@ class ObjectsHandler:
 
         Raises
         ------
-        AssertionError
-            If the method is not supported, or the object is not valid, or payload is missing when
-            needed.
+        SalesforceObjectFieldError
+            If any field in the payload is invalid, any required field is empty or missing.
+
+        SalesforceObjectError
+            If the object in the query is not a valid salesforce object.
+
+        RequestMethodError
+            If the method is not supported, or the payload is missing when needed.
 
         requests.exceptions.RequestException
             If the connection with salesforce fails, e.g. the requesting resource does not exist.
 
         """
-        assert method in ["POST", "GET", "PATCH", "DELETE"], "Method isn't supported."
+        if method not in ["POST", "GET", "PATCH", "DELETE"]:
+            raise RequestMethodError("Method isn't supported.")
 
         if not self._is_authenticated:
             self._authenticate()
 
         if self._validate_salesforce_object:
-            salesforce_object_name = self._obtain_salesforce_object_name_from_path(path)
-            if salesforce_object_name:
-                assert (
-                    salesforce_object_name in self.get_salesforce_object_names()
-                ), f"{salesforce_object_name} isn't a valid object"
+            path_salesforce_object = self._obtain_salesforce_object_name_from_path(path)
+            if path_salesforce_object:
+                if path_salesforce_object.upper() not in (
+                    object_name.upper() for object_name in self.get_salesforce_object_names()
+                ):
+                    raise SalesforceObjectError(f"{path_salesforce_object} isn't a valid object")
 
         url = self._url_to_format.format(
             self._instance_scheme_and_authority, self._api_version, path,
@@ -396,14 +431,15 @@ class ObjectsHandler:
 
         try:
             if method in ["POST", "PATCH"]:
-                assert payload, "Payload must be defined for a POST, PATCH request."
+                if not payload:
+                    raise RequestMethodError("Payload must be defined for a POST, PATCH request.")
 
                 if self._validate_salesforce_object:
-                    object_fields = self.get_salesforce_object_fields(salesforce_object_name)
+                    object_fields = self.get_salesforce_object_fields(path_salesforce_object)
                     self._validate_payload_fields(payload=payload, object_fields=object_fields)
                     if method == "POST":
                         object_required_fields = self.get_salesforce_object_required_fields(
-                            salesforce_object_name
+                            path_salesforce_object
                         )
                         self._validate_required_fields_in_payload(
                             payload=payload, object_required_fields=object_required_fields,
