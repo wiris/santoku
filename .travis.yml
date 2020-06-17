@@ -7,7 +7,10 @@ branches:
   only:
   - master
 script:
-- pytest && bash .travis/bump_and_push.sh && python setup.py bdist_wheel
+- 'if [ "${TRAVIS_PULL_REQUEST}" = "false" ];
+      then pytest && bash .travis/bump_and_push.sh && python setup.py bdist_wheel;
+      else pytest;
+  fi'
 deploy:
   provider: pypi
   user: __token__
