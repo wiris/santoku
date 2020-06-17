@@ -144,10 +144,6 @@ class ObjectsHandler:
         grant_type : str, optional
             Type of credentials used to authenticate with salesforce(the default is 'password').
 
-        Return
-        ------
-        None
-
         Raises
         ------
         ValueError
@@ -420,6 +416,7 @@ class ObjectsHandler:
         if self._validate_salesforce_object:
             path_salesforce_object = self._obtain_salesforce_object_name_from_path(path)
             if path_salesforce_object:
+                # SOQL is case insensitive, thus comparing in uppercase is fine.
                 if path_salesforce_object.upper() not in (
                     object_name.upper() for object_name in self.get_salesforce_object_names()
                 ):
