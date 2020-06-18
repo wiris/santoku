@@ -104,9 +104,7 @@ class S3Handler:
             for result in page:
                 yield result
 
-    def list_objects(
-        self, bucket: str, **kwargs: Dict[str, str]
-    ) -> Generator[str, None, None]:
+    def list_objects(self, bucket: str, **kwargs: Dict[str, str]) -> Generator[str, None, None]:
         """
         Get all objects in a specific location.
 
@@ -141,9 +139,7 @@ class S3Handler:
         """
         args: Dict[str, Any] = {"Bucket": bucket}
         args.update(**kwargs)
-        for result in self.paginate(
-            method=self.client.list_objects_v2.__name__, **args
-        ):
+        for result in self.paginate(method=self.client.list_objects_v2.__name__, **args):
             yield result["Key"]
 
     def check_object_exists(self, bucket: str, object_key: str) -> bool:
@@ -174,9 +170,7 @@ class S3Handler:
                 raise
         return True
 
-    def read_object_content(
-        self, bucket: str, object_key: str, encoding="utf-8"
-    ) -> str:
+    def read_object_content(self, bucket: str, object_key: str, encoding="utf-8") -> str:
         """
         Get the content of a file.
 
@@ -207,9 +201,7 @@ class S3Handler:
             object_to_read = self.resource.Object(bucket_name=bucket, key=object_key)
             file_content = object_to_read.get()["Body"].read().decode(encoding)
         else:
-            raise Exception(
-                f"The object `{object_key}` does not exist in the bucket `{bucket}`"
-            )
+            raise Exception(f"The object `{object_key}` does not exist in the bucket `{bucket}`")
         return file_content
 
     def put_object(self, bucket: str, object_key: str, content: bytes) -> None:
@@ -270,6 +262,7 @@ class S3Handler:
         dataframe: pd.DataFrame,
         encoding: str = "utf-8",
         save_index: bool = False,
+        **kwargs,
     ) -> None:
         """
         Put a dataframe into a csv file.
@@ -297,7 +290,7 @@ class S3Handler:
         """
         # Get pandas dataframe as CSV bytes
         csv_buffer = StringIO()
-        dataframe.to_csv(path_or_buf=csv_buffer, index=save_index)
+        dataframe.to_csv(path_or_buf=csv_buffer, index=save_index, **kwargs)
         bytes_content = csv_buffer.getvalue().encode(encoding)
         self.put_object(bucket=bucket, object_key=object_key, content=bytes_content)
 
