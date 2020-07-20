@@ -4,7 +4,7 @@ import json
 import botocore
 import pandas as pd
 from typing import Any, Dict, List, Generator
-from io import StringIO
+from io import StringIO, BytesIO
 
 
 class S3Handler:
@@ -292,6 +292,43 @@ class S3Handler:
         csv_buffer = StringIO()
         dataframe.to_csv(path_or_buf=csv_buffer, index=save_index, **kwargs)
         bytes_content = csv_buffer.getvalue().encode(encoding)
+        self.put_object(bucket=bucket, object_key=object_key, content=bytes_content)
+
+    def write_dataframe_to_parquet_object(
+        self,
+        bucket: str,
+        object_key: str,
+        dataframe: pd.DataFrame,
+        compression: str = "snappy",
+        **kwargs,
+    ) -> None:
+        """
+        Put a dataframe into a parquet file.
+
+        Write the content of a pandas dataframe into a parquet file and upload it to the `bucket`.
+        If the object already exists, its content will be overwriten. The dataframe will be
+        converted into parquet with `pyarrow` engine.
+
+        Parameters
+        ----------
+        bucket : str
+            Name of the bucket to upload the file.
+        object_key : str
+            Identifier of the file to be uploaded to the bucket.
+        dataframe : pd.DataFrame
+            Pandas dataframe that contains the content to be writen in the file.
+        engine : bool, optional
+            Parquet library to use, (the default is 'auto').
+
+        Return
+        ------
+        None
+
+        """
+        parquet_buffer = BytesIO()
+        engine = "pyarrow"
+        dataframe.to_parquet(path=parquet_buffer, engine=engine, compression=compression, **kwargs)
+        bytes_content = parquet_buffer.getvalue()
         self.put_object(bucket=bucket, object_key=object_key, content=bytes_content)
 
     def generate_quicksight_manifest(
