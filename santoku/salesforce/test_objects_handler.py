@@ -9,6 +9,18 @@ from ..salesforce.objects_handler import SalesforceObjectError
 from ..salesforce.objects_handler import SalesforceObjectFieldError
 from ..salesforce.objects_handler import RequestMethodError
 from ..aws import SecretsManagerHandler
+from ..exceptions import MissingEnvironmentVariables
+
+credentials_keys = [
+    "DATA_SCIENCE_SALESFORCE_SANDBOX_AUTH_URL",
+    "DATA_SCIENCE_SALESFORCE_SANDBOX_USR",
+    "DATA_SCIENCE_SALESFORCE_SANDBOX_PSW",
+    "DATA_SCIENCE_SALESFORCE_SANDBOX_CLIENT_USR",
+    "DATA_SCIENCE_SALESFORCE_SANDBOX_CLIENT_PSW",
+]
+
+if not all(key in os.environ for key in credentials_keys):
+    raise MissingEnvironmentVariables("Salesforce credentials environment variables are missing.")
 
 SANDBOX_AUTH_URL = os.environ["DATA_SCIENCE_SALESFORCE_SANDBOX_AUTH_URL"]
 SANDBOX_USR = os.environ["DATA_SCIENCE_SALESFORCE_SANDBOX_USR"]
@@ -56,11 +68,11 @@ def secret_with_default_keys(secrets_manager, request):
 @pytest.fixture(scope="function")
 def secret_keys():
     return {
-        "auth_url_key": "DATA_SCIENCE_SALESFORCE_SANDBOX_AUTH_URL",
-        "username_key": "DATA_SCIENCE_SALESFORCE_SANDBOX_USR",
-        "password_key": "DATA_SCIENCE_SALESFORCE_SANDBOX_PSW",
-        "client_id_key": "DATA_SCIENCE_SALESFORCE_SANDBOX_CLIENT_USR",
-        "client_secret_key": "DATA_SCIENCE_SALESFORCE_SANDBOX_CLIENT_PSW",
+        "auth_url_key": "SF_AUTH_URL",
+        "username_key": "SF_USR",
+        "password_key": "SF_PSW",
+        "client_id_key": "SF_CLIENT_USR",
+        "client_secret_key": "SF_CLIENT_PSW",
     }
 
 

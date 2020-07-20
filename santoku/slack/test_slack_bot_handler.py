@@ -6,6 +6,10 @@ from moto import mock_secretsmanager
 from ..slack import SlackBotHandler
 from ..slack import SlackBotError
 from ..aws import SecretsManagerHandler
+from ..exceptions import MissingEnvironmentVariables
+
+if "SLACK_BOT_API_TOKEN" not in os.environ:
+    raise MissingEnvironmentVariables("Slack bot api token environment variable is missing.")
 
 
 @pytest.fixture(scope="class")

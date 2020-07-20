@@ -28,8 +28,8 @@ You can use the package as follows:
 from santoku.slack import SlackBotHandler
 
 slack_bot = SlackBotHandler.from_aws_secrets_manager(...)
+slack_bot.send_message(channel="channel", message="Message")
 
-# do something else...
 ```
 
 ## Development
@@ -43,7 +43,12 @@ We provide a development environment that uses Visual Studio Code Remote - Conta
 The containerized environment will automatically forward your local SSH agent if one is running.
 More info [here](https://code.visualstudio.com/docs/remote/containers#_using-ssh-keys) and it works for Windows and Linux.
 
-Talk about .env in home of the project
+## Setting credentials as environment variables
+The code for the tests contains everything the tests need to run with the exception of some credentials, which are (of course) not versioned.
+
+The containerized environment will automatically forward your credentials stored in a .env file and set them as environment variables.
+
+Notice that this means you must have a .env file in the root directory of this project no matter you require credentials or not (the file might be empty).
 
 ### Packaging
 
