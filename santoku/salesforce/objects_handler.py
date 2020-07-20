@@ -58,7 +58,7 @@ class ObjectsHandler:
         password: str,
         client_id: str,
         client_secret: str,
-        api_version: float = 47.0,
+        api_version: str = "47.0",
         grant_type: str = "password",
     ) -> None:
         """
@@ -76,7 +76,7 @@ class ObjectsHandler:
             Consumer key used to authenticate with salesforce.
         client_secret : str
             Consumer secret used to authenticate with salesforce.
-        api_version : float, optional
+        api_version : str, optional
             Version of the Salesforce API used (the default is 47.0).
         grant_type : str, optional
             Type of credentials used to authenticate with salesforce(the default is 'password').
@@ -86,7 +86,7 @@ class ObjectsHandler:
         None
 
         """
-        self._url_to_format = "{}/services/data/v{:.1f}/{}"
+        self._url_to_format = "{}/services/data/v{}/{}"
 
         self._auth_url = auth_url
         self._api_version = api_version
@@ -123,7 +123,7 @@ class ObjectsHandler:
             "client_id_key": "CLIENT_USR",
             "client_secret_key": "CLIENT_PSW",
         },
-        api_version: float = 47.0,
+        api_version: str = "47.0",
         grant_type: str = "password",
     ):
         """
