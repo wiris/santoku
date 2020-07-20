@@ -9,6 +9,7 @@ from typing import List
 from datetime import datetime
 from moto import mock_s3
 from ..aws.s3_handler import S3Handler
+from io import StringIO, BytesIO
 
 """
 TODO: this whole section might serve in the future as test suite for this library
@@ -19,9 +20,7 @@ TODO: this whole section might serve in the future as test suite for this librar
 TEST_BUCKET = "test_bucket"
 
 
-def upload_fixture_files(
-    s3_client: botocore.client, bucket: str, fixture_dir: str
-) -> None:
+def upload_fixture_files(s3_client: botocore.client, bucket: str, fixture_dir: str) -> None:
     fixture_paths = [
         os.path.join(path, filename)
         for path, _, files in os.walk(fixture_dir)
@@ -38,9 +37,7 @@ def upload_fixture_files(
 def generate_fixture_files(
     s3_client: botocore.client, tmpdir: py.path.local, file_names, contents,
 ) -> None:
-    assert len(file_names) == len(
-        contents
-    ), "Length of 'file_names' and 'contents' must be equal."
+    assert len(file_names) == len(contents), "Length of 'file_names' and 'contents' must be equal."
 
     for i in range(len(file_names)):
         key = file_names[i]
@@ -123,10 +120,7 @@ class TestS3Handler:
         file_names = ["first_object.json", "second_object.json"]
         contents = ["", ""]
         generate_fixture_files(
-            s3_client=self.client,
-            tmpdir=tmpdir,
-            file_names=file_names,
-            contents=contents,
+            s3_client=self.client, tmpdir=tmpdir, file_names=file_names, contents=contents,
         )
 
         # Call function without Bucket argument. Failure expected.
@@ -134,11 +128,7 @@ class TestS3Handler:
             "PaginationConfig": {"MaxItems": 1},
         }
         with pytest.raises(AssertionError) as e:
-            list(
-                self.s3_handler.paginate(
-                    method=self.client.list_objects_v2.__name__, **args
-                )
-            )
+            list(self.s3_handler.paginate(method=self.client.list_objects_v2.__name__, **args))
 
         # Paginate by prefix. Success expected.
         args = {
@@ -147,9 +137,7 @@ class TestS3Handler:
         }
         expected_objects = [f"test_paginate/{file_names[1]}"]
         obtained_objects = []
-        for result in self.s3_handler.paginate(
-            method=self.client.list_objects_v2.__name__, **args
-        ):
+        for result in self.s3_handler.paginate(method=self.client.list_objects_v2.__name__, **args):
             obtained_objects.append(result["Key"])
         assert obtained_objects == expected_objects
 
@@ -160,9 +148,7 @@ class TestS3Handler:
         }
         expected_objects = [f"test_paginate/{file_names[0]}"]
         obtained_objects = []
-        for result in self.s3_handler.paginate(
-            method=self.client.list_objects_v2.__name__, **args
-        ):
+        for result in self.s3_handler.paginate(method=self.client.list_objects_v2.__name__, **args):
             obtained_objects.append(result["Key"])
         assert obtained_objects == expected_objects
 
@@ -174,10 +160,7 @@ class TestS3Handler:
         ]
         contents = ["", "", ""]
         generate_fixture_files(
-            s3_client=self.client,
-            tmpdir=tmpdir,
-            file_names=file_names,
-            contents=contents,
+            s3_client=self.client, tmpdir=tmpdir, file_names=file_names, contents=contents,
         )
 
         # List objects by prefix. Success expected.
@@ -188,9 +171,7 @@ class TestS3Handler:
             f"test_list_objects/{file_names[1]}",
             f"test_list_objects/{file_names[2]}",
         ]
-        obtained_objects = list(
-            self.s3_handler.list_objects(bucket=TEST_BUCKET, **args)
-        )
+        obtained_objects = list(self.s3_handler.list_objects(bucket=TEST_BUCKET, **args))
         assert obtained_objects == expected_objects
 
         # List objects starting from a specific key. Success expected.
@@ -200,9 +181,7 @@ class TestS3Handler:
         expected_objects = [
             f"test_list_objects/{file_names[2]}",
         ]
-        obtained_objects = list(
-            self.s3_handler.list_objects(bucket=TEST_BUCKET, **args)
-        )
+        obtained_objects = list(self.s3_handler.list_objects(bucket=TEST_BUCKET, **args))
         assert obtained_objects == expected_objects
 
         # List all objects. Success expected.
@@ -218,10 +197,7 @@ class TestS3Handler:
         file_names = ["first_object.json", "second_object.json"]
         contents = ["", ""]
         generate_fixture_files(
-            s3_client=self.client,
-            tmpdir=tmpdir,
-            file_names=file_names,
-            contents=contents,
+            s3_client=self.client, tmpdir=tmpdir, file_names=file_names, contents=contents,
         )
 
         # The method gives true when an object exist in the bucket. Success expected.
@@ -245,10 +221,7 @@ class TestS3Handler:
         file_names = ["first_object.json", "second_object.json"]
         contents = ["Content1", "Content2"]
         generate_fixture_files(
-            s3_client=self.client,
-            tmpdir=tmpdir,
-            file_names=file_names,
-            contents=contents,
+            s3_client=self.client, tmpdir=tmpdir, file_names=file_names, contents=contents,
         )
 
         # Test reading an existing object. Sucess expected.
@@ -268,10 +241,7 @@ class TestS3Handler:
         file_names = ["first_object.json"]
         contents = ["Content1"]
         generate_fixture_files(
-            s3_client=self.client,
-            tmpdir=tmpdir,
-            file_names=file_names,
-            contents=contents,
+            s3_client=self.client, tmpdir=tmpdir, file_names=file_names, contents=contents,
         )
 
         # Put content to a new object. Success expected.
@@ -305,10 +275,7 @@ class TestS3Handler:
         file_names = ["first_object.json"]
         contents = [""]
         generate_fixture_files(
-            s3_client=self.client,
-            tmpdir=tmpdir,
-            file_names=file_names,
-            contents=contents,
+            s3_client=self.client, tmpdir=tmpdir, file_names=file_names, contents=contents,
         )
 
         # Validate that an object does not exist anymore after being deleted. Failure expected.
@@ -320,24 +287,40 @@ class TestS3Handler:
             self.resource.Object(bucket_name=TEST_BUCKET, key=object_key).get()
 
     def test_write_dataframe_to_csv_object(self, tmpdir):
-        generate_fixture_files(
-            s3_client=self.client, tmpdir=tmpdir, file_names=[], contents=[]
-        )
+        generate_fixture_files(s3_client=self.client, tmpdir=tmpdir, file_names=[], contents=[])
         object_key = "test_write_dataframe_to_csv_object/dataframe.csv"
         data = {
             "Column1": ["Value11", "Value21"],
             "Column2": ["Value12", "Value22"],
         }
-        df = pd.DataFrame(data)
+        expected_df = pd.DataFrame(data)
         self.s3_handler.write_dataframe_to_csv_object(
-            bucket=TEST_BUCKET, object_key=object_key, dataframe=df
+            bucket=TEST_BUCKET, object_key=object_key, dataframe=expected_df
         )
 
         data_keys = list(data.keys())
-        expected_content = "Column1,Column2\n" "Value11,Value12\n" "Value21,Value22\n"
         read_object = self.resource.Object(bucket_name=TEST_BUCKET, key=object_key)
-        obtained_content = read_object.get()["Body"].read().decode("utf-8")
-        assert obtained_content == expected_content
+        object_content = read_object.get()["Body"].read().decode("utf-8")
+        obtained_df = pd.read_csv(filepath_or_buffer=StringIO(object_content))
+        assert obtained_df.equals(expected_df)
+
+    def test_write_dataframe_to_parquet_object(self, tmpdir):
+        generate_fixture_files(s3_client=self.client, tmpdir=tmpdir, file_names=[], contents=[])
+        object_key = "test_write_dataframe_to_parquet_object/dataframe.parquet"
+        data = {
+            "Column1": ["Value11", "Value21"],
+            "Column2": ["Value12", "Value22"],
+        }
+        expected_df = pd.DataFrame(data)
+        self.s3_handler.write_dataframe_to_parquet_object(
+            bucket=TEST_BUCKET, object_key=object_key, dataframe=expected_df
+        )
+
+        data_keys = list(data.keys())
+        read_object = self.resource.Object(bucket_name=TEST_BUCKET, key=object_key)
+        object_content = read_object.get()["Body"].read()
+        obtained_df = pd.read_parquet(path=BytesIO(object_content))
+        assert obtained_df.equals(expected_df)
 
     def test_generate_quicksight_manifest(self, tmpdir):
         file_names: List[str] = [
@@ -347,15 +330,9 @@ class TestS3Handler:
         ]
         contents: List[str] = ["", "", ""]
 
-        generate_fixture_files(
-            s3_client=self.client, tmpdir=tmpdir, file_names=[], contents=[]
-        )
-        key_paths = [
-            f"s3://{TEST_BUCKET}/test_generate_quicksight_manifest/{file_names[0]}"
-        ]
-        uri_prefix_paths = [
-            f"s3://{TEST_BUCKET}/test_generate_quicksight_manifest/second"
-        ]
+        generate_fixture_files(s3_client=self.client, tmpdir=tmpdir, file_names=[], contents=[])
+        key_paths = [f"s3://{TEST_BUCKET}/test_generate_quicksight_manifest/{file_names[0]}"]
+        uri_prefix_paths = [f"s3://{TEST_BUCKET}/test_generate_quicksight_manifest/second"]
         upload_settings = {
             "format": "CSV",
             "delimiter": ",",
@@ -381,14 +358,10 @@ class TestS3Handler:
         )
 
         obtained_manifest_bytes = (
-            self.resource.Object(bucket_name=TEST_BUCKET, key=manifest_key)
-            .get()["Body"]
-            .read()
+            self.resource.Object(bucket_name=TEST_BUCKET, key=manifest_key).get()["Body"].read()
         )
 
         # Load the JSON to a Python list & dump it back out as formatted JSON
         obtained_manifest_dictionary = json.loads(obtained_manifest_bytes)
-        obtained_manifest = json.dumps(
-            obtained_manifest_dictionary, indent=4, sort_keys=True
-        )
+        obtained_manifest = json.dumps(obtained_manifest_dictionary, indent=4, sort_keys=True)
         assert obtained_manifest == expected_manifest
