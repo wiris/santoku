@@ -175,7 +175,7 @@ class ObjectsHandler:
             "client_secret_key",
         ]:
             if key not in secret_keys:
-                raise ValueError("The `secret_keys` argument does not contain the required key.")
+                raise ValueError("The `secret_keys` argument does not contain the required keys.")
 
         secrets_manager = SecretsManagerHandler()
         credential_info = secrets_manager.get_secret_value(secret_name=secret_name)
