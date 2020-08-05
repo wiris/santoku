@@ -47,30 +47,6 @@ class SQSHandler:
         # Cache to store the url of each queue.
         self.queue_url: Dict[str, str] = {}
 
-    def check_queue_existence(self, queue_name: str) -> bool:
-        """
-        Check if a queue exists.
-
-        Parameters
-        ----------
-        queue_name : str
-            Name of queue.
-
-        Returns
-        -------
-        bool
-            True if the there's a queue called `queue_name`.
-
-        """
-        try:
-            response = self.client.get_queue_url(QueueName=queue_name)
-        except exceptions.ClientError as e:
-            if e.response["Error"]["Code"] == "AWS.SimpleQueueService.NonExistentQueue":
-                return False
-            else:
-                raise
-        return True
-
     def check_queue_is_fifo(self, queue_name: str) -> bool:
         """
         Check if a queue is of type FIFO.
@@ -102,6 +78,11 @@ class SQSHandler:
         str
             The url of the queue called `queue_name`.
 
+        Raises
+        ------
+        botocore.exceptions.ClientError
+            If the queue does not exist.
+
         Notes
         -----
         The account url has the form: https://region_name.queue.amazonaws.com/account_number/queue_name
@@ -113,11 +94,12 @@ class SQSHandler:
         https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-general-identifiers.html
 
         """
-        if self.check_queue_existence(queue_name=queue_name):
-            queue_url = self.client.get_queue_url(QueueName=queue_name)["QueueUrl"]
-        else:
-            raise Exception(f"The queue `{queue_name}` does not exist.")
-        return queue_url
+        try:
+            response = self.client.get_queue_url(QueueName=queue_name)
+            queue_url = response["QueueUrl"]
+            return queue_url
+        except exceptions.ClientError as e:
+            raise e
 
     def check_message_attributes_are_well_formed(
         self, message_attributes: Dict[str, Dict[str, str]]

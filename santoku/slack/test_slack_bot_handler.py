@@ -34,32 +34,36 @@ def secret_token():
     return os.environ["SLACK_BOT_API_TOKEN"]
 
 
+@pytest.fixture(scope="class")
+def slack_bot(secret_token):
+    return SlackBotHandler(api_token=secret_token)
+
+
 @pytest.fixture(scope="function")
 def secret_with_default_key(secrets_manager, secret_token, request):
     secret_name = "test/secret_with_default_key"
-    secret_content = {"API_TOKEN": secret_token}
+    secret_key = "API_TOKEN"
+    secret_content = {secret_key: secret_token}
     secrets_manager.client.create_secret(Name=secret_name, SecretString=json.dumps(secret_content))
+
     yield secret_name
 
-    def teardown():
+    def teardown() -> None:
         secrets_manager.client.delete_secret(SecretId=secret_name, ForceDeleteWithoutRecovery=True)
 
     request.addfinalizer(teardown)
 
 
 @pytest.fixture(scope="function")
-def secret_key():
-    return "SLACK_BOT_API_TOKEN"
-
-
-@pytest.fixture(scope="function")
-def secret_with_non_default_keys(secrets_manager, secret_key, secret_token, request):
+def secret_with_non_default_key(secrets_manager, secret_token, request):
     secret_name = "test/secret_with_non_default_keys"
+    secret_key = "SLACK_BOT_API_TOKEN"
     secret_content = {secret_key: secret_token}
     secrets_manager.client.create_secret(Name=secret_name, SecretString=json.dumps(secret_content))
-    yield secret_name
 
-    def teardown():
+    yield secret_name, secret_key
+
+    def teardown() -> None:
         secrets_manager.client.delete_secret(SecretId=secret_name, ForceDeleteWithoutRecovery=True)
 
     request.addfinalizer(teardown)
@@ -71,9 +75,8 @@ def channel_name():
 
 
 class TestSlackBotHandler:
-    def test_send_message_to_channel(self, channel_name, secret_token):
+    def test_send_message_to_channel(self, channel_name, slack_bot):
         # Test sending a message to the testing channel. Success expected.
-        slack_bot = SlackBotHandler(api_token=secret_token)
         message = "`test_send_message_to_channel` is running."
         try:
             slack_bot.send_message(channel=channel_name, message=message)
@@ -83,7 +86,7 @@ class TestSlackBotHandler:
             assert True
 
     def test_init_handler_from_secrets_manager(
-        self, secret_with_default_key, secret_with_non_default_keys, secret_key, channel_name
+        self, secret_with_default_key, secret_with_non_default_key, channel_name
     ):
         # Test sending a message to the test channel from a secret created in secrets manager using
         # the default secret key by convention. Success expected.
@@ -104,7 +107,7 @@ class TestSlackBotHandler:
             "`test_init_handler_from_secrets_manager` using non-default secret key is running."
         )
         slack_bot = SlackBotHandler.from_aws_secrets_manager(
-            secret_name=secret_with_non_default_keys, secret_key=secret_key
+            secret_name=secret_with_non_default_key[0], secret_key=secret_with_non_default_key[1]
         )
         try:
             slack_bot.send_message(channel=channel_name, message=message)
@@ -121,9 +124,8 @@ class TestSlackBotHandler:
         with pytest.raises(SlackBotError, match=expected_message) as e:
             slack_bot.send_message(channel=channel_name, message=message)
 
-    def test_send_message_to_wrong_channel(self, secret_token):
+    def test_send_message_to_wrong_channel(self, slack_bot):
         # Test sending a message to a channel that does not exist. Failure expected.
-        slack_bot = SlackBotHandler(api_token=secret_token)
         expected_message = "The channel was not found."
         message = "`test_send_message_to_wrong_channel` test is running."
         with pytest.raises(SlackBotError, match=expected_message) as e:

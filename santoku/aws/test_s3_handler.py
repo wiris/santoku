@@ -1,15 +1,15 @@
 import os
 import json
 import boto3
-import botocore
 import pytest
 import pandas as pd
 import py
-from typing import List
-from datetime import datetime
+from typing import List, Dict
 from moto import mock_s3
-from ..aws.s3_handler import S3Handler
+from botocore import exceptions
 from io import StringIO, BytesIO
+from ..aws.s3_handler import S3Handler
+from ..aws.s3_handler import ManifestError
 
 """
 TODO: this whole section might serve in the future as test suite for this library
@@ -17,322 +17,333 @@ TODO: this whole section might serve in the future as test suite for this librar
       actually connecting to the aws cloud, thus saving $$ and reducing the latency of the tests.
 """
 
-TEST_BUCKET = "test_bucket"
+
+@pytest.fixture(scope="class")
+def aws_credentials():
+    """Mocked AWS Credentials for moto."""
+    os.environ["AWS_ACCESS_KEY_ID"] = "testing"
+    os.environ["AWS_SECRET_ACCESS_KEY"] = "testing"
+    os.environ["AWS_SECURITY_TOKEN"] = "testing"
+    os.environ["AWS_SESSION_TOKEN"] = "testing"
+    os.environ["AWS_DEFAULT_REGION"] = "eu-west-1"
 
 
-def upload_fixture_files(s3_client: botocore.client, bucket: str, fixture_dir: str) -> None:
-    fixture_paths = [
-        os.path.join(path, filename)
-        for path, _, files in os.walk(fixture_dir)
-        for filename in files
-    ]
-    # The uploaded files will have the name of the calling method in their object key.
-    for path in fixture_paths:
-        base_name = os.path.basename(fixture_dir)[:-1]
-        rel_path = os.path.relpath(path, fixture_dir)
-        key = f"{base_name}/{rel_path}"
-        s3_client.upload_file(Filename=path, Bucket=bucket, Key=key)
+@pytest.fixture(scope="class")
+def s3_handler(aws_credentials):
+    with mock_s3():
+        s3_handler = S3Handler()
+        yield s3_handler
 
 
-def generate_fixture_files(
-    s3_client: botocore.client, tmpdir: py.path.local, file_names, contents,
-) -> None:
-    assert len(file_names) == len(contents), "Length of 'file_names' and 'contents' must be equal."
+@pytest.fixture(scope="function")
+def bucket(s3_handler, request):
+    bucket_name = "test_bucket"
+    try:
+        s3_handler.resource.meta.client.head_bucket(Bucket=bucket_name)
+    except exceptions.ClientError:
+        pass
+    else:
+        raise EnvironmentError(f"{test_bucket} should not exist.")
+    s3_handler.client.create_bucket(Bucket=bucket_name)
 
-    for i in range(len(file_names)):
-        key = file_names[i]
-        fixture_file = tmpdir.join(key)
-        fixture_file.write(contents[i])
-    upload_fixture_files(s3_client=s3_client, bucket=TEST_BUCKET, fixture_dir=tmpdir)
+    yield bucket_name
+
+    def teardown() -> None:
+        bucket = s3_handler.resource.Bucket(bucket_name)
+        bucket.delete()
+
+    request.addfinalizer(teardown)
+
+
+@pytest.fixture(scope="function")
+def delete_object_in_s3(bucket, s3_handler):
+    def _delete_object_in_s3(key: str) -> None:
+        s3_handler.client.delete_object(Bucket=bucket, Key=key)
+
+    return _delete_object_in_s3
+
+
+@pytest.fixture(scope="function")
+def put_object_to_s3(bucket, s3_handler):
+    object_keys = []
+
+    def _put_object_to_s3(files_contents: Dict[str, str]) -> None:
+        for file_name, file_content in files_contents.items():
+            s3_handler.client.put_object(Body=file_content, Bucket=bucket, Key=file_name)
+
+    yield _put_object_to_s3
+
+
+@pytest.fixture(scope="function")
+def files_with_no_common_prefix(put_object_to_s3, delete_object_in_s3, request):
+    files_contents = {
+        "first_object.json": "Content1",
+    }
+
+    put_object_to_s3(files_contents=files_contents)
+    yield files_contents
+
+    def teardown() -> None:
+        try:
+            delete_object_in_s3(key=list(files_contents.keys())[0])
+        except:
+            pass
+
+    request.addfinalizer(teardown)
+
+
+@pytest.fixture(scope="class")
+def prefix():
+    return "second_object"
+
+
+@pytest.fixture(scope="function")
+def files_with_common_prefix(put_object_to_s3, prefix, delete_object_in_s3, request):
+    files_contents = {
+        f"{prefix}1.json": "Content2",
+        f"{prefix}2.json": "Content3",
+    }
+
+    put_object_to_s3(files_contents=files_contents)
+    yield files_contents
+
+    def teardown() -> None:
+        for key in list(files_contents.keys()):
+            try:
+                delete_object_in_s3(key=key)
+            except:
+                pass
+
+    request.addfinalizer(teardown)
+
+
+@pytest.fixture(scope="function")
+def fixture_objects(files_with_no_common_prefix, files_with_common_prefix):
+    fixture_objects = files_with_no_common_prefix.copy()
+    fixture_objects.update(files_with_common_prefix)
+    return fixture_objects
+
+
+@pytest.fixture(scope="function")
+def dataframe():
+    data = {
+        "Column1": ["Value11", "Value21"],
+        "Column2": ["Value12", "Value22"],
+    }
+    return pd.DataFrame(data)
 
 
 class TestS3Handler:
-    def setup_method(self):
-        self.mock_s3 = mock_s3()
-        self.mock_s3.start()
-
-        self.s3_handler = S3Handler()
-        self.client = boto3.client("s3")
-        self.resource = boto3.resource(
-            "s3",
-            region_name="eu-west-1",
-            aws_access_key_id="fake_access_key",
-            aws_secret_access_key="fake_secret_key",
-        )
-        try:
-            self.resource.meta.client.head_bucket(Bucket=TEST_BUCKET)
-        except botocore.exceptions.ClientError:
-            pass
-        else:
-            raise EnvironmentError(f"{TEST_BUCKET} should not exist.")
-        self.client.create_bucket(Bucket=TEST_BUCKET)
-
-    def teardown_method(self):
-        bucket = self.resource.Bucket(TEST_BUCKET)
-        for key in bucket.objects.all():
-            key.delete()
-        bucket.delete()
-        self.mock_s3.stop()
-
-    def test_get_uri(self):
+    def test_get_uri(self, bucket, s3_handler):
         file_name = "test_file.test"
 
         # Bucket without folder nor file. Success expected.
-        expected_path = f"s3://{TEST_BUCKET}/"
-        obtained_path = self.s3_handler.get_uri(bucket=TEST_BUCKET)
+        expected_path = f"s3://{bucket}/"
+        obtained_path = s3_handler.get_uri(bucket=bucket)
         assert obtained_path == expected_path
 
         # File in a bucket without folder.
-        expected_path = f"s3://{TEST_BUCKET}/{file_name}"
-        obtained_path = self.s3_handler.get_uri(bucket=TEST_BUCKET, file_name=file_name)
+        expected_path = f"s3://{bucket}/{file_name}"
+        obtained_path = s3_handler.get_uri(bucket=bucket, file_name=file_name)
         assert obtained_path == expected_path
 
         # Folder in a bucket without file. Success expected.
         folder = "folder"
-        expected_path = f"s3://{TEST_BUCKET}/{folder}/"
-        obtained_path = self.s3_handler.get_uri(bucket=TEST_BUCKET, folder_path=folder,)
+        expected_path = f"s3://{bucket}/{folder}/"
+        obtained_path = s3_handler.get_uri(bucket=bucket, folder_path=folder,)
         assert obtained_path == expected_path
 
         # Folder in a bucket with file. Success expected.
-        expected_path = f"s3://{TEST_BUCKET}/{folder}/{file_name}"
-        obtained_path = self.s3_handler.get_uri(
-            bucket=TEST_BUCKET, folder_path=folder, file_name=file_name,
-        )
+        expected_path = f"s3://{bucket}/{folder}/{file_name}"
+        obtained_path = s3_handler.get_uri(bucket=bucket, folder_path=folder, file_name=file_name,)
         assert obtained_path == expected_path
 
         # Folder in a bucket with a / at the begining. Success expected.
         folder = "/folder"
-        expected_path = f"s3://{TEST_BUCKET}{folder}/{file_name}"
-        obtained_path = self.s3_handler.get_uri(
-            bucket=TEST_BUCKET, folder_path=folder, file_name=file_name,
-        )
+        expected_path = f"s3://{bucket}{folder}/{file_name}"
+        obtained_path = s3_handler.get_uri(bucket=bucket, folder_path=folder, file_name=file_name,)
         assert obtained_path == expected_path
 
         # Folder in a bucket with subfolder. Success expected.
         folder = "folder/subfolder"
-        expected_path = f"s3://{TEST_BUCKET}/{folder}/{file_name}"
-        obtained_path = self.s3_handler.get_uri(
-            bucket=TEST_BUCKET, folder_path=folder, file_name=file_name,
-        )
+        expected_path = f"s3://{bucket}/{folder}/{file_name}"
+        obtained_path = s3_handler.get_uri(bucket=bucket, folder_path=folder, file_name=file_name,)
         assert obtained_path == expected_path
 
-    def test_paginate(self, tmpdir):
-        file_names = ["first_object.json", "second_object.json"]
-        contents = ["", ""]
-        generate_fixture_files(
-            s3_client=self.client, tmpdir=tmpdir, file_names=file_names, contents=contents,
-        )
-
+    def test_paginate(
+        self, bucket, s3_handler, prefix, files_with_no_common_prefix, files_with_common_prefix
+    ):
         # Call function without Bucket argument. Failure expected.
         args = {
             "PaginationConfig": {"MaxItems": 1},
         }
-        with pytest.raises(AssertionError) as e:
-            list(self.s3_handler.paginate(method=self.client.list_objects_v2.__name__, **args))
+        with pytest.raises(exceptions.ParamValidationError) as e:
+            list(s3_handler.paginate(method=s3_handler.client.list_objects_v2.__name__, **args))
 
         # Paginate by prefix. Success expected.
         args = {
-            "Bucket": TEST_BUCKET,
-            "Prefix": "test_paginate/second",
+            "Bucket": bucket,
+            "Prefix": prefix,
         }
-        expected_objects = [f"test_paginate/{file_names[1]}"]
+        common_prefix_object_keys = [object_key for object_key in files_with_common_prefix]
         obtained_objects = []
-        for result in self.s3_handler.paginate(method=self.client.list_objects_v2.__name__, **args):
+        for result in s3_handler.paginate(
+            method=s3_handler.client.list_objects_v2.__name__, **args
+        ):
             obtained_objects.append(result["Key"])
-        assert obtained_objects == expected_objects
+        assert obtained_objects == common_prefix_object_keys
 
         # Limit the number of returned element. Success expected.
         args = {
-            "Bucket": TEST_BUCKET,
+            "Bucket": bucket,
             "PaginationConfig": {"MaxItems": 1},
         }
-        expected_objects = [f"test_paginate/{file_names[0]}"]
+        # `list_objects_v2` method lists objects in alphabetical order.
+        expected_object = min(
+            list(files_with_no_common_prefix.keys()) + common_prefix_object_keys
+        )  # Get the first object name alphabetically.
         obtained_objects = []
-        for result in self.s3_handler.paginate(method=self.client.list_objects_v2.__name__, **args):
+        for result in s3_handler.paginate(
+            method=s3_handler.client.list_objects_v2.__name__, **args
+        ):
             obtained_objects.append(result["Key"])
-        assert obtained_objects == expected_objects
+        assert len(obtained_objects) == 1
+        assert obtained_objects[0] == expected_object
 
-    def test_list_objects(self, tmpdir):
-        file_names = [
-            "first_object.json",
-            "second_object1.json",
-            "second_object2.json",
-        ]
-        contents = ["", "", ""]
-        generate_fixture_files(
-            s3_client=self.client, tmpdir=tmpdir, file_names=file_names, contents=contents,
-        )
-
+    def test_list_objects(
+        self, bucket, s3_handler, prefix, files_with_no_common_prefix, files_with_common_prefix
+    ):
         # List objects by prefix. Success expected.
         args = {
-            "Prefix": "test_list_objects/second",
+            "Prefix": prefix,
         }
-        expected_objects = [
-            f"test_list_objects/{file_names[1]}",
-            f"test_list_objects/{file_names[2]}",
-        ]
-        obtained_objects = list(self.s3_handler.list_objects(bucket=TEST_BUCKET, **args))
-        assert obtained_objects == expected_objects
+        common_prefix_object_keys = [object_key for object_key in files_with_common_prefix]
+        obtained_objects = list(s3_handler.list_objects(bucket=bucket, **args))
+        assert obtained_objects == common_prefix_object_keys
 
-        # List objects starting from a specific key. Success expected.
+        # List objects starting from a specific key.
         args = {
-            "StartAfter": f"test_list_objects/{file_names[1]}",
+            "StartAfter": common_prefix_object_keys[0],
         }
-        expected_objects = [
-            f"test_list_objects/{file_names[2]}",
-        ]
-        obtained_objects = list(self.s3_handler.list_objects(bucket=TEST_BUCKET, **args))
-        assert obtained_objects == expected_objects
+        obtained_objects = list(s3_handler.list_objects(bucket=bucket, **args))
+        assert obtained_objects == common_prefix_object_keys[1:]
 
         # List all objects. Success expected.
-        expected_objects = [
-            f"test_list_objects/{file_names[0]}",
-            f"test_list_objects/{file_names[1]}",
-            f"test_list_objects/{file_names[2]}",
-        ]
-        obtained_objects = list(self.s3_handler.list_objects(bucket=TEST_BUCKET,))
+        expected_objects = list(files_with_no_common_prefix.keys()) + common_prefix_object_keys
+        expected_objects.sort()
+        obtained_objects = list(s3_handler.list_objects(bucket=bucket))
         assert obtained_objects == expected_objects
 
-    def test_check_object_exists(self, tmpdir):
-        file_names = ["first_object.json", "second_object.json"]
-        contents = ["", ""]
-        generate_fixture_files(
-            s3_client=self.client, tmpdir=tmpdir, file_names=file_names, contents=contents,
-        )
+    def test_check_object_exists(self, bucket, s3_handler, fixture_objects):
+        # Test that an object exist in the bucket. Success expected.
+        for object_key, _ in fixture_objects.items():
+            obtained_result = s3_handler.check_object_exists(bucket=bucket, object_key=object_key,)
+            assert obtained_result
 
-        # The method gives true when an object exist in the bucket. Success expected.
-        obtained_result = self.s3_handler.check_object_exists(
-            bucket=TEST_BUCKET, object_key=f"test_check_object_exists/{file_names[0]}",
-        )
-        assert obtained_result
-
-        obtained_result = self.s3_handler.check_object_exists(
-            bucket=TEST_BUCKET, object_key=f"test_check_object_exists/{file_names[1]}",
-        )
-        assert obtained_result
-
-        # The method gives false when an object does not exist in the bucket. Success expected.
-        obtained_result = self.s3_handler.check_object_exists(
-            bucket=TEST_BUCKET, object_key=file_names[1]
+        # Test that an object does not exist in the bucket. Success expected.
+        obtained_result = s3_handler.check_object_exists(
+            bucket=bucket, object_key="false_object.json"
         )
         assert not obtained_result
 
-    def test_read_object_content(self, tmpdir):
-        file_names = ["first_object.json", "second_object.json"]
-        contents = ["Content1", "Content2"]
-        generate_fixture_files(
-            s3_client=self.client, tmpdir=tmpdir, file_names=file_names, contents=contents,
-        )
-
-        # Test reading an existing object. Sucess expected.
-        obtained_content = self.s3_handler.read_object_content(
-            bucket=TEST_BUCKET, object_key=f"test_read_object_content/{file_names[1]}",
-        )
-        expected_content = contents[1]
-        assert obtained_content == expected_content
+    def test_read_object_content(self, bucket, s3_handler, fixture_objects):
+        # Test reading existing objects. Sucess expected.
+        for object_key, content in fixture_objects.items():
+            obtained_content = s3_handler.read_object_content(bucket=bucket, object_key=object_key)
+            expected_content = content
+            assert obtained_content == expected_content
 
         # Test reading an object that does not exist. Failure expected.
-        with pytest.raises(Exception) as e:
-            obtained_content = self.s3_handler.read_object_content(
-                bucket=TEST_BUCKET, object_key=file_names[0]
+        with pytest.raises(exceptions.ClientError) as e:
+            obtained_content = s3_handler.read_object_content(
+                bucket=bucket, object_key="false_object.json"
             )
 
-    def test_put_object(self, tmpdir):
-        file_names = ["first_object.json"]
-        contents = ["Content1"]
-        generate_fixture_files(
-            s3_client=self.client, tmpdir=tmpdir, file_names=file_names, contents=contents,
-        )
-
+    def test_put_object(self, bucket, s3_handler, files_with_no_common_prefix, delete_object_in_s3):
         # Put content to a new object. Success expected.
-        new_object_key = "test_put_object/second_object.json"
+        new_object_key = "second_object.json"
         content_to_write = "Content2"
-        self.s3_handler.put_object(
-            bucket=TEST_BUCKET, object_key=new_object_key, content=content_to_write
-        )
+        s3_handler.put_object(bucket=bucket, object_key=new_object_key, content=content_to_write)
 
-        read_object = self.resource.Object(bucket_name=TEST_BUCKET, key=new_object_key)
+        read_object = s3_handler.resource.Object(bucket_name=bucket, key=new_object_key)
         content_read = read_object.get()["Body"].read().decode("utf-8")
         assert content_read == content_to_write
 
         # Put content to an object that already exist. Verify the content is overwriten.
         # Success expected.
-        object_key = f"test_put_object/{file_names[0]}"
-        read_object = self.resource.Object(bucket_name=TEST_BUCKET, key=object_key)
+        object_key = list(files_with_no_common_prefix.keys())[0]
+        original_content = files_with_no_common_prefix[object_key]
+        read_object = s3_handler.resource.Object(bucket_name=bucket, key=object_key)
         content_read = read_object.get()["Body"].read().decode("utf-8")
-        assert content_read == contents[0]
+        assert content_read == original_content
 
         content_to_write = "Content3"
-        self.s3_handler.put_object(
-            bucket=TEST_BUCKET, object_key=object_key, content=content_to_write
-        )
+        s3_handler.put_object(bucket=bucket, object_key=object_key, content=content_to_write)
 
-        read_object = self.resource.Object(bucket_name=TEST_BUCKET, key=object_key)
+        read_object = s3_handler.resource.Object(bucket_name=bucket, key=object_key)
         content_read = read_object.get()["Body"].read().decode("utf-8")
         assert content_read == content_to_write
 
-    def test_delete_key(self, tmpdir):
-        file_names = ["first_object.json"]
-        contents = [""]
-        generate_fixture_files(
-            s3_client=self.client, tmpdir=tmpdir, file_names=file_names, contents=contents,
-        )
+        # Remove the new object.
+        delete_object_in_s3(key=new_object_key)
 
+    def test_delete_key(self, bucket, s3_handler, files_with_no_common_prefix):
         # Validate that an object does not exist anymore after being deleted. Failure expected.
-        object_key = f"test_delete_key/{file_names[0]}"
-        self.resource.Object(bucket_name=TEST_BUCKET, key=object_key).get()
-        self.s3_handler.delete_key(bucket=TEST_BUCKET, object_key=object_key)
+        object_key = list(files_with_no_common_prefix.keys())[0]
+        s3_handler.resource.Object(bucket_name=bucket, key=object_key).get()
+        s3_handler.delete_key(bucket=bucket, object_key=object_key)
 
-        with pytest.raises(botocore.exceptions.ClientError) as e:
-            self.resource.Object(bucket_name=TEST_BUCKET, key=object_key).get()
+        with pytest.raises(exceptions.ClientError) as e:
+            s3_handler.resource.Object(bucket_name=bucket, key=object_key).get()
 
-    def test_write_dataframe_to_csv_object(self, tmpdir):
-        generate_fixture_files(s3_client=self.client, tmpdir=tmpdir, file_names=[], contents=[])
-        object_key = "test_write_dataframe_to_csv_object/dataframe.csv"
-        data = {
-            "Column1": ["Value11", "Value21"],
-            "Column2": ["Value12", "Value22"],
-        }
-        expected_df = pd.DataFrame(data)
-        self.s3_handler.write_dataframe_to_csv_object(
-            bucket=TEST_BUCKET, object_key=object_key, dataframe=expected_df
+    def test_write_dataframe_to_csv_object(
+        self, bucket, s3_handler, delete_object_in_s3, dataframe
+    ):
+        # Validate that a dataframe can be written and read correctly in csv format.
+        # Success expected.
+        new_object_key = "dataframe.csv"
+        s3_handler.write_dataframe_to_csv_object(
+            bucket=bucket, object_key=new_object_key, dataframe=dataframe
         )
 
-        data_keys = list(data.keys())
-        read_object = self.resource.Object(bucket_name=TEST_BUCKET, key=object_key)
+        read_object = s3_handler.resource.Object(bucket_name=bucket, key=new_object_key)
         object_content = read_object.get()["Body"].read().decode("utf-8")
         obtained_df = pd.read_csv(filepath_or_buffer=StringIO(object_content))
-        assert obtained_df.equals(expected_df)
+        assert obtained_df.equals(dataframe)
 
-    def test_write_dataframe_to_parquet_object(self, tmpdir):
-        generate_fixture_files(s3_client=self.client, tmpdir=tmpdir, file_names=[], contents=[])
-        object_key = "test_write_dataframe_to_parquet_object/dataframe.parquet"
-        data = {
-            "Column1": ["Value11", "Value21"],
-            "Column2": ["Value12", "Value22"],
-        }
-        expected_df = pd.DataFrame(data)
-        self.s3_handler.write_dataframe_to_parquet_object(
-            bucket=TEST_BUCKET, object_key=object_key, dataframe=expected_df
+        # Remove the new object.
+        delete_object_in_s3(key=new_object_key)
+
+    def test_write_dataframe_to_parquet_object(
+        self, bucket, s3_handler, delete_object_in_s3, dataframe
+    ):
+        # Validate that a dataframe can be written and read correctly in parquet format.
+        # Success expected.
+        new_object_key = "dataframe.parquet"
+        s3_handler.write_dataframe_to_parquet_object(
+            bucket=bucket, object_key=new_object_key, dataframe=dataframe
         )
 
-        data_keys = list(data.keys())
-        read_object = self.resource.Object(bucket_name=TEST_BUCKET, key=object_key)
+        read_object = s3_handler.resource.Object(bucket_name=bucket, key=new_object_key)
         object_content = read_object.get()["Body"].read()
         obtained_df = pd.read_parquet(path=BytesIO(object_content))
-        assert obtained_df.equals(expected_df)
+        assert obtained_df.equals(dataframe)
 
-    def test_generate_quicksight_manifest(self, tmpdir):
-        file_names: List[str] = [
-            "first_object.json",
-            "second_object1.json",
-            "second_object2.json",
-        ]
-        contents: List[str] = ["", "", ""]
+        # Remove the new object.
+        delete_object_in_s3(key=new_object_key)
 
-        generate_fixture_files(s3_client=self.client, tmpdir=tmpdir, file_names=[], contents=[])
-        key_paths = [f"s3://{TEST_BUCKET}/test_generate_quicksight_manifest/{file_names[0]}"]
-        uri_prefix_paths = [f"s3://{TEST_BUCKET}/test_generate_quicksight_manifest/second"]
+    def test_generate_quicksight_manifest(
+        self,
+        bucket,
+        s3_handler,
+        files_with_no_common_prefix,
+        prefix,
+        files_with_common_prefix,
+        delete_object_in_s3,
+    ):
+        manifest_key = "manifest.json"
+        key_paths = [f"s3://{bucket}/{list(files_with_no_common_prefix.keys())[0]}"]
+        uri_prefix_paths = [f"s3://{bucket}/{prefix}"]
         upload_settings = {
             "format": "CSV",
             "delimiter": ",",
@@ -344,10 +355,21 @@ class TestS3Handler:
             "globalUploadSettings": upload_settings,
         }
 
+        # Test not specifying s3_uri_prefixes and s3_uris. Failure expected.
+        with pytest.raises(ManifestError) as e:
+            s3_handler.generate_quicksight_manifest(
+                bucket=bucket,
+                object_key=manifest_key,
+                file_format=upload_settings["format"],
+                delimiter=upload_settings["delimiter"],
+                qualifier=upload_settings["textqualifier"],
+                header_row=upload_settings["containsHeader"],
+            )
+
+        # Validate manifest file can be generated correctlty. Success expected.
         expected_manifest = json.dumps(data, indent=4, sort_keys=True)
-        manifest_key = "test_generate_quicksight_manifest/manifest.json"
-        self.s3_handler.generate_quicksight_manifest(
-            bucket=TEST_BUCKET,
+        s3_handler.generate_quicksight_manifest(
+            bucket=bucket,
             object_key=manifest_key,
             s3_uris=key_paths,
             s3_uri_prefixes=uri_prefix_paths,
@@ -358,10 +380,13 @@ class TestS3Handler:
         )
 
         obtained_manifest_bytes = (
-            self.resource.Object(bucket_name=TEST_BUCKET, key=manifest_key).get()["Body"].read()
+            s3_handler.resource.Object(bucket_name=bucket, key=manifest_key).get()["Body"].read()
         )
 
-        # Load the JSON to a Python list & dump it back out as formatted JSON
+        # Load the JSON to a Python list and dump it back out as formatted JSON
         obtained_manifest_dictionary = json.loads(obtained_manifest_bytes)
         obtained_manifest = json.dumps(obtained_manifest_dictionary, indent=4, sort_keys=True)
         assert obtained_manifest == expected_manifest
+
+        # Remove the new object.
+        delete_object_in_s3(key=manifest_key)

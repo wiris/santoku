@@ -1,10 +1,15 @@
 import os
 import boto3
 import json
-import botocore
 import pandas as pd
 from typing import Any, Dict, List, Generator
 from io import StringIO, BytesIO
+from botocore import exceptions
+
+
+class ManifestError(Exception):
+    def __init__(self, message):
+        super().__init__(message)
 
 
 class S3Handler:
@@ -97,8 +102,6 @@ class S3Handler:
         https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3.html#paginators
 
         """
-        assert "Bucket" in kwargs, "'Bucket' argument is missing."
-
         paginator = self.client.get_paginator(operation_name=method)
         for page in paginator.paginate(**kwargs).result_key_iters():
             for result in page:
@@ -163,7 +166,7 @@ class S3Handler:
         """
         try:
             self.resource.Object(bucket_name=bucket, key=object_key).load()
-        except botocore.exceptions.ClientError as e:
+        except exceptions.ClientError as e:
             if e.response["Error"]["Code"] == "404":
                 return False
             else:
@@ -193,15 +196,12 @@ class S3Handler:
 
         Raises
         ------
-        Exception
+        botocore.exceptions.ClientError
             If the object called `object_key` does not exist in the `bucket`.
 
         """
-        if self.check_object_exists(bucket=bucket, object_key=object_key):
-            object_to_read = self.resource.Object(bucket_name=bucket, key=object_key)
-            file_content = object_to_read.get()["Body"].read().decode(encoding)
-        else:
-            raise Exception(f"The object `{object_key}` does not exist in the bucket `{bucket}`")
+        object_to_read = self.resource.Object(bucket_name=bucket, key=object_key)
+        file_content = object_to_read.get()["Body"].read().decode(encoding)
         return file_content
 
     def put_object(self, bucket: str, object_key: str, content: bytes) -> None:
@@ -267,8 +267,8 @@ class S3Handler:
         """
         Put a dataframe into a csv file.
 
-        Write the content of a pandas dataframe into a csv file and upload it to the `bucket`. If the
-        object already exists, its content will be overwriten.
+        Write the content of a pandas dataframe into a csv file and upload it to the `bucket`. If
+        the object already exists, its content will be overwriten.
 
         Parameters
         ----------
@@ -345,8 +345,8 @@ class S3Handler:
         """
         Generates a QS manifest JSON file.
 
-        Generates a QS manifest JSON file from a list of `S3 URIs` and/or `S3 URI prefixes` and upload them
-        to the `bucket`.
+        Generates a QS manifest JSON file from a list of `S3 URIs` and/or `S3 URI prefixes` and
+        upload them to the `bucket`.
 
         Parameters
         ----------
@@ -357,8 +357,8 @@ class S3Handler:
         s3_uris : List[str], optional
             List of S3 uris of the files that will be used.
         s3_uri_prefixes : List[str], optional
-            List of S3 uri prefixes that will be used. The uri_prefixes filters those object keys that
-            begin with the specified string. Notice that an uri_prefix is different than an S3
+            List of S3 uri prefixes that will be used. The uri_prefixes filters those object keys
+            that begin with the specified string. Notice that an uri_prefix is different than an S3
             prefix, an uri_prefix contains also the first part of an absolute path:
             's3://bucket_name/..'.
         format : str, optional
@@ -375,6 +375,11 @@ class S3Handler:
         -----
         None
 
+        Raises
+        ------
+        ManifestError
+            If the file or prefix are not specified.
+
         Notes
         -----
         More information on the JSON format of the QuickSight manifest files: [1].
@@ -385,9 +390,8 @@ class S3Handler:
         https://docs.aws.amazon.com/quicksight/latest/user/supported-manifest-file-format.html
 
         """
-        assert (
-            s3_uri_prefixes is not None or s3_uris is not None
-        ), "No file nor prefix were specified."
+        if s3_uri_prefixes is None and s3_uris is None:
+            raise ManifestError("No file or prefix were specified.")
 
         # Build the JSON with the not None attributes.
         # Build the 'fileLocations' part.

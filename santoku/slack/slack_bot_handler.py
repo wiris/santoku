@@ -104,7 +104,7 @@ class SlackBotHandler:
         """
 
         try:
-            response = self.client.chat_postMessage(channel=channel, text=message)
+            self.client.chat_postMessage(channel=channel, text=message)
         except SlackApiError as e:
             # SlackApiError is raised if "ok" is False.
             if e.response["error"] == "invalid_auth":
