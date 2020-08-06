@@ -117,10 +117,7 @@ class TestSQSHandler:
         # Message with more than 10 attributes. Failure expected.
         num_attributes = len(message_attributes)
         max_num_attributes = 10
-        message_attribute_content = {
-            "DataType": "String",
-            "StringValue": "Test string value",
-        }
+        message_attribute_content = message_attributes["TestAttribute1"]
 
         # Create 11 attributes.
         attributes = message_attributes.copy()

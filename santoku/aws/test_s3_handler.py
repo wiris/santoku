@@ -67,25 +67,26 @@ def delete_object_in_s3(bucket, s3_handler):
 def put_object_to_s3(bucket, s3_handler):
     object_keys = []
 
-    def _put_object_to_s3(files_contents: Dict[str, str]) -> None:
-        for file_name, file_content in files_contents.items():
-            s3_handler.client.put_object(Body=file_content, Bucket=bucket, Key=file_name)
+    def _put_object_to_s3(object_name: str, content: str) -> None:
+        s3_handler.client.put_object(Body=content, Bucket=bucket, Key=object_name)
 
     yield _put_object_to_s3
 
 
 @pytest.fixture(scope="function")
 def files_with_no_common_prefix(put_object_to_s3, delete_object_in_s3, request):
-    files_contents = {
-        "first_object.json": "Content1",
+    files = {
+        "no_prefix_object.json": "no_prefix_object content",
     }
 
-    put_object_to_s3(files_contents=files_contents)
-    yield files_contents
+    for file_name, content in files.items():
+        put_object_to_s3(object_name=file_name, content=content)
+    yield files
 
     def teardown() -> None:
         try:
-            delete_object_in_s3(key=list(files_contents.keys())[0])
+            for file_name in files:
+                delete_object_in_s3(key=file_name)
         except:
             pass
 
@@ -94,23 +95,24 @@ def files_with_no_common_prefix(put_object_to_s3, delete_object_in_s3, request):
 
 @pytest.fixture(scope="class")
 def prefix():
-    return "second_object"
+    return "test_prefix"
 
 
 @pytest.fixture(scope="function")
 def files_with_common_prefix(put_object_to_s3, prefix, delete_object_in_s3, request):
-    files_contents = {
-        f"{prefix}1.json": "Content2",
-        f"{prefix}2.json": "Content3",
+    files = {
+        f"{prefix}_object_1.json": f"{prefix}_object_1 content",
+        f"{prefix}_object_2.json": f"{prefix}_object_2 content",
     }
 
-    put_object_to_s3(files_contents=files_contents)
-    yield files_contents
+    for file_name, content in files.items():
+        put_object_to_s3(object_name=file_name, content=content)
+    yield files
 
     def teardown() -> None:
-        for key in list(files_contents.keys()):
+        for file_name in files:
             try:
-                delete_object_in_s3(key=key)
+                delete_object_in_s3(key=file_name)
             except:
                 pass
 
@@ -170,6 +172,7 @@ class TestS3Handler:
         obtained_path = s3_handler.get_uri(bucket=bucket, folder_path=folder, file_name=file_name,)
         assert obtained_path == expected_path
 
+    # TODO: change this: paginate in utils
     def test_paginate(
         self, bucket, s3_handler, prefix, files_with_no_common_prefix, files_with_common_prefix
     ):
@@ -229,16 +232,17 @@ class TestS3Handler:
         assert obtained_objects == common_prefix_object_keys[1:]
 
         # List all objects. Success expected.
-        expected_objects = list(files_with_no_common_prefix.keys()) + common_prefix_object_keys
-        expected_objects.sort()
-        obtained_objects = list(s3_handler.list_objects(bucket=bucket))
+        expected_objects = set(list(files_with_no_common_prefix.keys()) + common_prefix_object_keys)
+        obtained_objects = set(s3_handler.list_objects(bucket=bucket))
         assert obtained_objects == expected_objects
 
     def test_check_object_exists(self, bucket, s3_handler, fixture_objects):
         # Test that an object exist in the bucket. Success expected.
-        for object_key, _ in fixture_objects.items():
-            obtained_result = s3_handler.check_object_exists(bucket=bucket, object_key=object_key,)
-            assert obtained_result
+        obtained_results = [
+            s3_handler.check_object_exists(bucket=bucket, object_key=object_key)
+            for object_key in fixture_objects
+        ]
+        assert all(obtained_results)
 
         # Test that an object does not exist in the bucket. Success expected.
         obtained_result = s3_handler.check_object_exists(
@@ -261,11 +265,13 @@ class TestS3Handler:
 
     def test_put_object(self, bucket, s3_handler, files_with_no_common_prefix, delete_object_in_s3):
         # Put content to a new object. Success expected.
-        new_object_key = "second_object.json"
-        content_to_write = "Content2"
+        new_object_key = "new_object.json"
+        content_to_write = "new_object content"
         s3_handler.put_object(bucket=bucket, object_key=new_object_key, content=content_to_write)
 
         read_object = s3_handler.resource.Object(bucket_name=bucket, key=new_object_key)
+        assert read_object
+
         content_read = read_object.get()["Body"].read().decode("utf-8")
         assert content_read == content_to_write
 
@@ -277,7 +283,7 @@ class TestS3Handler:
         content_read = read_object.get()["Body"].read().decode("utf-8")
         assert content_read == original_content
 
-        content_to_write = "Content3"
+        content_to_write = "New content"
         s3_handler.put_object(bucket=bucket, object_key=object_key, content=content_to_write)
 
         read_object = s3_handler.resource.Object(bucket_name=bucket, key=object_key)
@@ -366,7 +372,7 @@ class TestS3Handler:
                 header_row=upload_settings["containsHeader"],
             )
 
-        # Validate manifest file can be generated correctlty. Success expected.
+        # Validate manifest file can be generated correctly. Success expected.
         expected_manifest = json.dumps(data, indent=4, sort_keys=True)
         s3_handler.generate_quicksight_manifest(
             bucket=bucket,

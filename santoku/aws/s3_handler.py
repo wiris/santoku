@@ -57,6 +57,7 @@ class S3Handler:
             folder_path = folder_path[1:]
         return os.path.join("s3://", bucket, folder_path, file_name)
 
+    # TODO: change this: paginate in utils
     def paginate(
         self, method: str, **kwargs: Dict[str, Any]
     ) -> Generator[Dict[str, Any], None, None]:
@@ -107,6 +108,7 @@ class S3Handler:
             for result in page:
                 yield result
 
+    # TODO: change this: paginate in utils
     def list_objects(self, bucket: str, **kwargs: Dict[str, str]) -> Generator[str, None, None]:
         """
         Get all objects in a specific location.
@@ -346,7 +348,7 @@ class S3Handler:
         Generates a QS manifest JSON file.
 
         Generates a QS manifest JSON file from a list of `S3 URIs` and/or `S3 URI prefixes` and
-        upload them to the `bucket`.
+        upload it to the `bucket`.
 
         Parameters
         ----------
