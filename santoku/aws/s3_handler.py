@@ -87,11 +87,6 @@ class S3Handler(Utils):
         Generator[Dict[str, Any], None, None]
             Responses dictionaries of the `method`.
 
-        Raises
-        ------
-        AssertionError
-            If the 'Bucket' argument is not specified.
-
         Notes
         -----
         More information on the the accepted arguments of S3 paginate method: [1].

@@ -547,12 +547,6 @@ class ObjectsHandler:
         str
             Response from Salesforce. This is a JSON encoded as text.
 
-        Raises
-        ------
-        AssertionError
-            If the object is not valid, or the payload contains fields that are not valid for this
-            object.
-
         See Also
         --------
         do_request : this method does a request of type POST.
@@ -579,12 +573,6 @@ class ObjectsHandler:
         -------
         str
             Response from Salesforce. This is a JSON encoded as text.
-
-        Raises
-        ------
-        AssertionError
-            If the object is not valid, or the payload contains fields that are not valid for this
-            object.
 
         requests.exceptions.RequestException
             If the connection with salesforce fails, e.g. the record does not exist.
@@ -614,12 +602,6 @@ class ObjectsHandler:
         -------
         str
             Response from Salesforce. This is a JSON encoded as text.
-
-        Raises
-        ------
-        AssertionError
-            If the object is not valid, or the payload contains fields that are not valid for this
-            object.
 
         requests.exceptions.RequestException
             If the connection with salesforce fails, e.g. the record does not exist.
