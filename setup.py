@@ -1,5 +1,11 @@
+from os import path
 from setuptools import setup, find_packages
 from pip._internal.req import parse_requirements
+
+# Read the contents of the README file.
+this_directory = path.abspath(path.dirname(__file__))
+with open(path.join(this_directory, "README.md"), encoding="utf-8") as f:
+    long_description = f.read()
 
 
 def load_requirements(fname):
@@ -25,6 +31,8 @@ setup(
         "Programming Language :: Python :: 3.8",
     ],
     python_requires="~=3.8",
+    long_description=long_description,
+    long_description_content_type="text/markdown",
 )
 
 # TODO: update this when doc is set up
