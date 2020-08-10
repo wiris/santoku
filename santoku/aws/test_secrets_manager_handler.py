@@ -1,12 +1,13 @@
 import os
 import json
-import boto3
+
 import pytest
+import boto3
 
 from base64 import b64encode
+
 from moto import mock_secretsmanager
-from ..aws.secrets_manager_handler import SecretsManagerError
-from ..aws.secrets_manager_handler import SecretsManagerHandler
+from ..aws.secrets_manager_handler import SecretsManagerError, SecretsManagerHandler
 
 
 @pytest.fixture(scope="class")

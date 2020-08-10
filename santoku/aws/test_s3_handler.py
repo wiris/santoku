@@ -1,15 +1,16 @@
 import os
 import json
+
 import boto3
 import pytest
 import pandas as pd
-import py
+
 from typing import List, Dict
+from io import StringIO, BytesIO
+
 from moto import mock_s3
 from botocore import exceptions
-from io import StringIO, BytesIO
-from ..aws.s3_handler import S3Handler
-from ..aws.s3_handler import ManifestError
+from ..aws.s3_handler import S3Handler, ManifestError, PaginatorError
 
 """
 TODO: this whole section might serve in the future as test suite for this library
@@ -180,8 +181,17 @@ class TestS3Handler:
         args = {
             "PaginationConfig": {"MaxItems": 1},
         }
-        with pytest.raises(exceptions.ParamValidationError) as e:
+        error_message = "Bucket argument is required for s3 paginator."
+        with pytest.raises(PaginatorError, match=error_message) as e:
             list(s3_handler.paginate(method=s3_handler.client.list_objects_v2.__name__, **args))
+
+        # Call function with an invalid paginator method. Failure expected.
+        args = {
+            "Bucket": bucket,
+        }
+        error_message = "is not an available paginator method for S3"
+        with pytest.raises(PaginatorError, match=error_message) as e:
+            list(s3_handler.paginate(method=s3_handler.client.create_bucket.__name__, **args))
 
         # Paginate by prefix. Success expected.
         args = {
@@ -193,7 +203,8 @@ class TestS3Handler:
         for result in s3_handler.paginate(
             method=s3_handler.client.list_objects_v2.__name__, **args
         ):
-            obtained_objects.append(result["Key"])
+            for contents in result["Contents"]:
+                obtained_objects.append(contents["Key"])
         assert obtained_objects == common_prefix_object_keys
 
         # Limit the number of returned element. Success expected.
@@ -209,7 +220,8 @@ class TestS3Handler:
         for result in s3_handler.paginate(
             method=s3_handler.client.list_objects_v2.__name__, **args
         ):
-            obtained_objects.append(result["Key"])
+            for contents in result["Contents"]:
+                obtained_objects.append(contents["Key"])
         assert len(obtained_objects) == 1
         assert obtained_objects[0] == expected_object
 

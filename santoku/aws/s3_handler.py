@@ -1,10 +1,19 @@
 import os
-import boto3
 import json
+
+import boto3
 import pandas as pd
-from typing import Any, Dict, List, Generator
+
 from io import StringIO, BytesIO
+from typing import Any, Dict, List, Generator
+
 from botocore import exceptions
+from ..aws.utils import Utils
+
+
+class PaginatorError(Exception):
+    def __init__(self, message):
+        super().__init__(message)
 
 
 class ManifestError(Exception):
@@ -12,7 +21,7 @@ class ManifestError(Exception):
         super().__init__(message)
 
 
-class S3Handler:
+class S3Handler(Utils):
     """
     Class to manage input/output operations of Amazon S3 storage services.
 
@@ -57,32 +66,26 @@ class S3Handler:
             folder_path = folder_path[1:]
         return os.path.join("s3://", bucket, folder_path, file_name)
 
-    # TODO: change this: paginate in utils
     def paginate(
         self, method: str, **kwargs: Dict[str, Any]
     ) -> Generator[Dict[str, Any], None, None]:
         """
-        Iterates over a collection of objects.
+        Iterates over the pages of API operation results.
 
-        Generic syntax, works also for services other than S3. Yields an iterable
-        with the objects obtained from applying `method`.
+        Yields an iterable with the response obtained from applying `method`.
 
         Parameters
         ----------
         method : str
-            Name of the method used to list the objects.
+            Name of the S3 operation.
         kwargs : Dict[str, Any]
             Additional arguments for the specified method. In S3 services the Bucket property is
-            required. Other optional usual arguments are Prefix (str), that filter those object keys
-            that begin with the specified string, and PaginationConfig (Dict), that contains
-            arguments to control the pagination, a usual parameter to control the pagination is
-            MaxItems (int) that indicates the total number of items to return.
+            required.
 
         Yields
         ------
         Generator[Dict[str, Any], None, None]
-            Responses dictionaries of the `method`. To get object keys use
-            result['Key'].
+            Responses dictionaries of the `method`.
 
         Raises
         ------
@@ -91,24 +94,29 @@ class S3Handler:
 
         Notes
         -----
-        More information on the use of AWS paginators: [1].
-        More information on the the accepted arguments of S3 paginate method: [2].
+        More information on the the accepted arguments of S3 paginate method: [1].
 
         References
         ----------
         [1] :
-        https://boto3.amazonaws.com/v1/documentation/api/latest/guide/paginators.html
-
-        [2] :
         https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3.html#paginators
 
         """
-        paginator = self.client.get_paginator(operation_name=method)
-        for page in paginator.paginate(**kwargs).result_key_iters():
-            for result in page:
-                yield result
+        if "Bucket" not in kwargs:
+            raise PaginatorError("Bucket argument is required for s3 paginator.")
+        valid_methods = [
+            "list_multipart_uploads",
+            "list_object_versions",
+            "list_objects",
+            "list_objects_v2",
+            "list_parts",
+        ]
 
-    # TODO: change this: paginate in utils
+        if method not in valid_methods:
+            raise PaginatorError(f"{method} is not an available paginator method for S3.")
+
+        return super().paginate(method=method, **kwargs)
+
     def list_objects(self, bucket: str, **kwargs: Dict[str, str]) -> Generator[str, None, None]:
         """
         Get all objects in a specific location.
@@ -145,7 +153,8 @@ class S3Handler:
         args: Dict[str, Any] = {"Bucket": bucket}
         args.update(**kwargs)
         for result in self.paginate(method=self.client.list_objects_v2.__name__, **args):
-            yield result["Key"]
+            for contents in result["Contents"]:
+                yield contents["Key"]
 
     def check_object_exists(self, bucket: str, object_key: str) -> bool:
         """
