@@ -305,11 +305,11 @@ class TestS3Handler:
         # Remove the new object.
         delete_object_in_s3(key=new_object_key)
 
-    def test_delete_key(self, bucket, s3_handler, files_with_no_common_prefix):
+    def test_delete_object(self, bucket, s3_handler, files_with_no_common_prefix):
         # Validate that an object does not exist anymore after being deleted. Failure expected.
         object_key = list(files_with_no_common_prefix.keys())[0]
         s3_handler.resource.Object(bucket_name=bucket, key=object_key).get()
-        s3_handler.delete_key(bucket=bucket, object_key=object_key)
+        s3_handler.delete_object(bucket=bucket, object_key=object_key)
 
         with pytest.raises(exceptions.ClientError) as e:
             s3_handler.resource.Object(bucket_name=bucket, key=object_key).get()

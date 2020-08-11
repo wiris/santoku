@@ -32,10 +32,10 @@ class S3Handler(Utils):
 
     """
 
-    def __init__(self):
+    def __init__(self, **kwargs):
         """ Instantiate the services classes. """
-        self.client = boto3.client("s3")
-        self.resource = boto3.resource("s3")
+        self.client = boto3.client(service_name="s3", **kwargs)
+        self.resource = boto3.resource(service_name="s3")
 
     @staticmethod
     def get_uri(bucket: str, folder_path: str = "", file_name: str = "") -> str:
@@ -234,7 +234,7 @@ class S3Handler(Utils):
         self.client.put_object(Body=content, Bucket=bucket, Key=object_key)
         return None
 
-    def delete_key(self, bucket: str, object_key: str) -> None:
+    def delete_object(self, bucket: str, object_key: str) -> None:
         """
         Remove a file.
 

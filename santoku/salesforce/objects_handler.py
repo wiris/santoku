@@ -28,7 +28,7 @@ class ObjectsHandler:
     Class to manage operations on Salesforce content.
 
     This class contains methods that interact with Salesforce objects and makes easy some
-    usual operations. The connection is done by calling the Salesforce API Rest. This class is
+    usual operations. The connection is done by calling the Salesforce Rest API. This class is
     pretended to be used on AWS Glue jobs (Python Shell) directly or through a higher level API.
 
     Notes
@@ -42,7 +42,7 @@ class ObjectsHandler:
         Extract the object name from a given path.
         Verify if the introduced parameters are valid fields of a salesforce object.
 
-    More information on the use of Salesforce API Rest: [1]
+    More information on the use of Salesforce Rest API: [1]
 
     References
     ----------

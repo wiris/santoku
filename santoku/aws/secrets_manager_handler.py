@@ -24,7 +24,7 @@ class SecretsManagerHandler:
 
     """
 
-    def __init__(self):
+    def __init__(self, **kwargs):
         """
         Initializes the services classes.
 
@@ -38,7 +38,7 @@ class SecretsManagerHandler:
         https://aws.amazon.com/about-aws/global-infrastructure/regions_az/
 
         """
-        self.client = boto3.client(service_name="secretsmanager")
+        self.client = boto3.client(service_name="secretsmanager", **kwargs)
 
     def get_secret_value(self, secret_name: str) -> Dict[str, Any]:
         """
