@@ -151,7 +151,7 @@ class S3Handler(Utils):
             for contents in result["Contents"]:
                 yield contents["Key"]
 
-    def check_object_exists(self, bucket: str, object_key: str) -> bool:
+    def check_object_exists(self, object_key: str, bucket: str) -> bool:
         """
         Check whether an object exist.
 
@@ -351,8 +351,8 @@ class S3Handler(Utils):
         """
         Generates a QS manifest JSON file.
 
-        Generates a QS manifest JSON file from a list of `S3 URIs` and/or `S3 URI prefixes` and
-        upload it to the `bucket`.
+        Generates a QS manifest JSON file from a list of `S3 URIs` and/or `S3 URI prefixes` that is
+        uploaded to `bucket`
 
         Parameters
         ----------

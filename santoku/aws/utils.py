@@ -18,7 +18,7 @@ class Utils(ABC):
         self, method: str, **kwargs: Dict[str, Any]
     ) -> Generator[Dict[str, Any], None, None]:
         """
-        Iterates over the pages of API operation results.
+        Iterates over the pages of an API operation results.
 
         Paginators act as an abstraction over the process of iterating over an entire result set of
         a truncated API operation. Yields an iterable with the response obtained from applying

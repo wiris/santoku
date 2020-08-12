@@ -28,7 +28,7 @@ class ObjectsHandler:
     Class to manage operations on Salesforce content.
 
     This class contains methods that interact with Salesforce objects and makes easy some
-    usual operations. The connection is done by calling the Salesforce Rest API. This class is
+    usual operations. The connection is done by calling the Salesforce REST API. This class is
     pretended to be used on AWS Glue jobs (Python Shell) directly or through a higher level API.
 
     Notes
@@ -42,7 +42,7 @@ class ObjectsHandler:
         Extract the object name from a given path.
         Verify if the introduced parameters are valid fields of a salesforce object.
 
-    More information on the use of Salesforce Rest API: [1]
+    More information on the use of Salesforce REST API: [1]
 
     References
     ----------
@@ -139,7 +139,7 @@ class ObjectsHandler:
             Sepecification of the secret keys used in AWS Secrets Manager to store the credentials.
             (By default "AUTH_URL", "USR", "PSW", "CLIENT_USR", "CLIENT_PSW" will be the keys that
             stores the salesforce credentials.)
-        api_version : float, optional
+        api_version : str, optional
             Version of the Salesforce API used (the default is 47.0).
         grant_type : str, optional
             Type of credentials used to authenticate with salesforce(the default is 'password').

@@ -32,7 +32,7 @@ def secret_content():
     username = "test_user"
     password = "test_password"
     secret_content = {"username": username, "password": password}
-    yield secret_content
+    return secret_content
 
 
 @pytest.fixture(scope="function")

@@ -173,7 +173,6 @@ class TestS3Handler:
         obtained_path = s3_handler.get_uri(bucket=bucket, folder_path=folder, file_name=file_name,)
         assert obtained_path == expected_path
 
-    # TODO: change this: paginate in utils
     def test_paginate(
         self, bucket, s3_handler, prefix, files_with_no_common_prefix, files_with_common_prefix
     ):
@@ -251,14 +250,14 @@ class TestS3Handler:
     def test_check_object_exists(self, bucket, s3_handler, fixture_objects):
         # Test that an object exist in the bucket. Success expected.
         obtained_results = [
-            s3_handler.check_object_exists(bucket=bucket, object_key=object_key)
+            s3_handler.check_object_exists(object_key=object_key, bucket=bucket)
             for object_key in fixture_objects
         ]
         assert all(obtained_results)
 
         # Test that an object does not exist in the bucket. Success expected.
         obtained_result = s3_handler.check_object_exists(
-            bucket=bucket, object_key="false_object.json"
+            object_key="false_object.json", bucket=bucket
         )
         assert not obtained_result
 
