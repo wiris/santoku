@@ -1,19 +1,13 @@
 import os
 import json
-
-import boto3
-import pandas as pd
-
 from io import StringIO, BytesIO
 from typing import Any, Dict, List, Generator
 
+import boto3
+import pandas as pd
 from botocore import exceptions
-from ..aws.utils import Utils
 
-
-class PaginatorError(Exception):
-    def __init__(self, message):
-        super().__init__(message)
+from santoku.aws import utils
 
 
 class ManifestError(Exception):
@@ -21,7 +15,7 @@ class ManifestError(Exception):
         super().__init__(message)
 
 
-class S3Handler(Utils):
+class S3Handler:
     """
     Class to manage input/output operations of Amazon S3 storage services.
 
@@ -66,52 +60,6 @@ class S3Handler(Utils):
             folder_path = folder_path[1:]
         return os.path.join("s3://", bucket, folder_path, file_name)
 
-    def paginate(
-        self, method: str, **kwargs: Dict[str, Any]
-    ) -> Generator[Dict[str, Any], None, None]:
-        """
-        Iterates over the pages of API operation results.
-
-        Yields an iterable with the response obtained from applying `method`.
-
-        Parameters
-        ----------
-        method : str
-            Name of the S3 operation.
-        kwargs : Dict[str, Any]
-            Additional arguments for the specified method. In S3 services the Bucket property is
-            required.
-
-        Yields
-        ------
-        Generator[Dict[str, Any], None, None]
-            Responses dictionaries of the `method`.
-
-        Notes
-        -----
-        More information on the the accepted arguments of S3 paginate method: [1].
-
-        References
-        ----------
-        [1] :
-        https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3.html#paginators
-
-        """
-        if "Bucket" not in kwargs:
-            raise PaginatorError("Bucket argument is required for s3 paginator.")
-        valid_methods = [
-            "list_multipart_uploads",
-            "list_object_versions",
-            "list_objects",
-            "list_objects_v2",
-            "list_parts",
-        ]
-
-        if method not in valid_methods:
-            raise PaginatorError(f"{method} is not an available paginator method for S3.")
-
-        return super().paginate(method=method, **kwargs)
-
     def list_objects(self, bucket: str, **kwargs: Dict[str, str]) -> Generator[str, None, None]:
         """
         Get all objects in a specific location.
@@ -147,7 +95,9 @@ class S3Handler(Utils):
         """
         args: Dict[str, Any] = {"Bucket": bucket}
         args.update(**kwargs)
-        for result in self.paginate(method=self.client.list_objects_v2.__name__, **args):
+        for result in utils.paginate(
+            client=self.client, method=self.client.list_objects_v2.__name__, **args
+        ):
             for contents in result["Contents"]:
                 yield contents["Key"]
 

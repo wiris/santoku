@@ -1,11 +1,11 @@
 import json
 import re
 import requests
-
 from typing import List, Dict, Any, Optional
 
 from urllib import parse
-from ..aws.secrets_manager_handler import SecretsManagerHandler
+
+from santoku.aws.secrets_manager_handler import SecretsManagerHandler
 
 
 class SalesforceObjectError(Exception):

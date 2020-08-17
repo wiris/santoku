@@ -1,10 +1,8 @@
 import json
-
-import boto3
-
 from base64 import b64decode
 from typing import Dict, Any
 
+import boto3
 from botocore.exceptions import ClientError
 
 

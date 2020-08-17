@@ -5,12 +5,14 @@ import json
 
 from typing import List, Dict
 from moto import mock_secretsmanager
-from ..salesforce.objects_handler import ObjectsHandler
-from ..salesforce.objects_handler import SalesforceObjectError
-from ..salesforce.objects_handler import SalesforceObjectFieldError
-from ..salesforce.objects_handler import RequestMethodError
-from ..aws import SecretsManagerHandler
-from ..exceptions import MissingEnvironmentVariables
+from santoku.salesforce.objects_handler import (
+    ObjectsHandler,
+    SalesforceObjectError,
+    SalesforceObjectFieldError,
+    RequestMethodError,
+)
+from santoku.aws.secrets_manager_handler import SecretsManagerHandler
+from santoku.exceptions import MissingEnvironmentVariables
 
 
 """

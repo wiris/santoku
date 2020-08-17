@@ -2,10 +2,10 @@ import os
 
 import boto3
 import pytest
-
 from botocore import exceptions
 from moto import mock_sqs
-from ..aws.sqs_handler import SQSHandler, MessageAttributeError, MessageBatchError
+
+from santoku.aws.sqs_handler import SQSHandler, MessageAttributeError, MessageBatchError
 
 
 @pytest.fixture(scope="class")
@@ -69,9 +69,9 @@ def fifo_queue(sqs_handler, request):
 @pytest.fixture(scope="function")
 def message_attributes():
     return {
-        "TestAttribute1": {"DataType": "String", "StringValue": "Test string value",},
-        "TestAttribute2": {"DataType": "Number", "StringValue": "1000000000000000",},
-        "TestAttribute3": {"DataType": "Binary", "BinaryValue": "Test binary value",},
+        "StringAttribute": {"DataType": "String", "StringValue": "Test string value",},
+        "NumberAttribute": {"DataType": "Number", "StringValue": "1000000000000000",},
+        "BinaryAttribute": {"DataType": "Binary", "BinaryValue": "Test binary value",},
     }
 
 
@@ -117,7 +117,7 @@ class TestSQSHandler:
         # Message with more than 10 attributes. Failure expected.
         num_attributes = len(message_attributes)
         max_num_attributes = 10
-        message_attribute_content = message_attributes["TestAttribute1"]
+        message_attribute_content = message_attributes["StringAttribute"]
 
         # Create 11 attributes.
         attributes = message_attributes.copy()

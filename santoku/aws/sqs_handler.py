@@ -1,7 +1,6 @@
-import boto3
-
 from typing import Any, Dict, List
 
+import boto3
 from botocore import exceptions
 
 

@@ -1,16 +1,16 @@
 import os
 import json
+from typing import List, Dict
+from io import StringIO, BytesIO
 
 import boto3
 import pytest
 import pandas as pd
-
-from typing import List, Dict
-from io import StringIO, BytesIO
-
 from moto import mock_s3
 from botocore import exceptions
-from ..aws.s3_handler import S3Handler, ManifestError, PaginatorError
+
+from santoku.aws.s3_handler import S3Handler, ManifestError
+from santoku.aws import utils
 
 """
 TODO: this whole section might serve in the future as test suite for this library
@@ -178,17 +178,27 @@ class TestS3Handler:
         args = {
             "PaginationConfig": {"MaxItems": 1},
         }
-        error_message = "Bucket argument is required for s3 paginator."
-        with pytest.raises(PaginatorError, match=error_message) as e:
-            list(s3_handler.paginate(method=s3_handler.client.list_objects_v2.__name__, **args))
+        with pytest.raises(exceptions.ParamValidationError) as e:
+            list(
+                utils.paginate(
+                    client=s3_handler.client,
+                    method=s3_handler.client.list_objects_v2.__name__,
+                    **args,
+                )
+            )
 
         # Call function with an invalid paginator method. Failure expected.
         args = {
             "Bucket": bucket,
         }
-        error_message = "is not an available paginator method for S3"
-        with pytest.raises(PaginatorError, match=error_message) as e:
-            list(s3_handler.paginate(method=s3_handler.client.create_bucket.__name__, **args))
+        with pytest.raises(exceptions.OperationNotPageableError) as e:
+            list(
+                utils.paginate(
+                    client=s3_handler.client,
+                    method=s3_handler.client.create_bucket.__name__,
+                    **args,
+                )
+            )
 
         # Paginate by prefix. Success expected.
         args = {
@@ -197,8 +207,8 @@ class TestS3Handler:
         }
         common_prefix_object_keys = [object_key for object_key in files_with_common_prefix]
         obtained_objects = []
-        for result in s3_handler.paginate(
-            method=s3_handler.client.list_objects_v2.__name__, **args
+        for result in utils.paginate(
+            client=s3_handler.client, method=s3_handler.client.list_objects_v2.__name__, **args
         ):
             for contents in result["Contents"]:
                 obtained_objects.append(contents["Key"])
@@ -214,8 +224,8 @@ class TestS3Handler:
             list(files_with_no_common_prefix.keys()) + common_prefix_object_keys
         )  # Get the first object name alphabetically.
         obtained_objects = []
-        for result in s3_handler.paginate(
-            method=s3_handler.client.list_objects_v2.__name__, **args
+        for result in utils.paginate(
+            client=s3_handler.client, method=s3_handler.client.list_objects_v2.__name__, **args
         ):
             for contents in result["Contents"]:
                 obtained_objects.append(contents["Key"])

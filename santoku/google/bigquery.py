@@ -1,15 +1,15 @@
-import pandas as pd
-
 from typing import Dict, Union, Any
 
+import pandas as pd
 from google.cloud import bigquery as bq
-from ..aws.secrets_manager_handler import SecretsManagerHandler
 from google.oauth2 import service_account
 from google.auth.credentials import Credentials
 from google.cloud.bigquery.job import QueryJob
 from google.cloud.bigquery.table import RowIterator
 from google.cloud.bigquery.retry import DEFAULT_RETRY
 from google.api_core.retry import Retry
+
+from ..aws.secrets_manager_handler import SecretsManagerHandler
 
 
 class BigQueryHandler:
@@ -141,7 +141,7 @@ class BigQueryHandler:
         """
         secrets_manager = SecretsManagerHandler()
         credential_info = secrets_manager.get_secret_value(secret_name=secret_name)
-        return BigQueryHandler.from_service_account_info(credential_info=credential_info)
+        return cls.from_service_account_info(credential_info=credential_info)
 
     def _submit_query_job(self, query: str, **kwargs) -> QueryJob:
         """

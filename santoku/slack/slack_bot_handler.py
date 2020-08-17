@@ -1,6 +1,6 @@
 from slack import WebClient
 from slack.errors import SlackApiError
-from ..aws import SecretsManagerHandler
+from santoku.aws.secrets_manager_handler import SecretsManagerHandler
 
 
 class SlackBotError(Exception):
