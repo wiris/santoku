@@ -66,8 +66,6 @@ def delete_object_in_s3(bucket, s3_handler):
 
 @pytest.fixture(scope="function")
 def put_object_to_s3(bucket, s3_handler):
-    object_keys = []
-
     def _put_object_to_s3(object_name: str, content: str) -> None:
         s3_handler.client.put_object(Body=content, Bucket=bucket, Key=object_name)
 
