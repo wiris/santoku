@@ -2,7 +2,7 @@
 
 Santoku is a toolkit written in Python for interacting with AWS, Google Cloud platform, Salesforce and Slack.
 
-The purpose of Santoku is to have the interactions with all the external services collected in a single package. The package contains wrappers to the APIs of the external services in order to make easy the handling of operations and to simplify the interaction.
+The purpose of Santoku is to have the interactions with all the external services collected in a single package. The package contains wrappers around the respective APIs and high level methods for the most common patterns in order to simplify the interaction with those services, whether by being shorter to type, more descriptive, more specific to our needs or simply easier to read for developers.
 
 ## Quickstart
 
