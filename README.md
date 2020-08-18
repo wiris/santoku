@@ -40,11 +40,11 @@ The package `santoku` contains several subpackages: `aws`, `google`, `salesforce
 
 AWS (Amazon Web Services) is a cloud computing platform that provides provide a set of primitive abstract technical infrastructure and distributed computing building blocks and tools.
 
-The connection to AWS has been done through [boto3](https://github.com/boto/boto3). We provide wrappers of the `boto3` SDK to make easy the operations to interact with different services.
+The connection to AWS has been done through the AWS SDK, which in Python is called [boto3](https://github.com/boto/boto3). We provide wrappers of the `boto3` SDK to make easy the operations to interact with different services.
 
-The use of this subpackage requires having AWS credentials somewhere. We provide flexibility to either keep credentials in AWS credentials/configuration file, set environment variables, or to pass them directly as arguments in the initializer of each handler class. More info on AWS configurations and credentials [here](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-configure.html)
+The use of this subpackage requires having AWS credentials somewhere. We provide flexibility to either keep credentials in AWS credentials/configuration file, set environment variables, or to pass them directly as arguments in the initializer of each handler class. More info on AWS configurations and credentials [here](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-configure.html).
 
-The unit tests in this subpackage implement mocks to the AWS services and do not pretended to access or modify the environment of your real account.
+The unit tests in this subpackage implement mocks to the AWS services and do not pretended to access or modify the environment of your real account. In order to have safer unit tests for the AWS subpackage, we use moto, a mocking library for most AWS services, which allows our methods to interact with a fully mocked version of the AWS environment via decorators while not needing an actual connection to the internet or a test AWS account.
 
 #### Amazon S3
 
@@ -55,7 +55,7 @@ We provide methods to easily list and delete objects inside buckets; read and wr
 ##### How to Upload an Object to S3
 
 ```python
-from aws.s3_handler import S3Handler
+from aws.s3_handler.aws.s3_handler import S3Handler
 
 s3_handler = S3Handler()
 s3_handler.put_object(bucket="your_bucket_name", object_key="your_object_key", content="Your object content.")
@@ -76,45 +76,7 @@ secrets_manager = SecretsManagerHandler()
 secret_content = secrets_manager.get_secret_value(secret_name="your_secret_name")
 ```
 
-This module is also used in other subpackages to simplify the instantiation: the necessary credentials to initialize certain service can be retrieved from AWS Secrets Manager.
-
-#### Amazon Simple Queue Service
-
-Amazon Simple Queue Service (SQS) is a fully managed message queuing service that supports programmatic sending of messages via web service applications as a way to communicate over the Internet.
-
-We provide methods to receive, delete, and send single or a batch of messages.
-
-##### Example of usage
-
-```python
-from aws.sqs_handler import SQSHandler
-
-sqs_handler = SQSHandler()
-entries = [
-    {
-        "Id": "Id1",
-        "MessageBody": "Your message 1",
-    },
-    {
-        "Id": "Id2",
-        "MessageBody": "Your message 1",
-    }
-]
-entries.append(message)
-sqs_handler.send_message_batch(queue_name="your_queue_name", entries=entries)
-```
-
-### Google Cloud Platform
-
-Google Cloud Platform a suite of cloud computing services provided by Google that runs on the same Cloud infrastructure that Google uses internally for its end-user products.
-
-The connection to Google Cloud Platform has been done using the [google-cloud-core](https://googleapis.dev/python/google-api-core/latest/index.html) package.
-
-We provide a handler that allows doing queries on BigQuery services.
-
-The use of this subpackage requires having Google Cloud Platform credentials, these can be passed as arguments in the initializer of the handler class directly, or you can store them in AWS Secrets Manager and retrieve them during the initialization using the `from_aws_secrets_manager` method instead.
-
-##### Examples of initialization
+We use this service as our default credential manager. Most classes that require some form of authentication in santoku are provided with alternative class methods that retrieve the credentials directly from Secrets Manager. For example, instead of directly providing credentials to the BigQuery handling class, we simply provide it with the name of the secret where they are stored:
 
 ```python
 from santoku.google import BigQueryHandler
@@ -139,25 +101,6 @@ bigquery_handler = BigQueryHandler.from_aws_secrets_manager(
 )
 ```
 
-##### Example of queries
-```python
-query_results = bigquery_handler.get_query_results(query="SELECT * FROM `your_table`")
-```
-
-### Salesforce
-
-Salesforce is a Customer Relationship Management (CRM) platform that gives to the marketing, sales, commerce, and service depertments a single, shared view of every customer.
-
-The connection to Salesforce has been done using the [Salesforce REST API](https://developer.salesforce.com/docs/atlas.en-us.api_rest.meta/api_rest/quickstart.htm).
-
-The use of this subpackage requires having Salesforce credentials, these can be passed as arguments in the initializer of the handler class directly, or you can store them in AWS Secrets Manager and retrieve them during the initialization using the `from_aws_secrets_manager` method instead.
-
-This subpackage provide methods to insert/modify/delete salesforce object records. You can perform operations by doing HTTP requests directly or using methods with higher level of abstraction easier to handle, the lasts ones are just wrappers of the HTTP request method. To obtain records you can perform queries using SOQL.
-
-The unit tests requires valid Salesforce credentials to be executed. The tests are implemented in the way that no new data will remain in the account and no existent data will be modified. However, having Salesforce credentials for sandbox use is recommended.
-
-##### Example of initialization
-
 ```python
 from santoku.salesforce import ObjectsHandler
 
@@ -174,9 +117,79 @@ or
 objects_handler = ObjectsHandler.from_aws_secrets_manager(secret_name="your_salesforce_secret")
 ```
 
+```python
+from santoku.slack import SlackBotHandler
+
+slack_bot_handler = SlackBotHandler(api_token="your_api_token")
+```
+or
+```python
+slack_bot_handler = SlackBotHandler.from_aws_secrets_manager(secret_name="your_secret_name")
+```
+
+#### Amazon Simple Queue Service
+
+Amazon Simple Queue Service (SQS) is a fully managed message queuing service that supports programmatic sending of messages via web service applications as a way to communicate over the Internet.
+
+We provide methods to receive, delete, and send single or a batch of messages.
+
+##### Example of usage
+
+```python
+from aws.sqs_handler import SQSHandler
+
+sqs_handler = SQSHandler()
+entries = [
+    {
+        "Id": "Id1",
+        "MessageBody": "Your message 1",
+    },
+    {
+        "Id": "Id2",
+        "MessageBody": "Your message 1",
+    }
+]
+sqs_handler.send_message_batch(queue_name="your_queue_name", entries=entries)
+```
+
+### Google Cloud Platform
+
+Google Cloud Platform a suite of cloud computing services provided by Google that runs on the same Cloud infrastructure that Google uses internally for its end-user products.
+
+The connection to Google Cloud Platform has been done using the [google-cloud-core](https://googleapis.dev/python/google-api-core/latest/index.html) package.
+
+We provide a handler that allows doing queries on BigQuery services.
+
+The use of this subpackage requires having [Google Cloud Platform credentials](https://cloud.google.com/docs/authentication/production#obtaining_and_providing_service_account_credentials_manually) (in this case, a service account for programmatic access), these can be passed as arguments in the initializer of the handler class directly, or you can store them in AWS Secrets Manager and retrieve them during the initialization using the class method instead.
+
+##### Example of queries
+```python
+query_results = bigquery_handler.get_query_results(query="SELECT * FROM `your_table`")
+```
+
+### Salesforce
+
+Salesforce is a Customer Relationship Management (CRM) platform that gives to the marketing, sales, commerce, and service depertments a single, shared view of every customer.
+
+The connection to Salesforce has been done using the [Salesforce REST API](https://developer.salesforce.com/docs/atlas.en-us.api_rest.meta/api_rest/quickstart.htm).
+
+The use of this subpackage requires having Salesforce credentials, these can be passed as arguments in the initializer of the handler class directly, or you can store them in AWS Secrets Manager and retrieve them during the initialization using the class method instead.
+
+This subpackage provide methods to insert/modify/delete salesforce object records. You can perform operations by doing HTTP requests directly or using methods with higher level of abstraction, which are easier to handle. The lasts ones are just wrappers of the HTTP request method. To obtain records you can perform queries using SOQL.
+
+The unit tests require valid Salesforce credentials to be executed. The tests are implemented in the way that no new data will remain in the account and no existent data will be modified. However, having Salesforce credentials for sandbox use is recommended.
+
 ##### Examples of insertion with different methods
 
 ```python
+from santoku.salesforce import ObjectsHandler
+objects_handler = ObjectsHandler(
+    auth_url="your_auth_url",
+    username="your_username",
+    password="your_password",
+    client_id="your_client_id",
+    client_secret="your_client_secret",
+)
 contact_payload = {"FirstName": "Alice", "LastName": "Ackerman", "Email": "alice@example.com"}
 
 objects_handler.do_request(method="POST", path="sobjects/Contact", payload=contact_payload)
@@ -196,26 +209,18 @@ records = objects_handler.do_query_with_SOQL("SELECT Id, Name from Contact")
 
 Slack is a proprietary business communication platform. A Slack Bot is a nifty way to run code and automate tasks. In Slack, a bot is controlled programmatically via a bot user token that can access one or more of Slack’s APIs.
 
-The connection to Slack has been done using [Slack Web API](https://slack.dev/python-slackclient/basic_usage.html)
+The connection to Slack has been done using the [Slack Web API](https://slack.dev/python-slackclient/basic_usage.html)
 
-The use of this subpackage requires having Slack API Token of a Slack Bot, which can be passed as argument in the initializer of the handler class directly, or you can store it in AWS Secrets Manager and retrieve it during the initialization using the `from_aws_secrets_manager` method instead.
+The use of this subpackage requires having Slack API Token of a Slack Bot, which can be passed as argument in the initializer of the handler class directly, or you can store it in AWS Secrets Manager and retrieve it during the initialization using the class method instead.
 
 This subpackage provide methods to send messages to a channel.
-
-##### Examples of initialization
-```python
-from santoku.slack import SlackBotHandler
-
-slack_bot_handler = SlackBotHandler(api_token="your_api_token")
-```
-or
-```python
-slack_bot_handler = SlackBotHandler.from_aws_secrets_manager(secret_name="your_secret_name")
-```
 
 ##### Examples of sending of message
 
 ```python
+from santoku.slack import SlackBotHandler
+
+slack_bot_handler = SlackBotHandler(api_token="your_api_token")
 slack_bot_handler.send_message(channel="your_chanel_name", message="Your message.")
 ```
 
@@ -223,19 +228,19 @@ slack_bot_handler.send_message(channel="your_chanel_name", message="Your message
 
 ### Environment
 
-We provide a development environment that uses Visual Studio Code Remote - Containers extension. This extension lets you use a Docker container in order to have a consistent and easily reproducible development environment.
+We provide a development environment that uses the Visual Studio Code Remote - Containers extension. This extension lets you use a Docker container in order to have a consistent and easily reproducible development environment.
 
 The files needed to build the container are located in the `.devcontainer` directory.
-* `devcontainer.json` contains a set of configurations and tells how VSCode should access the container.
+* `devcontainer.json` contains a set of configurations, tells VSCode how to access the container and which extensions it should install.
 * `Dockerfile` defines instructions for the building of the container image.
-* `requirements.txt` specifies the required dependencies for the development process.
+* `requirements.txt` specifies the required dependencies for the development process, which are then installed via the Dockerfile when building the image.
 
 More info [here](https://code.visualstudio.com/docs/remote/containers-tutorial)
 
 ### Sharing Git credentials with your container
 
 The containerized environment will automatically forward your local SSH agent if one is running.
-More info [here](https://code.visualstudio.com/docs/remote/containers#_using-ssh-keys) and it works for Windows and Linux.
+More info [here](https://code.visualstudio.com/docs/remote/containers#_using-ssh-keys). It works for Windows and Linux.
 
 ### Setting credentials as environment variables
 
