@@ -1,10 +1,12 @@
 import os
-import requests
-import pytest
 import json
+import requests
+
+import pytest
 
 from typing import List, Dict
 from moto import mock_secretsmanager
+
 from santoku.salesforce.objects_handler import (
     ObjectsHandler,
     SalesforceObjectError,

@@ -1,6 +1,7 @@
+import pandas as pd
+
 from typing import Dict, Union, Any
 
-import pandas as pd
 from google.cloud import bigquery as bq
 from google.oauth2 import service_account
 from google.auth.credentials import Credentials
@@ -9,7 +10,7 @@ from google.cloud.bigquery.table import RowIterator
 from google.cloud.bigquery.retry import DEFAULT_RETRY
 from google.api_core.retry import Retry
 
-from ..aws.secrets_manager_handler import SecretsManagerHandler
+from santoku.aws.secrets_manager_handler import SecretsManagerHandler
 
 
 class BigQueryHandler:
@@ -17,6 +18,7 @@ class BigQueryHandler:
     Manage Google BigQuery interactions, the simplest of which is to query a particular table.
     This makes use of the official BigQuery API. More information at
     https://googleapis.dev/python/bigquery/latest/index.html
+
     """
 
     def __init__(self, **kwargs) -> None:

@@ -7,6 +7,6 @@ TODO: investigate the possibility of mocking BigQuery (and other Google services
 """
 
 
-class TestS3Handler:
+class TestBigqueryHandler:
     def test_run_query(self):
         pass

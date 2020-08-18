@@ -2,6 +2,7 @@ import os
 
 import boto3
 import pytest
+
 from botocore import exceptions
 from moto import mock_sqs
 

@@ -4,9 +4,9 @@ import pytest
 
 from moto import mock_secretsmanager
 
-from santoku.slack.slack_bot_handler import SlackBotHandler, SlackBotError
-from santoku.aws.secrets_manager_handler import SecretsManagerHandler
 from santoku.exceptions import MissingEnvironmentVariables
+from santoku.aws.secrets_manager_handler import SecretsManagerHandler
+from santoku.slack.slack_bot_handler import SlackBotHandler, SlackBotError
 
 if "SLACK_BOT_API_TOKEN" not in os.environ:
     raise MissingEnvironmentVariables("Slack bot api token environment variable is missing.")

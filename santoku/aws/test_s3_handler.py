@@ -1,16 +1,18 @@
 import os
 import json
-from typing import List, Dict
-from io import StringIO, BytesIO
 
 import boto3
 import pytest
 import pandas as pd
+
+from typing import List, Dict
+from io import StringIO, BytesIO
+
 from moto import mock_s3
 from botocore import exceptions
 
-from santoku.aws.s3_handler import S3Handler, ManifestError
 from santoku.aws import utils
+from santoku.aws.s3_handler import S3Handler, ManifestError
 
 """
 TODO: this whole section might serve in the future as test suite for this library
@@ -170,67 +172,6 @@ class TestS3Handler:
         expected_path = f"s3://{bucket}/{folder}/{file_name}"
         obtained_path = s3_handler.get_uri(bucket=bucket, folder_path=folder, file_name=file_name,)
         assert obtained_path == expected_path
-
-    def test_paginate(
-        self, bucket, s3_handler, prefix, files_with_no_common_prefix, files_with_common_prefix
-    ):
-        # Call function without Bucket argument. Failure expected.
-        args = {
-            "PaginationConfig": {"MaxItems": 1},
-        }
-        with pytest.raises(exceptions.ParamValidationError) as e:
-            list(
-                utils.paginate(
-                    client=s3_handler.client,
-                    method=s3_handler.client.list_objects_v2.__name__,
-                    **args,
-                )
-            )
-
-        # Call function with an invalid paginator method. Failure expected.
-        args = {
-            "Bucket": bucket,
-        }
-        with pytest.raises(exceptions.OperationNotPageableError) as e:
-            list(
-                utils.paginate(
-                    client=s3_handler.client,
-                    method=s3_handler.client.create_bucket.__name__,
-                    **args,
-                )
-            )
-
-        # Paginate by prefix. Success expected.
-        args = {
-            "Bucket": bucket,
-            "Prefix": prefix,
-        }
-        common_prefix_object_keys = [object_key for object_key in files_with_common_prefix]
-        obtained_objects = []
-        for result in utils.paginate(
-            client=s3_handler.client, method=s3_handler.client.list_objects_v2.__name__, **args
-        ):
-            for contents in result["Contents"]:
-                obtained_objects.append(contents["Key"])
-        assert obtained_objects == common_prefix_object_keys
-
-        # Limit the number of returned element. Success expected.
-        args = {
-            "Bucket": bucket,
-            "PaginationConfig": {"MaxItems": 1},
-        }
-        # `list_objects_v2` method lists objects in alphabetical order.
-        expected_object = min(
-            list(files_with_no_common_prefix.keys()) + common_prefix_object_keys
-        )  # Get the first object name alphabetically.
-        obtained_objects = []
-        for result in utils.paginate(
-            client=s3_handler.client, method=s3_handler.client.list_objects_v2.__name__, **args
-        ):
-            for contents in result["Contents"]:
-                obtained_objects.append(contents["Key"])
-        assert len(obtained_objects) == 1
-        assert obtained_objects[0] == expected_object
 
     def test_list_objects(
         self, bucket, s3_handler, prefix, files_with_no_common_prefix, files_with_common_prefix

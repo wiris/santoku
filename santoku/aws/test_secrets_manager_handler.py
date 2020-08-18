@@ -1,9 +1,11 @@
 import os
 import json
-from base64 import b64encode
 
 import pytest
 import boto3
+
+from base64 import b64encode
+
 from moto import mock_secretsmanager
 
 from santoku.aws.secrets_manager_handler import SecretsManagerError, SecretsManagerHandler
