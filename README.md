@@ -55,7 +55,7 @@ We provide methods to easily list and delete objects inside buckets; read and wr
 ##### How to Upload an Object to S3
 
 ```python
-from santoku.aws.s3_handler.aws.s3_handler import S3Handler
+from santoku.aws.s3_handler import S3Handler
 
 s3_handler = S3Handler()
 s3_handler.put_object(bucket="your_bucket_name", object_key="your_object_key", content="Your object content.")
