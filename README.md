@@ -101,42 +101,6 @@ bigquery_handler = BigQueryHandler.from_aws_secrets_manager(
 )
 ```
 
-```python
-from santoku.salesforce.objects_handler import ObjectsHandler
-
-objects_handler = ObjectsHandler(
-    auth_url="your_auth_url",
-    username="your_username",
-    password="your_password",
-    client_id="your_client_id",
-    client_secret="your_client_secret",
-)
-```
-or
-```python
-objects_handler = ObjectsHandler.from_aws_secrets_manager(secret_name="your_salesforce_secret")
-```
-
-```python
-from santoku.slack.slack_bot_handler import SlackBotHandler
-
-slack_bot_handler = SlackBotHandler(api_token="your_api_token")
-```
-or
-```python
-slack_bot_handler = SlackBotHandler.from_aws_secrets_manager(secret_name="your_secret_name")
-```
-
-```python
-from santoku.sql.mysql_handler import MySQLHandler
-
-mysql_handler = MySQLHandler(user="your_user", password="your_password", host="your_host", database="your_database")
-```
-or
-```python
-mysql_handler = MySQLHandler.from_aws_secrets_manager(secret_name="your_secret_name", database="your_database")
-```
-
 #### Amazon Simple Queue Service
 
 Amazon Simple Queue Service (SQS) is a fully managed message queuing service that supports programmatic sending of messages via web service applications as a way to communicate over the Internet.
