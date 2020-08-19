@@ -48,14 +48,12 @@ class MySQLHandler:
         https://dev.mysql.com/doc/connector-python/en/connector-python-example-connecting.html
 
         """
-        self.mysql_cnx = mysql.connector.connect(
-            user=user, password=password, host=host, database="database"
+        self.db_connector = mysql.connector.connect(
+            user=user, password=password, host=host, database=database
         )
 
     @classmethod
-    def from_aws_secrets_manager(
-        cls, secret_name: str,
-    ):
+    def from_aws_secrets_manager(cls, secret_name: str, database: str):
         """
         Retrieve the necessary information for the connection to MySQL from AWS Secrets Manager.
         Requires that AWS credentials with the appropriate permissions are located somewhere on the
@@ -65,6 +63,8 @@ class MySQLHandler:
         ----------
         secret_name : str
             Name or ARN for the secret containing fields needed for MySQL authentication.
+        database : str
+            The database in the MySQL server to be connected to.
 
         See Also
         --------
@@ -79,6 +79,7 @@ class MySQLHandler:
             "password": "<password>",
             "host": "<host>",
             "database": "<database>",
+        }
         ```
 
         """
@@ -89,7 +90,7 @@ class MySQLHandler:
             user=credential_info["user"],
             password=credential_info["password"],
             host=credential_info["host"],
-            database=credential_info["database"],
+            database=database,
         )
 
     def get_query_results(self, query: str) -> List[Tuple[Any]]:
@@ -120,7 +121,7 @@ class MySQLHandler:
         https://dev.mysql.com/doc/connector-python/en/connector-python-api-mysqlcursor-execute.html
 
         """
-        cursor = self.mysql_cnx.cursor()
+        cursor = self.db_connector.cursor()
         cursor.execute(query)
         return cursor.fetchall()
 
@@ -153,4 +154,4 @@ class MySQLHandler:
         https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.read_sql.html
 
         """
-        return pd.read_sql(sql=query, con=self.mysql_cnx, **kwargs)
+        return pd.read_sql(sql=query, con=self.db_connector, **kwargs)

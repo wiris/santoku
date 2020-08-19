@@ -134,7 +134,7 @@ mysql_handler = MySQLHandler(user="your_user", password="your_password", host="y
 ```
 or
 ```python
-mysql_handler = MySQLHandler.from_aws_secrets_manager(secret_name="your_secret_name")
+mysql_handler = MySQLHandler.from_aws_secrets_manager(secret_name="your_secret_name", database="your_database")
 ```
 
 #### Amazon Simple Queue Service
