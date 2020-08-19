@@ -27,7 +27,7 @@ pip install santoku
 You can use the package as follows:
 
 ```python
-from santoku.slack import SlackBotHandler
+from santoku.slack.slack_bot_handler import SlackBotHandler
 
 slack_bot = SlackBotHandler.from_aws_secrets_manager("your_secret")
 ```
@@ -55,7 +55,7 @@ We provide methods to easily list and delete objects inside buckets; read and wr
 ##### How to Upload an Object to S3
 
 ```python
-from aws.s3_handler.aws.s3_handler import S3Handler
+from santoku.aws.s3_handler.aws.s3_handler import S3Handler
 
 s3_handler = S3Handler()
 s3_handler.put_object(bucket="your_bucket_name", object_key="your_object_key", content="Your object content.")
@@ -70,7 +70,7 @@ We provide methods to get the content of a previously created secret.
 ##### Example of usage
 
 ```python
-from aws.secrets_manager_handler import SecretsManagerHandler
+from santoku.aws.secrets_manager_handler import SecretsManagerHandler
 
 secrets_manager = SecretsManagerHandler()
 secret_content = secrets_manager.get_secret_value(secret_name="your_secret_name")
@@ -79,7 +79,7 @@ secret_content = secrets_manager.get_secret_value(secret_name="your_secret_name"
 We use this service as our default credential manager. Most classes that require some form of authentication in santoku are provided with alternative class methods that retrieve the credentials directly from Secrets Manager. For example, instead of directly providing credentials to the BigQuery handling class, we simply provide it with the name of the secret where they are stored:
 
 ```python
-from santoku.google import BigQueryHandler
+from santoku.google.bigquery import BigQueryHandler
 
 bigquery_handler = BigQueryHandler(
     type="your_type",
@@ -102,7 +102,7 @@ bigquery_handler = BigQueryHandler.from_aws_secrets_manager(
 ```
 
 ```python
-from santoku.salesforce import ObjectsHandler
+from santoku.salesforce.objects_handler import ObjectsHandler
 
 objects_handler = ObjectsHandler(
     auth_url="your_auth_url",
@@ -118,7 +118,7 @@ objects_handler = ObjectsHandler.from_aws_secrets_manager(secret_name="your_sale
 ```
 
 ```python
-from santoku.slack import SlackBotHandler
+from santoku.slack.slack_bot_handler import SlackBotHandler
 
 slack_bot_handler = SlackBotHandler(api_token="your_api_token")
 ```
@@ -136,7 +136,7 @@ We provide methods to receive, delete, and send single or a batch of messages.
 ##### Example of usage
 
 ```python
-from aws.sqs_handler import SQSHandler
+from santoku.aws.sqs_handler import SQSHandler
 
 sqs_handler = SQSHandler()
 entries = [
@@ -182,7 +182,8 @@ The unit tests require valid Salesforce credentials to be executed. The tests ar
 ##### Examples of insertion with different methods
 
 ```python
-from santoku.salesforce import ObjectsHandler
+from santoku.salesforce.objects_handler import ObjectsHandler
+
 objects_handler = ObjectsHandler(
     auth_url="your_auth_url",
     username="your_username",
@@ -218,7 +219,7 @@ This subpackage provide methods to send messages to a channel.
 ##### Examples of sending of message
 
 ```python
-from santoku.slack import SlackBotHandler
+from santoku.slack.slack_bot_handler import SlackBotHandler
 
 slack_bot_handler = SlackBotHandler(api_token="your_api_token")
 slack_bot_handler.send_message(channel="your_chanel_name", message="Your message.")
