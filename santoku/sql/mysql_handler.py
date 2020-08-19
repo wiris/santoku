@@ -77,8 +77,7 @@ class MySQLHandler:
         {
             "user": "<user>",
             "password": "<password>",
-            "host": "<host>",
-            "database": "<database>",
+            "host": "<host>"
         }
         ```
 

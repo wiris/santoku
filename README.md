@@ -205,11 +205,11 @@ SQL (Structured Query Language) is a domain-specific language designed for manag
 
 ##### MySQL
 
-MySQL is an open-source RDBMS. The connection to MySQL has been done using the [MySQL Connector of python](https://dev.mysql.com/doc/connector-python/en/).
+MySQL is an open-source RDBMS. The connection to MySQL has been done using the [MySQL Connector for python](https://dev.mysql.com/doc/connector-python/en/).
 
 The use of this subpackage requires having MySQL authentication parameters, which can be passed as argument in the initializer of the handler class directly, or you can store it in AWS Secrets Manager and retrieve it during the initialization using the class method instead.
 
-This subpackage provide methods to do queries and retrieve the results in different forms.
+This subpackage provides methods to do queries and retrieve the results in different forms.
 
 ##### Example of query
 
