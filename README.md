@@ -34,7 +34,7 @@ slack_bot = SlackBotHandler.from_aws_secrets_manager("your_secret")
 
 ## Content
 
-The package `santoku` contains several subpackages: `aws`, `google`, `salesforce` and `slack`. Each subpackage provides connection to different external services and are formed by a collection of modules, where each module consists of handlers for more specific services. Each handler class has unit tests to ensure the correct behaviour of the methods of these classes.
+The package `santoku` contains several subpackages: `aws`, `google`, `salesforce`, `slack`, `sql`. Each subpackage provides connection to different external services and are formed by a collection of modules, where each module consists of handlers for more specific services. Each handler class has unit tests to ensure the correct behaviour of the methods of these classes.
 
 ### AWS
 
@@ -125,6 +125,16 @@ slack_bot_handler = SlackBotHandler(api_token="your_api_token")
 or
 ```python
 slack_bot_handler = SlackBotHandler.from_aws_secrets_manager(secret_name="your_secret_name")
+```
+
+```python
+from santoku.sql.mysql_handler import MySQLHandler
+
+mysql_handler = MySQLHandler(user="your_user", password="your_password", host="your_host", database="your_database")
+```
+or
+```python
+mysql_handler = MySQLHandler.from_aws_secrets_manager(secret_name="your_secret_name")
 ```
 
 #### Amazon Simple Queue Service
@@ -223,6 +233,27 @@ from santoku.slack.slack_bot_handler import SlackBotHandler
 
 slack_bot_handler = SlackBotHandler(api_token="your_api_token")
 slack_bot_handler.send_message(channel="your_chanel_name", message="Your message.")
+```
+
+### SQL
+
+SQL (Structured Query Language) is a domain-specific language designed for managing data held in a relational database management system (RDBMS). The purpose of this subpackage is to provide connection to different RDBMSs.
+
+##### MySQL
+
+MySQL is an open-source RDBMS. The connection to MySQL has been done using the [MySQL Connector of python](https://dev.mysql.com/doc/connector-python/en/).
+
+The use of this subpackage requires having MySQL authentication parameters, which can be passed as argument in the initializer of the handler class directly, or you can store it in AWS Secrets Manager and retrieve it during the initialization using the class method instead.
+
+This subpackage provide methods to do queries and retrieve the results in different forms.
+
+##### Example of query
+
+```python
+from santoku.sql.mysql_handler import MySQLHandler
+
+mysql_handler = MySQLHandler(user="your_user", password="your_password", host="your_host", database="your_database")
+mysql_handler.get_query_results(query="SELECT * FROM your_table")
 ```
 
 ## Development
