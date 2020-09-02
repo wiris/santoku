@@ -38,7 +38,7 @@ The package `santoku` contains several subpackages: `aws`, `google`, `salesforce
 
 ### AWS
 
-AWS (Amazon Web Services) is a cloud computing platform that provides provide a set of primitive abstract technical infrastructure and distributed computing building blocks and tools.
+AWS (Amazon Web Services) is a cloud computing platform that provides a set of primitive abstract technical infrastructure and distributed computing building blocks and tools.
 
 The connection to AWS has been done through the AWS SDK, which in Python is called [boto3](https://github.com/boto/boto3). We provide wrappers of the `boto3` SDK to make easy the operations to interact with different services.
 

@@ -1,4 +1,4 @@
-from ..sql import MySQLHandler
+from santoku.sql.mysql_handler import MySQLHandler
 
 
 """
