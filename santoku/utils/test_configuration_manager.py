@@ -1,152 +1,391 @@
 import pytest
 
+from collections import namedtuple
+
 from santoku.utils.configuration_manager import (
     ConfigurationManager,
     UndefinedConfiguration,
     UndefinedSetting,
+    ConfigurationAlreadyDefined,
+    InvalidConfiguration,
 )
 
-
-@pytest.fixture(scope="class")
-def boolean_setting():
-    return "BOOLEAN_SETTING"
+Setting = namedtuple("Setting", "name value")
+Configuration = namedtuple("Configuration", "name settings")
 
 
 @pytest.fixture(scope="class")
-def string_setting():
-    return "STRING_SETTING"
-
-
-@pytest.fixture(scope="function")
-def default_configuration(boolean_setting, string_setting):
+def complex_schema():
     return {
-        "NAME": "DEFAULT",
-        "CONFIG": {boolean_setting: True, string_setting: "default_string_value"},
+        "integer_setting": int,
+        "boolean_setting": bool,
+        "string_setting": str,
+        "float_setting": float,
+        "dict_setting": {"list_setting": [str], "tuple_setting": (int, bool),},
     }
 
 
 @pytest.fixture(scope="function")
-def test_configuration(boolean_setting, string_setting):
-    return {"NAME": "TEST", "CONFIG": {boolean_setting: False, string_setting: "test_string_value"}}
+def complex_configuration():
+    return {
+        "integer_setting": 1,
+        "boolean_setting": True,
+        "string_setting": "string value",
+        "float_setting": 1.0,
+        "dict_setting": {"list_setting": ["string value in tuple"], "tuple_setting": (1, False),},
+    }
 
 
-@pytest.fixture(scope="function")
-def configuration_manager(default_configuration, test_configuration):
-    predefined_configurations = [default_configuration, test_configuration]
-    return ConfigurationManager(
+@pytest.fixture(scope="class")
+def initial_boolean_setting():
+    return Setting("boolean_setting", True)
+
+
+@pytest.fixture(scope="class")
+def initial_string_setting():
+    return Setting("string_setting", "initial string value")
+
+
+@pytest.fixture(scope="class")
+def initial_schema(initial_boolean_setting, initial_string_setting):
+    return {
+        initial_boolean_setting.name: bool,
+        initial_string_setting.name: str,
+    }
+
+
+@pytest.fixture(scope="class")
+def initial_configuration(initial_boolean_setting, initial_string_setting):
+    settings = {
+        initial_boolean_setting.name: initial_boolean_setting.value,
+        initial_string_setting.name: initial_string_setting.value,
+    }
+    return Configuration("initial", settings)
+
+
+@pytest.fixture(scope="class")
+def initial_configuration_structured(
+    initial_boolean_setting, initial_string_setting, initial_configuration
+):
+    return {
+        "name": initial_configuration.name,
+        "settings": {
+            initial_boolean_setting.name: initial_boolean_setting.value,
+            initial_string_setting.name: initial_string_setting.value,
+        },
+    }
+
+
+@pytest.fixture(scope="class")
+def test_boolean_setting():
+    return Setting("boolean_setting", False)
+
+
+@pytest.fixture(scope="class")
+def test_string_setting():
+    return Setting("string_setting", "test string value")
+
+
+@pytest.fixture(scope="class")
+def test_configuration(test_boolean_setting, test_string_setting):
+    settings = {
+        test_boolean_setting.name: test_boolean_setting.value,
+        test_string_setting.name: test_string_setting.value,
+    }
+    return Configuration("test", settings)
+
+
+@pytest.fixture(scope="class")
+def test_configuration_structured(test_boolean_setting, test_string_setting, test_configuration):
+    return {
+        "name": test_configuration.name,
+        "settings": {
+            test_boolean_setting.name: test_boolean_setting.value,
+            test_string_setting.name: test_string_setting.value,
+        },
+    }
+
+
+@pytest.fixture(scope="class")
+def configuration_manager(
+    initial_schema,
+    initial_configuration_structured,
+    test_configuration_structured,
+    initial_configuration,
+):
+    # Initialize the configuration manager with two configurations.
+    predefined_configurations = [initial_configuration_structured, test_configuration_structured]
+    configuration_manager = ConfigurationManager(
+        schema=initial_schema,
         predefined_configurations=predefined_configurations,
-        default_configuration=default_configuration["NAME"],
+        initial_configuration=initial_configuration.name,
     )
+    configuration_manager.apply_configuration(name=initial_configuration.name)
+
+    return configuration_manager
+
+
+@pytest.fixture(scope="class")
+def new_boolean_setting():
+    return Setting("boolean_setting", True)
+
+
+@pytest.fixture(scope="class")
+def new_string_setting():
+    return Setting("string_setting", "new string value")
+
+
+@pytest.fixture(scope="class")
+def new_configuration(new_boolean_setting, new_string_setting):
+    settings = Settings(new_boolean_setting, new_string_setting)
+    return Configuration("new", settings)
+
+
+@pytest.fixture(scope="class")
+def new_named_configuration(new_configuration):
+    new_settings = new_configuration.settings
+    return [
+        {
+            "name": new_configuration.name,
+            "settings": {
+                new_settings.setting1.name: new_settings.setting1.value,
+                new_settings.setting2.name: new_settings.setting2.value,
+            },
+        }
+    ]
 
 
 class TestConfigurationManager:
+    def test_validate_configuration_schema(self, complex_schema, complex_configuration):
+        # Test validating a configuration that follows the schema. Success expected.
+        try:
+            ConfigurationManager(
+                schema=complex_schema,
+                predefined_configurations=[{"name": "complex", "settings": complex_configuration}],
+            )
+        except InvalidConfiguration:
+            assert False
+        else:
+            assert True
+
+        # Test validating a configuration with less arguments than the scheme. Failure expected.
+        removed_key = "integer_setting"
+        removed_value = complex_configuration.pop(removed_key)
+        expected_message = "The given configuration does not follow the predefined schema."
+        with pytest.raises(InvalidConfiguration, match=expected_message):
+            ConfigurationManager(
+                schema=complex_schema,
+                predefined_configurations=[{"name": "complex", "settings": complex_configuration}],
+            )
+        # Add the removed key.
+        complex_configuration[removed_key] = removed_value
+
+        # Test validating a configuration with more arguments than the scheme. Failure expected.
+        new_key = "new_integer_setting"
+        complex_configuration[new_key] = 1
+        expected_message = "The given configuration does not follow the predefined schema."
+        with pytest.raises(InvalidConfiguration, match=expected_message):
+            ConfigurationManager(
+                schema=complex_schema,
+                predefined_configurations=[{"name": "complex", "settings": complex_configuration}],
+            )
+        # Remove the added key.
+        complex_configuration.pop(new_key)
+
+        # Test validating a configuration with setting names different to the scheme.
+        # Failure expected.
+        old_key = "integer_setting"
+        new_key = "new_integer_setting"
+        complex_configuration[new_key] = complex_configuration.pop(old_key)
+        with pytest.raises(InvalidConfiguration, match=expected_message):
+            ConfigurationManager(
+                schema=complex_schema,
+                predefined_configurations=[{"name": "complex", "settings": complex_configuration}],
+            )
+        # Undo the change of key.
+        complex_configuration[old_key] = complex_configuration.pop(new_key)
+
+        # Test validating a configuration with setting values different to the scheme.
+        # Failure expected
+        key = "integer_setting"
+        old_value = complex_configuration[key]
+        complex_configuration[key] = 1.0
+        with pytest.raises(InvalidConfiguration, match=expected_message):
+            ConfigurationManager(
+                schema=complex_schema,
+                predefined_configurations=[{"name": "complex", "settings": complex_configuration}],
+            )
+        complex_configuration[key] = old_value
+
+        complex_configuration["dict_setting"]["tuple_setting"] = (1, "string value")
+        with pytest.raises(InvalidConfiguration, match=expected_message):
+            ConfigurationManager(
+                schema=complex_schema,
+                predefined_configurations=[{"name": "complex", "settings": complex_configuration}],
+            )
+
     def test_get_setting(
-        self, boolean_setting, string_setting, default_configuration, configuration_manager
+        self, initial_boolean_setting, initial_string_setting, configuration_manager,
     ):
-        # Get a setting from the current configuration. Success expected.
-        expected_value = default_configuration["CONFIG"][boolean_setting]
-        obtained_value = configuration_manager.get_setting(key=boolean_setting)
+        # Get a setting from the active configuration. Success expected.
+        expected_value = initial_boolean_setting.value
+        obtained_value = configuration_manager.get_setting(key=initial_boolean_setting.name)
         assert obtained_value == expected_value
 
-        expected_value = default_configuration["CONFIG"][string_setting]
-        obtained_value = configuration_manager.get_setting(key=string_setting)
+        expected_value = initial_string_setting.value
+        obtained_value = configuration_manager.get_setting(key=initial_string_setting.name)
         assert obtained_value == expected_value
 
-        # Get an undefined setting from the current configuration. Failure expected.
+        # Get an undefined setting from the active configuration. Failure expected.
         undefined_setting_key = "undefined_setting"
         expected_message = f"Setting '{undefined_setting_key}' undefined."
-        with pytest.raises(UndefinedSetting, match=expected_message) as e:
+        with pytest.raises(UndefinedSetting, match=expected_message):
             configuration_manager.get_setting(key=undefined_setting_key)
 
     def test_list_settings(
-        self, boolean_setting, string_setting, default_configuration, configuration_manager
+        self, initial_boolean_setting, initial_string_setting, configuration_manager
     ):
-        # List all settings defined in the current configuration. Success expected.
-        expected_settings = [(boolean_setting, default_configuration["CONFIG"][boolean_setting])]
-        expected_settings.append((string_setting, default_configuration["CONFIG"][string_setting]))
+        # List all settings defined in the active configuration. Success expected.
+        expected_settings = [
+            (initial_boolean_setting.name, initial_boolean_setting.value),
+            (initial_string_setting.name, initial_string_setting.value),
+        ]
         obtained_settings = configuration_manager.list_settings()
         assert set(obtained_settings) == set(expected_settings)
 
-    def test_set_setting(self, boolean_setting, default_configuration, configuration_manager):
-        # Change the value of an already defined setting in the current configuration.
+    def test_set_setting(self, initial_boolean_setting, configuration_manager):
+        # Change the value of an already defined setting in the active configuration.
         # Success expected.
-        expected_value = default_configuration["CONFIG"][boolean_setting]
-        obtained_value = configuration_manager.get_setting(key=boolean_setting)
+        expected_value = not initial_boolean_setting.value
+        configuration_manager.set_setting(key=initial_boolean_setting.name, value=expected_value)
+        obtained_value = configuration_manager._settings[initial_boolean_setting.name]
         assert obtained_value == expected_value
 
-        expected_value = not expected_value
-        configuration_manager.set_setting(key=boolean_setting, value=expected_value)
-        obtained_value = configuration_manager.get_setting(key=boolean_setting)
-        assert obtained_value == expected_value
-
-    def test_define_configuration(self, boolean_setting, string_setting):
+    def test_define_configuration(
+        self,
+        initial_boolean_setting,
+        initial_string_setting,
+        initial_schema,
+        initial_configuration,
+    ):
         # Add a configuration to an empty configuration manager and get its settings.
         # Success expected.
-        configuration_manager = ConfigurationManager()
-        new_configuration = {
-            "NAME": "NEW_CONFIG",
-            "CONFIG": {boolean_setting: False, string_setting: "new_config_string_value"},
-        }
+        configuration_manager = ConfigurationManager(schema=initial_schema)
         configuration_manager.define_configuration(
-            name=new_configuration["NAME"], configuration=new_configuration["CONFIG"]
+            name=initial_configuration.name, configuration=initial_configuration.settings
         )
+        # Apply configuration.
+        configuration_manager._settings = initial_configuration.settings
+        configuration_manager._active_configuration = initial_configuration.name
 
-        expected_value = new_configuration["CONFIG"][boolean_setting]
-        obtained_value = configuration_manager.get_setting(key=boolean_setting)
+        expected_value = initial_boolean_setting.value
+        obtained_value = configuration_manager._settings[initial_boolean_setting.name]
         assert obtained_value == expected_value
 
-        expected_value = new_configuration["CONFIG"][string_setting]
-        obtained_value = configuration_manager.get_setting(key=string_setting)
+        expected_value = initial_string_setting.value
+        obtained_value = configuration_manager._settings[initial_string_setting.name]
         assert obtained_value == expected_value
+
+        # Override a configuration that already exists. Success expected.
+        expected_value = not initial_boolean_setting.value
+        new_configuration = initial_configuration.settings
+        new_configuration[initial_boolean_setting.name] = expected_value
+
+        configuration_manager.define_configuration(
+            name=initial_configuration.name, configuration=new_configuration, override=True,
+        )
+        obtained_value = configuration_manager._settings[initial_boolean_setting.name]
+        assert obtained_value == expected_value
+
+        # Define a configuration that already exists without enabling override. Failure expected.
+        expected_message = f"Configuration '{initial_configuration.name}' already exists."
+        with pytest.raises(ConfigurationAlreadyDefined, match=expected_message):
+            configuration_manager.define_configuration(
+                name=initial_configuration.name, configuration=initial_configuration.settings
+            )
 
     def test_get_configuration(
-        self, default_configuration, test_configuration, configuration_manager
+        self, initial_configuration, test_configuration, configuration_manager
     ):
         # Get the predefined configurations in the configuration manager. Success expected.
-        config_name = default_configuration["NAME"]
-        expected_configuration = default_configuration["CONFIG"]
-        obtained_configuration = configuration_manager.get_configuration(name=config_name)
+        expected_configuration = initial_configuration.settings
+        obtained_configuration = configuration_manager.get_configuration(
+            name=initial_configuration.name
+        )
         assert obtained_configuration == expected_configuration
 
-        config_name = test_configuration["NAME"]
-        expected_configuration = test_configuration["CONFIG"]
-        obtained_configuration = configuration_manager.get_configuration(name=config_name)
+        expected_configuration = test_configuration.settings
+        obtained_configuration = configuration_manager.get_configuration(
+            name=test_configuration.name
+        )
         assert obtained_configuration == expected_configuration
 
         # Get an undefined configurations. Failure expected.
         undefined_configuration_name = "undefined_configuration"
         expected_message = f"Configuration '{undefined_configuration_name}' undefined."
-        with pytest.raises(UndefinedConfiguration, match=expected_message) as e:
+        with pytest.raises(UndefinedConfiguration, match=expected_message):
             configuration_manager.get_configuration(name=undefined_configuration_name)
 
-    def test_get_current_configuration(self, default_configuration, configuration_manager):
-        # Get the current configuration. Success expected.
-        expected_configuration = default_configuration["NAME"]
-        obtained_configuration = configuration_manager.get_current_configuration()
+    def test_edit_configuration(
+        self, initial_boolean_setting, initial_configuration, configuration_manager
+    ):
+        # Get the edited configuration. Sucess expected.
+        expected_value = not initial_boolean_setting.value
+        expected_configuration = initial_configuration.settings
+        expected_configuration[initial_boolean_setting.name] = expected_value
+        configuration_manager.edit_configuration(
+            name=initial_configuration.name, configuration_override=expected_configuration
+        )
+
+        obtained_configuration = configuration_manager._configurations[initial_configuration.name]
+        assert obtained_configuration == expected_configuration
+
+        obtained_value = configuration_manager._settings[initial_boolean_setting.name]
+        assert obtained_value == expected_value
+
+        # Edit an undefined configuration. Failure expected.
+        undefined_configuration_name = "undefined_configuration"
+        expected_message = (
+            "Use `define_configuration` method instead to create a new configuration."
+        )
+        with pytest.raises(Exception, match=expected_message):
+            configuration_manager.edit_configuration(
+                name=undefined_configuration_name, configuration_override=[]
+            )
+
+        # Give a configuration that does not follow the scheme. Failure expected.
+        expected_message = "The given configuration does not follow the predefined schema."
+        expected_configuration[initial_boolean_setting.name] = "string value"
+        with pytest.raises(Exception, match=expected_message):
+            configuration_manager.edit_configuration(
+                name=initial_configuration.name, configuration_override=expected_configuration
+            )
+
+    def test_get_active_configuration(self, initial_configuration, configuration_manager):
+        # Get the active configuration. Success expected.
+        expected_configuration = initial_configuration.name
+        obtained_configuration = configuration_manager.get_active_configuration()
         assert obtained_configuration == expected_configuration
 
     def test_list_configurations(
-        self, default_configuration, test_configuration, configuration_manager
+        self, initial_configuration, test_configuration, configuration_manager
     ):
         # List all the configurations in the configuration manager. Success expected.
-        expected_configurations = [default_configuration["NAME"], test_configuration["NAME"]]
+        expected_configurations = [initial_configuration.name, test_configuration.name]
         obtained_configurations = configuration_manager.list_configurations()
         assert set(expected_configurations) == set(obtained_configurations)
 
-    def test_apply_configuration(self, boolean_setting, test_configuration, configuration_manager):
-        # Change the default configuration of the configuration manager and get a setting.
+    def test_apply_configuration(
+        self, test_boolean_setting, test_configuration, configuration_manager
+    ):
+        # Change the initial configuration of the configuration manager and get a setting.
         # Success expected.
-        expected_configuration_name = test_configuration["NAME"]
+        expected_configuration_name = test_configuration.name
         configuration_manager.apply_configuration(name=expected_configuration_name)
-        obtained_configuration_name = configuration_manager.get_current_configuration()
+        obtained_configuration_name = configuration_manager._active_configuration
         assert expected_configuration_name == obtained_configuration_name
 
-        expected_setting_value = test_configuration["CONFIG"][boolean_setting]
-        obtained_setting_value = configuration_manager.get_setting(key=boolean_setting)
+        expected_setting_value = test_boolean_setting.value
+        obtained_setting_value = configuration_manager._settings[test_boolean_setting.name]
         assert expected_setting_value == obtained_setting_value
 
-        # Pass a default configuration to an empty configuration manager. Failure expected.
-        undefined_configuration_name = "undefined_configuration"
-        expected_message = f"Configuration '{undefined_configuration_name}' undefined."
-        with pytest.raises(UndefinedConfiguration, match=expected_message) as e:
-            ConfigurationManager(default_configuration=undefined_configuration_name,)
