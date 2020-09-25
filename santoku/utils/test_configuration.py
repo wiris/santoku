@@ -1,8 +1,11 @@
+import json
+
 import pytest
 
 from collections import namedtuple
 
-from santoku.utils.configuration_manager import (
+from santoku.utils.configuration import (
+    Settings,
     ConfigurationManager,
     UndefinedConfiguration,
     UndefinedSetting,
@@ -10,149 +13,287 @@ from santoku.utils.configuration_manager import (
     InvalidConfiguration,
 )
 
-Setting = namedtuple("Setting", "name value")
-Configuration = namedtuple("Configuration", "name settings")
+# Setting = namedtuple("Setting", "name value")
+# Configuration = namedtuple("Configuration", "name settings")
+
+
+# @pytest.fixture(scope="class")
+# def complex_schema():
+#     return {
+#         "integer_setting": int,
+#         "boolean_setting": bool,
+#         "string_setting": str,
+#         "float_setting": float,
+#         "dict_setting": {"list_setting": [str], "tuple_setting": (int, bool),},
+#     }
+
+
+# @pytest.fixture(scope="function")
+# def complex_configuration():
+#     return {
+#         "integer_setting": 1,
+#         "boolean_setting": True,
+#         "string_setting": "string value",
+#         "float_setting": 1.0,
+#         "dict_setting": {"list_setting": ["string value in tuple"], "tuple_setting": (1, False),},
+#     }
+
+
+# @pytest.fixture(scope="class")
+# def initial_boolean_setting():
+#     return Setting("boolean_setting", True)
+
+
+# @pytest.fixture(scope="class")
+# def initial_string_setting():
+#     return Setting("string_setting", "initial string value")
+
+
+# @pytest.fixture(scope="class")
+# def initial_schema(initial_boolean_setting, initial_string_setting):
+#     return {
+#         initial_boolean_setting.name: bool,
+#         initial_string_setting.name: str,
+#     }
+
+
+# @pytest.fixture(scope="class")
+# def initial_configuration(initial_boolean_setting, initial_string_setting):
+#     settings = {
+#         initial_boolean_setting.name: initial_boolean_setting.value,
+#         initial_string_setting.name: initial_string_setting.value,
+#     }
+#     return Configuration("initial", settings)
+
+
+# @pytest.fixture(scope="class")
+# def initial_configuration_structured(
+#     initial_boolean_setting, initial_string_setting, initial_configuration
+# ):
+#     return {
+#         "name": initial_configuration.name,
+#         "settings": {
+#             initial_boolean_setting.name: initial_boolean_setting.value,
+#             initial_string_setting.name: initial_string_setting.value,
+#         },
+#     }
+
+
+# @pytest.fixture(scope="class")
+# def test_boolean_setting():
+#     return Setting("boolean_setting", False)
+
+
+# @pytest.fixture(scope="class")
+# def test_string_setting():
+#     return Setting("string_setting", "test string value")
+
+
+# @pytest.fixture(scope="class")
+# def test_configuration(test_boolean_setting, test_string_setting):
+#     settings = {
+#         test_boolean_setting.name: test_boolean_setting.value,
+#         test_string_setting.name: test_string_setting.value,
+#     }
+#     return Configuration("test", settings)
+
+
+# @pytest.fixture(scope="class")
+# def test_configuration_structured(test_boolean_setting, test_string_setting, test_configuration):
+#     return {
+#         "name": test_configuration.name,
+#         "settings": {
+#             test_boolean_setting.name: test_boolean_setting.value,
+#             test_string_setting.name: test_string_setting.value,
+#         },
+#     }
+
+
+# @pytest.fixture(scope="class")
+# def configuration_manager(
+#     initial_schema,
+#     initial_configuration_structured,
+#     test_configuration_structured,
+#     initial_configuration,
+# ):
+#     # Initialize the configuration manager with two configurations.
+#     predefined_configurations = [initial_configuration_structured, test_configuration_structured]
+#     configuration_manager = ConfigurationManager(
+#         schema=initial_schema,
+#         predefined_configurations=predefined_configurations,
+#         initial_configuration=initial_configuration.name,
+#     )
+#     configuration_manager.apply_configuration(name=initial_configuration.name)
+
+#     return configuration_manager
+
+
+# @pytest.fixture(scope="class")
+# def new_boolean_setting():
+#     return Setting("boolean_setting", True)
+
+
+# @pytest.fixture(scope="class")
+# def new_string_setting():
+#     return Setting("string_setting", "new string value")
+
+
+# @pytest.fixture(scope="class")
+# def new_configuration(new_boolean_setting, new_string_setting):
+#     settings = Settings(new_boolean_setting, new_string_setting)
+#     return Configuration("new", settings)
+
+
+# @pytest.fixture(scope="class")
+# def new_named_configuration(new_configuration):
+#     new_settings = new_configuration.settings
+#     return [
+#         {
+#             "name": new_configuration.name,
+#             "settings": {
+#                 new_settings.setting1.name: new_settings.setting1.value,
+#                 new_settings.setting2.name: new_settings.setting2.value,
+#             },
+#         }
+#     ]
 
 
 @pytest.fixture(scope="class")
-def complex_schema():
-    return {
-        "integer_setting": int,
-        "boolean_setting": bool,
-        "string_setting": str,
-        "float_setting": float,
-        "dict_setting": {"list_setting": [str], "tuple_setting": (int, bool),},
-    }
-
-
-@pytest.fixture(scope="function")
-def complex_configuration():
+def settings_sample():
     return {
         "integer_setting": 1,
         "boolean_setting": True,
         "string_setting": "string value",
         "float_setting": 1.0,
-        "dict_setting": {"list_setting": ["string value in tuple"], "tuple_setting": (1, False),},
-    }
-
-
-@pytest.fixture(scope="class")
-def initial_boolean_setting():
-    return Setting("boolean_setting", True)
-
-
-@pytest.fixture(scope="class")
-def initial_string_setting():
-    return Setting("string_setting", "initial string value")
-
-
-@pytest.fixture(scope="class")
-def initial_schema(initial_boolean_setting, initial_string_setting):
-    return {
-        initial_boolean_setting.name: bool,
-        initial_string_setting.name: str,
-    }
-
-
-@pytest.fixture(scope="class")
-def initial_configuration(initial_boolean_setting, initial_string_setting):
-    settings = {
-        initial_boolean_setting.name: initial_boolean_setting.value,
-        initial_string_setting.name: initial_string_setting.value,
-    }
-    return Configuration("initial", settings)
-
-
-@pytest.fixture(scope="class")
-def initial_configuration_structured(
-    initial_boolean_setting, initial_string_setting, initial_configuration
-):
-    return {
-        "name": initial_configuration.name,
-        "settings": {
-            initial_boolean_setting.name: initial_boolean_setting.value,
-            initial_string_setting.name: initial_string_setting.value,
+        "dict_setting": {
+            "nested_string_setting": "dict string value",
+            "nested_boolean_setting": False,
         },
     }
 
 
-@pytest.fixture(scope="class")
-def test_boolean_setting():
-    return Setting("boolean_setting", False)
+@pytest.fixture(scope="function")
+def create_settings_file(settings_sample):
+    def _create_settings_file(path):
+
+        with open(path, "w") as f:
+            json.dump(settings_sample, f)
+
+    yield _create_settings_file
 
 
-@pytest.fixture(scope="class")
-def test_string_setting():
-    return Setting("string_setting", "test string value")
+@pytest.fixture(scope="function")
+def settings(settings_sample):
+    return Settings(settings=settings_sample)
 
 
-@pytest.fixture(scope="class")
-def test_configuration(test_boolean_setting, test_string_setting):
-    settings = {
-        test_boolean_setting.name: test_boolean_setting.value,
-        test_string_setting.name: test_string_setting.value,
-    }
-    return Configuration("test", settings)
+class TestSettings:
+    def test_initialization(self, settings_sample):
+        # Test initializing Settings stores settings values correctly and dicts are converted
+        # into Settings objects. Success expected.
+        settings = Settings(settings=settings_sample)
+        created_settings = settings._settings
 
+        expected_value = settings_sample["integer_setting"]
+        obtained_value = created_settings["integer_setting"]
+        assert obtained_value == expected_value
 
-@pytest.fixture(scope="class")
-def test_configuration_structured(test_boolean_setting, test_string_setting, test_configuration):
-    return {
-        "name": test_configuration.name,
-        "settings": {
-            test_boolean_setting.name: test_boolean_setting.value,
-            test_string_setting.name: test_string_setting.value,
-        },
-    }
+        expected_value = settings_sample["boolean_setting"]
+        obtained_value = created_settings["boolean_setting"]
+        assert obtained_value == expected_value
 
+        expected_value = settings_sample["string_setting"]
+        obtained_value = created_settings["string_setting"]
+        assert obtained_value == expected_value
 
-@pytest.fixture(scope="class")
-def configuration_manager(
-    initial_schema,
-    initial_configuration_structured,
-    test_configuration_structured,
-    initial_configuration,
-):
-    # Initialize the configuration manager with two configurations.
-    predefined_configurations = [initial_configuration_structured, test_configuration_structured]
-    configuration_manager = ConfigurationManager(
-        schema=initial_schema,
-        predefined_configurations=predefined_configurations,
-        initial_configuration=initial_configuration.name,
-    )
-    configuration_manager.apply_configuration(name=initial_configuration.name)
+        expected_value = settings_sample["float_setting"]
+        obtained_value = created_settings["float_setting"]
+        assert obtained_value == expected_value
 
-    return configuration_manager
+        expected_dict_setting = settings_sample["dict_setting"]
+        created_dict_setting = created_settings["dict_setting"]
+        assert type(created_dict_setting) == Settings
 
+        expected_value = expected_dict_setting["nested_string_setting"]
+        obtained_value = created_dict_setting._settings["nested_string_setting"]
+        assert obtained_value == expected_value
 
-@pytest.fixture(scope="class")
-def new_boolean_setting():
-    return Setting("boolean_setting", True)
+        expected_value = expected_dict_setting["nested_boolean_setting"]
+        obtained_value = created_dict_setting._settings["nested_boolean_setting"]
+        assert obtained_value == expected_value
 
+    def test_init_from_json(self, tmpdir, create_settings_file):
+        # Test initializing a Settings reading from a JSON file. Success expected.
+        file_path = tmpdir.join("settings.json")
+        create_settings_file(path=file_path)
+        try:
+            settings = Settings.from_json(file_path=file_path)
+        except:
+            assert False
+        else:
+            assert True
 
-@pytest.fixture(scope="class")
-def new_string_setting():
-    return Setting("string_setting", "new string value")
+    def test_to_dict(self, settings_sample, settings):
+        # Test if the serialized settings object has the same form than the original dictionary.
+        # Success expected.
+        expected_dict = settings_sample
+        obtained_dict = settings.to_dict()
+        assert obtained_dict == expected_dict
 
+    def test_to_json(self, tmpdir, settings_sample, settings):
+        # Test if the JSON file generated by the Settigns class match the original dictionary that
+        # created the Settings class. Success expected.
+        file_path = tmpdir.join("settings.json")
+        settings.to_json(file_path=file_path)
+        expected_json = settings_sample
+        with open(file_path, "r") as f:
+            obtained_json = json.load(f)
+        assert obtained_json == settings_sample
 
-@pytest.fixture(scope="class")
-def new_configuration(new_boolean_setting, new_string_setting):
-    settings = Settings(new_boolean_setting, new_string_setting)
-    return Configuration("new", settings)
+    def test_get_setting(self, settings_sample, settings):
+        # Test settings values are stored correctly. Success expected.
+        expected_value = settings_sample["integer_setting"]
+        obtained_value = settings.get_setting(key="integer_setting")
+        assert obtained_value == expected_value
 
+        expected_value = settings_sample["boolean_setting"]
+        obtained_value = settings.get_setting(key="boolean_setting")
+        assert obtained_value == expected_value
 
-@pytest.fixture(scope="class")
-def new_named_configuration(new_configuration):
-    new_settings = new_configuration.settings
-    return [
-        {
-            "name": new_configuration.name,
-            "settings": {
-                new_settings.setting1.name: new_settings.setting1.value,
-                new_settings.setting2.name: new_settings.setting2.value,
-            },
-        }
-    ]
+        expected_value = settings_sample["string_setting"]
+        obtained_value = settings.get_setting(key="string_setting")
+        assert obtained_value == expected_value
+
+        expected_value = settings_sample["float_setting"]
+        obtained_value = settings.get_setting(key="float_setting")
+        assert obtained_value == expected_value
+
+        expected_dict_setting = settings_sample["dict_setting"]
+        created_dict_setting = settings.get_setting(key="dict_setting")
+        assert type(created_dict_setting) == Settings
+
+        expected_value = expected_dict_setting["nested_string_setting"]
+        obtained_value = created_dict_setting.get_setting(key="nested_string_setting")
+        assert obtained_value == expected_value
+
+        expected_value = expected_dict_setting["nested_boolean_setting"]
+        obtained_value = created_dict_setting.get_setting(key="nested_boolean_setting")
+        assert obtained_value == expected_value
+
+    def test_set_setting(self, settings):
+        # Test changing the value of a setting. Success expected.
+        created_settings = settings._settings
+        expected_value = created_settings["integer_setting"] + 1
+        settings.set_setting(key="integer_setting", value=expected_value)
+        obtained_value = created_settings["integer_setting"]
+        assert obtained_value == expected_value
+
+        # Test changing the value of a nested setting. Success expected.
+        created_dict_setting = settings.get_setting(key="dict_setting")
+        expected_value = not created_dict_setting._settings["nested_boolean_setting"]
+        created_dict_setting.set_setting(key="nested_boolean_setting", value=expected_value)
+        obtained_value = created_settings["dict_setting"]._settings["nested_boolean_setting"]
+        assert obtained_value == expected_value
 
 
 class TestConfigurationManager:
