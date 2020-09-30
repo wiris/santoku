@@ -1,12 +1,12 @@
-from typing import List, Tuple, Dict, Any
+from typing import Any, Dict, List, Tuple
 
-import pandas as pd
 import mysql.connector
+import pandas as pd
 
-from santoku.aws.secrets_manager_handler import SecretsManagerHandler
+from santoku.aws import SecretsManagerHandler
 
 
-class MySQLHandler:
+class MySQLConnector:
     """
     Manage MySQL interactions, the simplest of which is to query a particular table.
     This makes use of the official MySQL connector. More information at
@@ -53,7 +53,7 @@ class MySQLHandler:
         )
 
     @classmethod
-    def from_aws_secrets_manager(cls, secret_name: str, database: str):
+    def from_aws_secrets_manager(cls, secret_name: str, database: str) -> "MySQLConnector":
         """
         Retrieve the necessary information for the connection to MySQL from AWS Secrets Manager.
         Requires that AWS credentials with the appropriate permissions are located somewhere on the

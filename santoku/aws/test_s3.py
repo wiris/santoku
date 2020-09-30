@@ -12,7 +12,7 @@ from moto import mock_s3
 from botocore import exceptions
 
 from santoku.aws import utils
-from santoku.aws.s3_handler import S3Handler, ManifestError
+from santoku.aws.s3 import S3Handler, ManifestError
 
 """
 TODO: this whole section might serve in the future as test suite for this library

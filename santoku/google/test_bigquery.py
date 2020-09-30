@@ -1,6 +1,6 @@
 from typing import List
 
-from santoku.google.bigquery import BigQueryHandler
+from santoku.google import BigQueryHandler
 
 """
 TODO: investigate the possibility of mocking BigQuery (and other Google services) for testing

@@ -6,7 +6,7 @@ import pytest
 from botocore import exceptions
 from moto import mock_sqs
 
-from santoku.aws.sqs_handler import SQSHandler, MessageAttributeError, MessageBatchError
+from santoku.aws.sqs import SQSHandler, MessageAttributeError, MessageBatchError
 
 
 @pytest.fixture(scope="class")

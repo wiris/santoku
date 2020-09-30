@@ -1,4 +1,4 @@
-from santoku.sql.mysql_handler import MySQLHandler
+from santoku.sql import MySQLConnector
 
 
 """
@@ -6,7 +6,7 @@ TODO: investigate the possibility of mocking MySQL for testing
 """
 
 
-class TestMySQLHandler:
+class TestMySQLConnector:
     def test_get_query_results(self):
         pass
 

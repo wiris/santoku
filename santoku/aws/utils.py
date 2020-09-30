@@ -1,7 +1,7 @@
 import boto3
 
 from abc import ABC, abstractmethod
-from typing import Generator, Dict, Any
+from typing import Any, Dict, Generator
 
 from botocore import client
 

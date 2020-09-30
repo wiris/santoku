@@ -10,7 +10,7 @@ from google.cloud.bigquery.table import RowIterator
 from google.cloud.bigquery.retry import DEFAULT_RETRY
 from google.api_core.retry import Retry
 
-from santoku.aws.secrets_manager_handler import SecretsManagerHandler
+from santoku.aws import SecretsManagerHandler
 
 
 class BigQueryHandler:

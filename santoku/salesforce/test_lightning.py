@@ -7,14 +7,14 @@ import pytest
 from typing import List, Dict
 from moto import mock_secretsmanager
 
-from santoku.salesforce.objects_handler import (
-    ObjectsHandler,
+from santoku.aws import SecretsManagerHandler
+from santoku.exceptions import MissingEnvironmentVariables
+from santoku.salesforce.lightning import (
+    LightningRestApiHandler,
     SalesforceObjectError,
     SalesforceObjectFieldError,
     RequestMethodError,
 )
-from santoku.aws.secrets_manager_handler import SecretsManagerHandler
-from santoku.exceptions import MissingEnvironmentVariables
 
 
 """
@@ -83,8 +83,8 @@ def sf_credentials_secret(secrets_manager, sf_credentials, request):
 
 
 @pytest.fixture(scope="class")
-def objects_handler(sf_credentials):
-    return ObjectsHandler(
+def api_handler(sf_credentials):
+    return LightningRestApiHandler(
         auth_url=sf_credentials["AUTH_URL"],
         username=sf_credentials["USR"],
         password=sf_credentials["PSW"],
@@ -108,9 +108,9 @@ def contact_payloads():
 
 
 @pytest.fixture(scope="function")
-def delete_record(objects_handler):
+def delete_record(api_handler):
     def _delete_record(sobject: str, record_id: str) -> None:
-        objects_handler.do_request(
+        api_handler.do_request(
             method="DELETE", path=f"sobjects/{sobject}/{record_id}",
         )
 
@@ -118,9 +118,9 @@ def delete_record(objects_handler):
 
 
 @pytest.fixture(scope="function")
-def insert_record(objects_handler):
+def insert_record(api_handler):
     def _insert_record(sobject: str, payload: List[Dict[str, str]]) -> None:
-        response_text = objects_handler.do_request(
+        response_text = api_handler.do_request(
             method="POST", path=f"sobjects/{sobject}", payload=payload
         )
         record_id = json.loads(response_text)["id"]
@@ -146,10 +146,10 @@ def contacts(contact_payloads, insert_record, delete_record, request):
     request.addfinalizer(teardown)
 
 
-class TestObjectsHandler:
+class TestLightningRestApiHandler:
     def test_wrong_credentials(self, sf_credentials, contact_payloads):
         # Connect Salesforce with wrong credentials. Failure expected.
-        objects_handler = ObjectsHandler(
+        api_handler = LightningRestApiHandler(
             auth_url=sf_credentials["AUTH_URL"],
             username="false_username",
             password="false_password",
@@ -157,11 +157,11 @@ class TestObjectsHandler:
             client_secret=sf_credentials["CLIENT_PSW"],
         )
         with pytest.raises(requests.exceptions.RequestException):
-            objects_handler.do_request(
+            api_handler.do_request(
                 method="POST", path="sobjects/Contact", payload=contact_payloads[0],
             )
 
-        objects_handler = ObjectsHandler(
+        api_handler = LightningRestApiHandler(
             auth_url=sf_credentials["AUTH_URL"],
             username=sf_credentials["USR"],
             password=sf_credentials["PSW"],
@@ -169,17 +169,17 @@ class TestObjectsHandler:
             client_secret="false_client_secret",
         )
         with pytest.raises(requests.exceptions.RequestException):
-            objects_handler.do_request(
+            api_handler.do_request(
                 method="POST", path="sobjects/Contact", payload=contact_payloads[0],
             )
 
-    def test_salesforce_object_required_fields(self, objects_handler):
+    def test_salesforce_object_required_fields(self, api_handler):
         # Test inserting an invalid field. Failure expected.
         invalid_field = "InvalidField"
         bad_contact_payload = {invalid_field: "InvalidValue"}
         expected_message = f"`{invalid_field}` isn't a valid field."
         with pytest.raises(SalesforceObjectFieldError, match=expected_message):
-            objects_handler.do_request(
+            api_handler.do_request(
                 method="POST", path="sobjects/Contact", payload=bad_contact_payload,
             )
 
@@ -194,7 +194,7 @@ class TestObjectsHandler:
             f"`{missing_field}` is a required field and does not appear in the payload."
         )
         with pytest.raises(SalesforceObjectFieldError, match=expected_message):
-            objects_handler.do_request(
+            api_handler.do_request(
                 method="POST", path="sobjects/Contact", payload=bad_contact_payload,
             )
 
@@ -202,16 +202,16 @@ class TestObjectsHandler:
         bad_contact_payload[missing_field] = ""
         expected_message = f"`{missing_field}` is a required field and must not be empty."
         with pytest.raises(SalesforceObjectFieldError, match=expected_message):
-            objects_handler.do_request(
+            api_handler.do_request(
                 method="POST", path="sobjects/Contact", payload=bad_contact_payload,
             )
 
-    def test_contact_insertion(self, objects_handler, contact_payloads, delete_record):
+    def test_contact_insertion(self, api_handler, contact_payloads, delete_record):
         created_record_ids = []
 
         # Insert n Contacts that do not exist. Success expected.
         for contact_payload in contact_payloads:
-            response_text = objects_handler.do_request(
+            response_text = api_handler.do_request(
                 method="POST", path="sobjects/Contact", payload=contact_payload
             )
             response = json.loads(response_text)
@@ -220,14 +220,14 @@ class TestObjectsHandler:
 
         # Insert a Contact that already exist. Failure expected.
         with pytest.raises(requests.exceptions.RequestException):
-            objects_handler.do_request(
+            api_handler.do_request(
                 method="POST", path="sobjects/Contact", payload=contact_payloads[0],
             )
 
         # Insert a Contact that already exist with a new email. Success expected.
         new_contact_payload = contact_payloads[0].copy()
         new_contact_payload["Email"] = "new.email@example.com"
-        response_text = objects_handler.do_request(
+        response_text = api_handler.do_request(
             method="POST", path="sobjects/Contact", payload=new_contact_payload,
         )
         response = json.loads(response_text)
@@ -243,8 +243,10 @@ class TestObjectsHandler:
     ):
         # Initialize the handler from secrets using the default secret keys by convention and insert
         # a Contact that does not exist. Success expected.
-        objects_handler = ObjectsHandler.from_aws_secrets_manager(secret_name=sf_credentials_secret)
-        response_text = objects_handler.do_request(
+        api_handler = LightningRestApiHandler.from_aws_secrets_manager(
+            secret_name=sf_credentials_secret
+        )
+        response_text = api_handler.do_request(
             method="POST", path="sobjects/Contact", payload=contact_payloads[0],
         )
         response = json.loads(response_text)
@@ -253,24 +255,24 @@ class TestObjectsHandler:
         # Remove created records.
         delete_record(sobject="Contact", record_id=response["id"])
 
-    def test_different_query_syntaxes(self, objects_handler):
+    def test_different_query_syntaxes(self, api_handler):
         # Do a query written in uppercase. Success expected.
-        obtained_contacts = objects_handler.do_query_with_SOQL("SELECT ID, NAME FROM CONTACT")
+        obtained_contacts = api_handler.do_query_with_SOQL("SELECT ID, NAME FROM CONTACT")
         assert len(obtained_contacts) == 0
 
         # Do a query written in lowercase. Success expected.
-        obtained_contacts = objects_handler.do_query_with_SOQL("select id, name from contact")
+        obtained_contacts = api_handler.do_query_with_SOQL("select id, name from contact")
         assert len(obtained_contacts) == 0
 
         # Do a query to a non-existent object. Failure expected.
         wrong_object_name = "Contacts"
         expected_message = f"{wrong_object_name} isn't a valid object"
         with pytest.raises(SalesforceObjectError, match=expected_message):
-            obtained_contacts = objects_handler.do_query_with_SOQL(
+            obtained_contacts = api_handler.do_query_with_SOQL(
                 f"SELECT Id, Name From {wrong_object_name}"
             )
 
-    def test_contact_query(self, objects_handler, contact_payloads, contacts, delete_record):
+    def test_contact_query(self, api_handler, contact_payloads, contacts, delete_record):
         expected_names = []
         for contact_payload in contact_payloads:
             first_name = contact_payload["FirstName"]
@@ -278,7 +280,7 @@ class TestObjectsHandler:
             expected_names.append(f"{first_name} {last_name}")
 
         # Read the Contacts inserted with SOQL. Success expected.
-        obtained_contacts = objects_handler.do_query_with_SOQL("SELECT Id, Name from Contact")
+        obtained_contacts = api_handler.do_query_with_SOQL("SELECT Id, Name from Contact")
 
         # At least, all the inserted records should be in the result of the query.
         assert len(obtained_contacts) >= len(contact_payloads)
@@ -295,7 +297,7 @@ class TestObjectsHandler:
         # Read a specific contact with SOQL by Id. Success expected.
         expected_id = obtained_ids[0]
         expected_name = obtained_names[0]
-        obtained_contacts = objects_handler.do_query_with_SOQL(
+        obtained_contacts = api_handler.do_query_with_SOQL(
             f"SELECT Id, Name from contact WHERE Id = '{expected_id}'"
         )
         assert len(obtained_contacts) == 1
@@ -303,22 +305,22 @@ class TestObjectsHandler:
 
         # Query a contact that does not exists with SOQL. Success expected.
         delete_record(sobject="Contact", record_id=contacts[0])
-        obtained_contacts = objects_handler.do_query_with_SOQL(
+        obtained_contacts = api_handler.do_query_with_SOQL(
             f"SELECT Name from contact WHERE Id = '{contacts[0]}'"
         )
         assert len(obtained_contacts) == 0
 
-    def test_contact_modification(self, objects_handler, contact_payloads, contacts):
+    def test_contact_modification(self, api_handler, contact_payloads, contacts):
         # Modify an existing contact's Name. Success expected.
         new_first_name = "Ken"
         new_last_name = "Williams"
         new_contact_payload = {"FirstName": new_first_name, "LastName": new_last_name}
         contact_id = contacts[0]
-        objects_handler.do_request(
+        api_handler.do_request(
             method="PATCH", path=f"sobjects/Contact/{contact_id}", payload=new_contact_payload,
         )
 
-        obtained_contact = objects_handler.do_query_with_SOQL(
+        obtained_contact = api_handler.do_query_with_SOQL(
             f"SELECT Id, Name from Contact WHERE Id = '{contact_id}'"
         )[0]
 
@@ -328,11 +330,11 @@ class TestObjectsHandler:
         # Modify an existing contact's Email. Success expected.
         new_email = f"{new_first_name.lower()}@example.com"
         new_contact_payload = {"Email": new_email}
-        objects_handler.do_request(
+        api_handler.do_request(
             method="PATCH", path=f"sobjects/Contact/{contact_id}", payload=new_contact_payload,
         )
 
-        obtained_contact = objects_handler.do_query_with_SOQL(
+        obtained_contact = api_handler.do_query_with_SOQL(
             f"SELECT Id, Name, Email from Contact WHERE Id = '{contact_id}'"
         )[0]
         assert obtained_contact["Name"] == expected_contact_name
@@ -341,75 +343,71 @@ class TestObjectsHandler:
         # Modify a Contact that does not exist. Failure expected.
         new_contact_payload = {"FirstName": "NEWNAME"}
         with pytest.raises(requests.exceptions.RequestException):
-            objects_handler.do_request(
+            api_handler.do_request(
                 method="PATCH", path="sobjects/Contact/WRONGID", payload=new_contact_payload,
             )
 
-    def test_contact_deletion(self, objects_handler, contacts):
+    def test_contact_deletion(self, api_handler, contacts):
         # Delete an existing Contact. Success expected.
-        objects_handler.do_request(
+        api_handler.do_request(
             method="DELETE", path=f"sobjects/Contact/{contacts[0]}",
         )
 
-        obtained_contacts = objects_handler.do_query_with_SOQL(
+        obtained_contacts = api_handler.do_query_with_SOQL(
             f"SELECT Name from Contact WHERE Id = '{contacts[0]}'"
         )
         assert len(obtained_contacts) == 0
 
         # Delete a Contact that does not exist. Failure expected.
         with pytest.raises(requests.exceptions.RequestException):
-            objects_handler.do_request(
+            api_handler.do_request(
                 method="DELETE", path=f"sobjects/Contact/{contacts[0]}",
             )
 
-    def test_contact_insertion_high_level(self, objects_handler, contact_payloads, delete_record):
+    def test_contact_insertion_high_level(self, api_handler, contact_payloads, delete_record):
         created_record_ids = []
 
         # Insert n Contacts that do not exist. Success expected.
         for contact_payload in contact_payloads:
-            response_text = objects_handler.insert_record(
-                sobject="Contact", payload=contact_payload
-            )
+            response_text = api_handler.insert_record(sobject="Contact", payload=contact_payload)
             response = json.loads(response_text)
             created_record_ids.append(response["id"])
             assert response["success"]
 
         # Insert a Contact that already exist. Failure expected.
         with pytest.raises(requests.exceptions.RequestException):
-            objects_handler.insert_record(
+            api_handler.insert_record(
                 sobject="Contact", payload=contact_payloads[0],
             )
 
         # Insert a Contact that already exist with a new email. Success expected.
         new_contact_payload = contact_payloads[0].copy()
         new_contact_payload["Email"] = "new.email@example.com"
-        response_text = objects_handler.insert_record(
-            sobject="Contact", payload=new_contact_payload
-        )
+        response_text = api_handler.insert_record(sobject="Contact", payload=new_contact_payload)
         response = json.loads(response_text)
         created_record_ids.append(response["id"])
         assert response["success"]
 
         # Insert a Contact that already exist. Failure expected.
         with pytest.raises(requests.exceptions.RequestException):
-            response = objects_handler.insert_record(sobject="Contact", payload=contact_payloads[0])
+            response = api_handler.insert_record(sobject="Contact", payload=contact_payloads[0])
             assert response
 
         # Remove created records.
         for record_id in created_record_ids:
             delete_record(sobject="Contact", record_id=record_id)
 
-    def test_contact_modification_high_level(self, objects_handler, contacts):
+    def test_contact_modification_high_level(self, api_handler, contacts):
         # Modify an existing contact's Name. Success expected.
         new_first_name = "Ralph"
         new_last_name = "Alexander"
         new_contact_payload = {"FirstName": new_first_name, "LastName": new_last_name}
         contact_id = contacts[0]
-        objects_handler.modify_record(
+        api_handler.modify_record(
             sobject="Contact", record_id=contact_id, payload=new_contact_payload,
         )
 
-        obtained_contact = objects_handler.do_query_with_SOQL(
+        obtained_contact = api_handler.do_query_with_SOQL(
             f"SELECT Id, Name from Contact WHERE Id = '{contact_id}'"
         )[0]
         expected_contact_name = f"{new_first_name} {new_last_name}"
@@ -418,11 +416,11 @@ class TestObjectsHandler:
         # Modify an existing contact's Email. Success expected.
         new_email = f"{new_first_name.lower()}@example.com"
         new_contact_payload = {"Email": new_email}
-        objects_handler.modify_record(
+        api_handler.modify_record(
             sobject="Contact", record_id=contact_id, payload=new_contact_payload,
         )
 
-        obtained_contact = objects_handler.do_query_with_SOQL(
+        obtained_contact = api_handler.do_query_with_SOQL(
             f"SELECT Id, Name, Email from Contact WHERE Id = '{contact_id}'"
         )[0]
         assert obtained_contact["Name"] == expected_contact_name
@@ -431,24 +429,24 @@ class TestObjectsHandler:
         # Modify a Contact that does not exist. Failure expected.
         new_contact_payload = {"FirstName": "NEWNAME"}
         with pytest.raises(requests.exceptions.RequestException):
-            objects_handler.modify_record(
+            api_handler.modify_record(
                 sobject="Contact", record_id="WRONGID", payload=new_contact_payload,
             )
 
-    def test_contact_deletion_high_level(self, objects_handler, contacts):
+    def test_contact_deletion_high_level(self, api_handler, contacts):
         # Delete an existing Contact. Success expected.
-        objects_handler.delete_record(sobject="Contact", record_id=contacts[0])
+        api_handler.delete_record(sobject="Contact", record_id=contacts[0])
 
-        obtained_contacts = objects_handler.do_query_with_SOQL(
+        obtained_contacts = api_handler.do_query_with_SOQL(
             f"SELECT Name from Contact WHERE Id = '{contacts[0]}'"
         )
         assert len(obtained_contacts) == 0
 
-        obtained_contacts = objects_handler.do_query_with_SOQL(
+        obtained_contacts = api_handler.do_query_with_SOQL(
             f"SELECT Name from contact WHERE Id = '{contacts[1]}'"
         )
         assert len(obtained_contacts) == 1
 
         # Delete a Contact that does not exist. Failure expected.
         with pytest.raises(requests.exceptions.RequestException):
-            objects_handler.delete_record(sobject="Contact", record_id=contacts[0])
+            api_handler.delete_record(sobject="Contact", record_id=contacts[0])

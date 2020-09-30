@@ -6,7 +6,7 @@ from typing import List, Dict, Any, Optional
 
 from urllib import parse
 
-from santoku.aws.secrets_manager_handler import SecretsManagerHandler
+from santoku.aws import SecretsManagerHandler
 
 
 class SalesforceObjectError(Exception):
@@ -24,7 +24,7 @@ class RequestMethodError(Exception):
         super().__init__(message)
 
 
-class ObjectsHandler:
+class LightningRestApiHandler:
     """
     Class to manage operations on Salesforce content.
 
@@ -82,10 +82,6 @@ class ObjectsHandler:
         grant_type : str, optional
             Type of credentials used to authenticate with salesforce(the default is 'password').
 
-        Return
-        ------
-        None
-
         """
         self._url_to_format = "{}/services/data/v{}/{}"
 
@@ -126,7 +122,7 @@ class ObjectsHandler:
         },
         api_version: str = "47.0",
         grant_type: str = "password",
-    ):
+    ) -> "LightningRestApiHandler":
         """
         Retrieve the salesforce credentials from AWS Secrets Manager and initialize the class.
         Requires that AWS credentials with the appropriate permissions are located somewhere on the
@@ -461,7 +457,7 @@ class ObjectsHandler:
         # Response is returned as is, it's caller's responsability to do the parsing.
         return response.text
 
-    def do_query_with_SOQL(self, query="SELECT Name from Account") -> List[Dict[str, Any]]:
+    def do_query_with_SOQL(self, query: str) -> List[Dict[str, Any]]:
         """
         Constructs and sends a request using SOQL.
 
@@ -555,7 +551,7 @@ class ObjectsHandler:
         """
         return self.do_request(method="POST", path=f"sobjects/{sobject}", payload=payload,)
 
-    def modify_record(self, sobject: str, record_id: str, payload: Dict[str, str],) -> str:
+    def modify_record(self, sobject: str, record_id: str, payload: Dict[str, str]) -> str:
         """
         Update an instance of a salesforce object.
 

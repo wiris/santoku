@@ -5,7 +5,7 @@ from typing import List
 from slack import WebClient
 from slack.errors import SlackApiError
 
-from santoku.aws.secrets_manager_handler import SecretsManagerHandler
+from santoku.aws import SecretsManagerHandler
 
 
 class SlackBotHandler:

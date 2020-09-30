@@ -8,7 +8,7 @@ from base64 import b64encode
 
 from moto import mock_secretsmanager
 
-from santoku.aws.secrets_manager_handler import SecretsManagerError, SecretsManagerHandler
+from santoku.aws.secretsmanager import SecretsManagerError, SecretsManagerHandler
 
 
 @pytest.fixture(scope="class")

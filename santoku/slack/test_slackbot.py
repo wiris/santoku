@@ -3,9 +3,9 @@ import json
 import pytest
 
 from moto import mock_secretsmanager
+from santoku.aws import SecretsManagerHandler
 from santoku.exceptions import MissingEnvironmentVariables
-from santoku.aws.secrets_manager_handler import SecretsManagerHandler
-from santoku.slack.slack_bot_handler import SlackBotHandler
+from santoku.slack import SlackBotHandler
 from slack.errors import SlackApiError
 
 if "SLACK_BOT_API_TOKEN" not in os.environ:
