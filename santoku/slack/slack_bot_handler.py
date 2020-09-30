@@ -1,3 +1,5 @@
+from typing import List
+
 from slack import WebClient
 from slack.errors import SlackApiError
 
@@ -75,7 +77,7 @@ class SlackBotHandler:
         credential_info = secrets_manager.get_secret_value(secret_name=secret_name)
         return cls(api_token=credential_info[secret_key])
 
-    def send_message(self, channel: str, message: str):
+    def send_message(self, channel: str, **kwargs) -> None:
         """
         Send a custom `message` to the `channel`.
 
@@ -85,6 +87,8 @@ class SlackBotHandler:
             To where the bot will send the message.
         message : str
             Custom message that will be sent to the chanel.
+        blocks : List[Dict[str, Any]]
+            JSON formatted string for a block structure [2]
 
         Raises
         ------
@@ -102,16 +106,82 @@ class SlackBotHandler:
         [1] :
         https://wiris.slack.com/apps/manage
 
+        [2] :
+        https://api.slack.com/block-kit
+        """
+        try:
+            self.client.chat_postMessage(channel=channel, **kwargs)
+        except SlackApiError as e:
+            if "error" in e.response:
+                # SlackApiError is raised if "ok" is False.
+                if e.response["error"] == "invalid_auth":
+                    error_message = "The authentication token is invalid."
+                    raise SlackBotError(error_message)
+
+                elif e.response["error"] == "channel_not_found":
+                    error_message = "The channel was not found."
+                    raise SlackBotError(error_message)
+
+                else:
+                    raise SlackBotError(f"Unhandled error: {e.response['error']}")
+            else:
+                raise e
+
+    def send_process_report(
+        self,
+        channel: str,
+        process_name: str,
+        messages: List[str],
+        is_success: bool,
+        context_message: str,
+        context_url: str,
+        context_img: str = "https://bitbucket-assetroot.s3.amazonaws.com/c/photos/2020/Aug/06/1924969399-7-lambda-moodle-referers-logo_avatar.png",
+    ) -> None:
+        """
+        Posts a message to `channel`, using Slack's blocks API to
+
+        Parameters
+        ----------
+        channel: str
+            To where the bot will send the message.
+        process_name: str
+            ID of the process posting the report.
+        messages: List[str]
+            List of report messages to send to Slack
+        is_success: bool
+            Process success status
+        context_url: str
+            URL to include in the context
+        context_message: str
+            Message to display in the context
+        context_img: str
+            Image to include in the context thumbnail
         """
 
-        try:
-            self.client.chat_postMessage(channel=channel, text=message)
-        except SlackApiError as e:
-            # SlackApiError is raised if "ok" is False.
-            if e.response["error"] == "invalid_auth":
-                error_message = "The authentication token is invalid."
-                raise SlackBotError(error_message)
+        blocks: List[dict] = [
+            {
+                "type": "header",
+                "text": {
+                    "type": "plain_text",
+                    "text": f"{process_name} {':heavy_check_mark:' if is_success else ':x:'}",
+                    "emoji": True,
+                },
+            },
+            {
+                "type": "section",
+                "text": {"type": "mrkdwn", "text": "\n".join([f"- {m}" for m in messages])},
+            },
+        ]
 
-            elif e.response["error"] == "channel_not_found":
-                error_message = "The channel was not found."
-                raise SlackBotError(error_message)
+        if context_message and context_url and context_img:
+            blocks.append(
+                {
+                    "type": "context",
+                    "elements": [
+                        {"type": "image", "image_url": context_img, "alt_text": "images"},
+                        {"type": "mrkdwn", "text": f"<{context_url}|{context_message}>"},
+                    ],
+                }
+            )
+
+        self.send_message(channel=channel, blocks=blocks)

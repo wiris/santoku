@@ -130,3 +130,20 @@ class TestSlackBotHandler:
         message = "`test_send_message_to_wrong_channel` test is running."
         with pytest.raises(SlackBotError, match=expected_message) as e:
             slack_bot.send_message(channel="wrong_channel", message=message)
+
+    def test_send_process_report(self, channel_name, slack_bot):
+        # Test sending a report to the testing channel. Success expected.
+        message = "`send_process_report` is running."
+        try:
+            slack_bot.send_process_report(
+                channel=channel_name,
+                process_name="Test Process",
+                messages=["Message 1 :pikachu:", "Message 2 :eyes:", "Message 3 :clown_face:"],
+                is_success=True,
+                context_url="https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+                context_message="Context message. For more context, click the link.",
+            )
+        except:
+            assert False
+        else:
+            assert True
