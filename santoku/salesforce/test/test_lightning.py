@@ -7,7 +7,7 @@ import pytest
 from typing import List, Dict
 from moto import mock_secretsmanager
 
-from santoku.aws import SecretsManagerHandler
+from santoku.aws.secretsmanager import SecretsManagerHandler
 from santoku.exceptions import MissingEnvironmentVariables
 from santoku.salesforce.lightning import (
     LightningRestApiHandler,

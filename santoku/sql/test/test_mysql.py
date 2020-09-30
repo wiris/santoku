@@ -1,4 +1,4 @@
-from santoku.sql import MySQLConnector
+from santoku.sql.mysql import MySQLConnector
 
 
 """

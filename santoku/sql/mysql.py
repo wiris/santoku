@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Tuple
 import mysql.connector
 import pandas as pd
 
-from santoku.aws import SecretsManagerHandler
+from santoku.aws.secretsmanager import SecretsManagerHandler
 
 
 class MySQLConnector:
