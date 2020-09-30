@@ -3,10 +3,10 @@ import json
 import pytest
 
 from moto import mock_secretsmanager
-
 from santoku.exceptions import MissingEnvironmentVariables
 from santoku.aws.secrets_manager_handler import SecretsManagerHandler
-from santoku.slack.slack_bot_handler import SlackBotHandler, SlackBotError
+from santoku.slack.slack_bot_handler import SlackBotHandler
+from slack.errors import SlackApiError
 
 if "SLACK_BOT_API_TOKEN" not in os.environ:
     raise MissingEnvironmentVariables("Slack bot api token environment variable is missing.")
@@ -79,7 +79,7 @@ class TestSlackBotHandler:
         # Test sending a message to the testing channel. Success expected.
         message = "`test_send_message_to_channel` is running."
         try:
-            slack_bot.send_message(channel=channel_name, message=message)
+            slack_bot.send_message(channel=channel_name, text=message)
         except:
             assert False
         else:
@@ -95,7 +95,7 @@ class TestSlackBotHandler:
             "`test_init_handler_from_secrets_manager` using the default secret key is running."
         )
         try:
-            slack_bot.send_message(channel=channel_name, message=message)
+            slack_bot.send_message(channel=channel_name, text=message)
         except:
             assert False
         else:
@@ -110,7 +110,7 @@ class TestSlackBotHandler:
             secret_name=secret_with_non_default_key[0], secret_key=secret_with_non_default_key[1]
         )
         try:
-            slack_bot.send_message(channel=channel_name, message=message)
+            slack_bot.send_message(channel=channel_name, text=message)
         except:
             assert False
         else:
@@ -119,17 +119,18 @@ class TestSlackBotHandler:
     def test_send_message_with_invalid_auth(self, channel_name):
         # Test sending a message using invalid slack credentials. Failure expected.
         slack_bot = SlackBotHandler(api_token="wrong_token")
-        expected_message = "The authentication token is invalid."
-        message = "`test_send_message_with_invalid_auth` test is running."
-        with pytest.raises(SlackBotError, match=expected_message) as e:
-            slack_bot.send_message(channel=channel_name, message=message)
+        with pytest.raises(SlackApiError):
+            slack_bot.send_message(
+                channel=channel_name, text="`test_send_message_with_invalid_auth` test is running."
+            )
 
     def test_send_message_to_wrong_channel(self, slack_bot):
         # Test sending a message to a channel that does not exist. Failure expected.
-        expected_message = "The channel was not found."
-        message = "`test_send_message_to_wrong_channel` test is running."
-        with pytest.raises(SlackBotError, match=expected_message) as e:
-            slack_bot.send_message(channel="wrong_channel", message=message)
+        with pytest.raises(SlackApiError):
+            slack_bot.send_message(
+                channel="wrong_channel",
+                text="`test_send_message_to_wrong_channel` test is running.",
+            )
 
     def test_send_process_report(self, channel_name, slack_bot):
         # Test sending a report to the testing channel. Success expected.

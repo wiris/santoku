@@ -1,14 +1,11 @@
+import json
+
 from typing import List
 
 from slack import WebClient
 from slack.errors import SlackApiError
 
 from santoku.aws.secrets_manager_handler import SecretsManagerHandler
-
-
-class SlackBotError(Exception):
-    def __init__(self, message):
-        super().__init__(message)
 
 
 class SlackBotHandler:
@@ -112,20 +109,7 @@ class SlackBotHandler:
         try:
             self.client.chat_postMessage(channel=channel, **kwargs)
         except SlackApiError as e:
-            if "error" in e.response:
-                # SlackApiError is raised if "ok" is False.
-                if e.response["error"] == "invalid_auth":
-                    error_message = "The authentication token is invalid."
-                    raise SlackBotError(error_message)
-
-                elif e.response["error"] == "channel_not_found":
-                    error_message = "The channel was not found."
-                    raise SlackBotError(error_message)
-
-                else:
-                    raise SlackBotError(f"Unhandled error: {e.response['error']}")
-            else:
-                raise e
+            raise e
 
     def send_process_report(
         self,
