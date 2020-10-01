@@ -45,11 +45,11 @@ class ConfigurationAlreadyDefined(Exception):
 
 class ConfigurationManager:
     """
-    The purpose of this abstract class is to centrally manage configuration parameters for an entire
-    application.
+    The purpose of this abstract class is to centrally manage configuration parameters for an
+    entire application.
 
     We define one such parameters as a `setting`. A `setting` is a key-value pair. We organize
-    settings in nested collections.
+    settings in nested collections (essentially, JSON objects).
 
     A `configuration` is a named collection of settings. We represent a configuration by a JSON
     object following the structure of this example:
@@ -67,7 +67,7 @@ class ConfigurationManager:
         }
     }
 
-    where the value of "settings" is an arbitrary JSON object.
+    where the value of "settings" is an arbitrary JSON object (the collection of settings).
 
     Optionally, a schema can be provided, using the JSON Schema specification.
     Here's how the schema of the above example would have to look like:
@@ -93,7 +93,7 @@ class ConfigurationManager:
     Configurations must follow the schema if given.
     """
 
-    JSON = Union[dict, list]
+    JSON = Union[dict, list]  # naive type hint for parsed JSON objects
 
     def __init__(
         self,
@@ -102,18 +102,19 @@ class ConfigurationManager:
         initial_configuration: str = None,
     ):
         """
-        A list of `configurations` can be passed to be stored in the manager. If done, an
-        `initial_configuration` can be passed to be applied. If not given, no initial configuration
-        will be activated and this will be left to the user.
+        A list of available `configurations` and a `schema` can be passed to be stored in the
+        manager. The `initial_configuration` is an optional value. It must be the name of one of
+        the `configurations`, which will become the active configuration. This is simply to save
+        the user the initial call to `apply_configuration`.
 
         Parameters
         ----------
         configurations : List[Dict[str, Union[str, Dict[str, Any]]]], optional
             Collection of configurations with different combination of settings.
-        initial_configuration: str, optional
-            Name of the configuration in the `configurations` that will be set as the initial one.
         schema : Dict[str, Any], optional
             Structure of the settings with the corresponding types of each setting value.
+        initial_configuration: str, optional
+            Name of the configuration in the `configurations` that will be set as the initial one.
 
         InvalidConfiguration
             If one or more elements in `configurations` does not contain the "name" or "settings" keys.
@@ -135,8 +136,12 @@ class ConfigurationManager:
 
         See also
         --------
+        validate_schema
+            Called to check whether each configuration follow the schema (if provided).
         define_configuration
-            This functions is called to add each configuration.
+            Called to add each configuration to the list of available configurations.
+        apply_configuration
+            Called to activate the `initial_configuration` (if provided).
 
         References
         ----------
@@ -165,6 +170,11 @@ class ConfigurationManager:
         schema_file_path: str = None,
         initial_configuration: str = None,
     ) -> "ConfigurationManager":
+        """
+        Initialize the manager with the configurations stored in a JSON file.
+
+
+        """
         with open(configurations_file_path, "r") as f:
             configurations = json.load(f)
 
@@ -323,13 +333,13 @@ class ConfigurationManager:
         active_configuration = self.get_active_configuration()
         if type(key) in (str, int):
             if key not in active_configuration:
-                raise UndefinedSetting
+                raise UndefinedSetting(key=key)
             setting = active_configuration[key]
         elif type(key) in (list, tuple):
             setting = active_configuration
             for k in key:
                 if k not in setting:
-                    raise UndefinedSetting
+                    raise UndefinedSetting(key=k)
                 setting = setting[k]
         else:
             raise TypeError("'name' must be a key/index or a list/tuple of keys/indices")
