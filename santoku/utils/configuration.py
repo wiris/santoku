@@ -13,24 +13,14 @@ either a third party solution or a fully featured version someday.
 """
 
 
-class UndefinedSetting(Exception):
-    def __init__(self, key: str) -> None:
-        super().__init__(f"Setting '{key}' undefined.")
-
-
-class UndefinedConfiguration(Exception):
+class ConfigurationAlreadyDefined(Exception):
     def __init__(self, name: str) -> None:
-        super().__init__(f"Configuration '{name}' undefined.")
+        super().__init__(f"Configuration '{name}' already exists. ")
 
 
-class SchemaViolation(Exception):
-    def __init__(self) -> None:
-        super().__init__("The settings do not conform to the specified schema.")
-
-
-class NoActiveConfiguration(Exception):
-    def __init__(self) -> None:
-        super().__init__("No configuration has been activated.")
+class IlegalAccessPattern(Exception):
+    def __init__(self, key: str) -> None:
+        super().__init__(f"Acessing non-final nodes in the settings hierarchy is not allowed")
 
 
 class InvalidConfiguration(Exception):
@@ -38,9 +28,24 @@ class InvalidConfiguration(Exception):
         super().__init__(message)
 
 
-class ConfigurationAlreadyDefined(Exception):
+class NoActiveConfiguration(Exception):
+    def __init__(self) -> None:
+        super().__init__("No configuration has been activated.")
+
+
+class UndefinedConfiguration(Exception):
     def __init__(self, name: str) -> None:
-        super().__init__(f"Configuration '{name}' already exists. ")
+        super().__init__(f"Configuration '{name}' undefined.")
+
+
+class UndefinedSetting(Exception):
+    def __init__(self, key: str) -> None:
+        super().__init__(f"Setting '{key}' undefined.")
+
+
+class SchemaViolation(Exception):
+    def __init__(self) -> None:
+        super().__init__("The settings do not conform to the specified schema.")
 
 
 class ConfigurationManager:
@@ -341,7 +346,9 @@ class ConfigurationManager:
                 if k not in setting:
                     raise UndefinedSetting(key=k)
                 setting = setting[k]
+            if type(setting) in (list, dict):
+                raise IlegalAccessPattern(key=key)
         else:
-            raise TypeError("'name' must be a key/index or a list/tuple of keys/indices")
+            raise TypeError("'name' must be a key/index or a list/tuple of keys and/or indices")
 
         return setting
