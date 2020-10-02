@@ -1,3 +1,7 @@
+[![PyPI version](https://badge.fury.io/py/santoku.svg)](https://badge.fury.io/py/santoku)
+[![Travis build status](https://travis-ci.org/wiris/santoku.svg?branch=master)](https://travis-ci.org/github/wiris/santoku)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+
 # What is Santoku?
 
 Santoku is a toolkit written in Python for interacting with AWS, Google Cloud platform, Salesforce and Slack.
