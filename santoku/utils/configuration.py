@@ -18,7 +18,7 @@ class ConfigurationAlreadyDefined(Exception):
         super().__init__(f"Configuration '{name}' already exists. ")
 
 
-class IlegalAccessPattern(Exception):
+class IllegalAccessPattern(Exception):
     def __init__(self, key: str) -> None:
         super().__init__(f"Acessing non-final nodes in the settings hierarchy is not allowed")
 
@@ -346,9 +346,11 @@ class ConfigurationManager:
                 if k not in setting:
                     raise UndefinedSetting(key=k)
                 setting = setting[k]
-            if type(setting) in (list, dict):
-                raise IlegalAccessPattern(key=key)
         else:
             raise TypeError("'name' must be a key/index or a list/tuple of keys and/or indices")
+
+        # Accessing a non-leaf node in the settings hierarchy is disallowed
+        if type(setting) in (list, dict):
+            raise IllegalAccessPattern(key=key)
 
         return setting

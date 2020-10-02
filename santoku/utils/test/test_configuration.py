@@ -8,6 +8,7 @@ from copy import deepcopy
 from santoku.utils.configuration import (
     ConfigurationAlreadyDefined,
     ConfigurationManager,
+    IllegalAccessPattern,
     SchemaViolation,
     UndefinedConfiguration,
     UndefinedSetting,
@@ -300,6 +301,10 @@ class TestConfigurationManager:
             key=["dict_setting", "nested_boolean_setting"]
         )
         assert expected_setting == obtained_setting
+
+        # Retrieve a nested collection of settings (forbidden access pattern). Failure expected.
+        with pytest.raises(IllegalAccessPattern):
+            configuration_manager.get_setting(key="dict_setting")
 
         # Retrieve an undefind nested setting. Failure expected.
         with pytest.raises(UndefinedSetting):
