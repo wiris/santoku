@@ -3,6 +3,7 @@ import json
 import pytest
 
 from collections import namedtuple
+from copy import deepcopy
 
 from santoku.utils.configuration import (
     ConfigurationAlreadyDefined,
@@ -13,8 +14,8 @@ from santoku.utils.configuration import (
 )
 
 
-@pytest.fixture(scope="class")
-def initial_settings():
+@pytest.fixture(scope="function")
+def valid_settings_A():
     return {
         "integer_setting": 1,
         "boolean_setting": True,
@@ -28,12 +29,12 @@ def initial_settings():
 
 
 @pytest.fixture(scope="function")
-def initial_configuration(initial_settings):
-    return {"name": "initial_configuration", "settings": initial_settings}
+def valid_configuration_A(valid_settings_A):
+    return {"name": "valid_configuration_A", "settings": valid_settings_A}
 
 
-@pytest.fixture(scope="class")
-def test_settings():
+@pytest.fixture(scope="function")
+def valid_settings_B():
     return {
         "integer_setting": 2,
         "boolean_setting": False,
@@ -47,8 +48,8 @@ def test_settings():
 
 
 @pytest.fixture(scope="function")
-def test_configuration(test_settings):
-    return {"name": "test_configuration", "settings": test_settings}
+def valid_configuration_B(valid_settings_B):
+    return {"name": "valid_configuration_B", "settings": valid_settings_B}
 
 
 @pytest.fixture(scope="function")
@@ -104,9 +105,9 @@ def create_json_file(tmpdir):
 
 
 @pytest.fixture(scope="function")
-def configurations_file(initial_configuration, test_configuration, create_json_file):
+def configurations_file(valid_configuration_A, valid_configuration_B, create_json_file):
     file_name = "configurations.json"
-    configurations = [initial_configuration, test_configuration]
+    configurations = [valid_configuration_A, valid_configuration_B]
     abs_path = create_json_file(rel_path=file_name, content=configurations)
     return abs_path
 
@@ -119,55 +120,53 @@ def schema_file(tmpdir, schema, create_json_file):
 
 
 @pytest.fixture(scope="function")
-def configuration_manager(initial_configuration, test_configuration, schema):
-    initial_configuration_name = initial_configuration["name"]
-    configurations = [initial_configuration, test_configuration]
+def configuration_manager(valid_configuration_A, valid_configuration_B, schema):
+    initial_configuration = valid_configuration_A["name"]
+    configurations = [valid_configuration_A, valid_configuration_B]
     return ConfigurationManager(
         configurations=configurations,
-        initial_configuration=initial_configuration_name,
+        initial_configuration=valid_configuration_A["name"],
         schema=schema,
     )
 
 
 class TestConfigurationManager:
     def test_init(
-        self, initial_configuration, test_configuration, schema, schema_violating_configuration
+        self, valid_configuration_A, valid_configuration_B, schema, schema_violating_configuration
     ):
         # Initialize two configurations. Success expected.
         try:
             configuration_manager = ConfigurationManager(
-                configurations=[initial_configuration, test_configuration],
+                configurations=[valid_configuration_A, valid_configuration_B],
                 schema=schema,
-                initial_configuration=initial_configuration["name"],
+                initial_configuration=valid_configuration_A["name"],
             )
         except:
             assert False
 
-        # Test that the initial configuration is applied correctly. Success expected.
-        expected_configuration_name = initial_configuration["name"]
+        # Active configuration must be initial configuration. Success expected.
+        expected_configuration_name = valid_configuration_A["name"]
         obtained_configuration_name = configuration_manager.active_configuration
         assert obtained_configuration_name == expected_configuration_name
 
         # Retrieve the stored settings after init. Success expected.
-        expected_settings = initial_configuration["settings"]
-        obtained_settings = configuration_manager.configurations[initial_configuration["name"]]
+        expected_settings = valid_configuration_A["settings"]
+        obtained_settings = configuration_manager.configurations[valid_configuration_A["name"]]
         assert obtained_settings == expected_settings
 
-        expected_settings = test_configuration["settings"]
-        obtained_settings = configuration_manager.configurations[test_configuration["name"]]
+        expected_settings = valid_configuration_B["settings"]
+        obtained_settings = configuration_manager.configurations[valid_configuration_B["name"]]
         assert obtained_settings == expected_settings
 
-        # Initialize a manager with a config that does not follow the schema. Failure expected.
+        # Initialize with a config that does not follow the schema. Failure expected.
         with pytest.raises(SchemaViolation):
             ConfigurationManager(configurations=[schema_violating_configuration], schema=schema)
 
         # Pass an initial configuration to an empty configuration manager. Failure expected.
         with pytest.raises(UndefinedConfiguration):
-            ConfigurationManager(initial_configuration=initial_configuration["name"])
+            ConfigurationManager(initial_configuration=valid_configuration_A["name"])
 
-    def test_from_json(
-        self, initial_configuration, test_configuration, configurations_file, schema_file
-    ):
+    def test_from_json(self, configurations_file, schema_file):
         # Initialize a ConfigurationManager from a correct JSON file. Success expected.
         try:
             configuration_manager = ConfigurationManager.from_json(
@@ -176,158 +175,132 @@ class TestConfigurationManager:
         except:
             assert False
 
-    def test_validate_schema(self, initial_configuration, configuration_manager, schema):
-        settings_to_validate = initial_configuration["settings"].copy()
-
-        # Test validating settings with less arguments than the scheme. Failure expected.
-        removed_key = "integer_setting"
-        removed_value = settings_to_validate.pop(removed_key)
+    def test_validate_schema(self, valid_settings_A, configuration_manager, schema):
+        # Validate settings with less arguments than schema requires. Failure expected.
+        settings_to_validate = deepcopy(valid_settings_A)
+        removed_value = settings_to_validate.pop("integer_setting")
         with pytest.raises(SchemaViolation):
             configuration_manager.validate_schema(settings=settings_to_validate)
-        # Add the removed key.
-        settings_to_validate[removed_key] = removed_value
 
-        # Test validating settings with more arguments than the scheme. Failure expected.
-        new_key = "new_integer_setting"
-        settings_to_validate[new_key] = 1
+        # Validate settings with more arguments than the schema. Failure expected.
+        settings_to_validate = deepcopy(valid_settings_A)
+        settings_to_validate["new_setting"] = "new_value"
         with pytest.raises(SchemaViolation):
             configuration_manager.validate_schema(settings=settings_to_validate)
-        # Remove the added key.
-        settings_to_validate.pop(new_key)
 
-        # Test validating settings with setting names different to the scheme.
-        # Failure expected.
-        old_key = "integer_setting"
-        new_key = "new_integer_setting"
-        # Replace the original setting key by a new key.
-        settings_to_validate[new_key] = settings_to_validate.pop(old_key)
+        # Validate settings with a differently named setting than the schema. Failure expected.
+        settings_to_validate = deepcopy(valid_settings_A)
+        settings_to_validate["new_integer_setting"] = settings_to_validate.pop("integer_setting")
         with pytest.raises(SchemaViolation):
             configuration_manager.validate_schema(settings=settings_to_validate)
-        # Undo the change of keys.
-        settings_to_validate[old_key] = settings_to_validate.pop(new_key)
 
-        # Test validating settings values with different types to the defined in the schema.
-        # Failure expected
-        key = "integer_setting"
-        old_value = settings_to_validate[key]
-        settings_to_validate[key] = "1"
+        # Validate settings with a differently typed value than the schema. Failure expected.
+        settings_to_validate = deepcopy(valid_settings_A)
+        settings_to_validate["integer_setting"] = "1"
         with pytest.raises(SchemaViolation):
             configuration_manager.validate_schema(settings=settings_to_validate)
-        # Undo the change of values.
-        settings_to_validate[key] = old_value
 
-        # Test validating nested setting values with different types to the defined in the schema.
-        # Failure expected
-        original_value = settings_to_validate["dict_setting"]["nested_string_setting"]
+        # Validate nested setting with a different types than in the schema. Failure expected.
+        settings_to_validate = deepcopy(valid_settings_A)
         settings_to_validate["dict_setting"]["nested_string_setting"] = 1
         with pytest.raises(SchemaViolation):
             configuration_manager.validate_schema(settings=settings_to_validate)
-        # Undo the change of values
-        settings_to_validate["dict_setting"]["nested_string_setting"] = original_value
 
-        # Test validating settings that follows the schema. Success expected.
+        # Validate settings that follow the schema. Success expected.
+        settings_to_validate = deepcopy(valid_settings_A)
         try:
             configuration_manager.validate_schema(settings=settings_to_validate)
         except:
             assert False
 
-    def test_define_configuration(
-        self, initial_configuration, test_configuration, schema, schema_violating_configuration
-    ):
+    def test_define_configuration(self, valid_settings_A, schema, schema_violating_configuration):
         configuration_manager = ConfigurationManager(schema=schema)
 
-        # Test defining a configuration in an empty configuration manager. Success expected.
+        # Define a configuration in an empty configuration manager. Success expected.
         try:
             configuration_manager.define_configuration(
-                name=initial_configuration["name"], settings=initial_configuration["settings"]
+                name="configuration_name", settings=valid_settings_A
             )
         except:
             assert False
 
-        # Test the settings of the defined configuration are stored correctly. Success expected.
-        expected_settings = initial_configuration["settings"]
-        obtained_setting = configuration_manager.configurations[initial_configuration["name"]]
+        # Configuration settings must be preserved upon insertion. Success expected.
+        expected_settings = deepcopy(valid_settings_A)
+        obtained_setting = configuration_manager.configurations["configuration_name"]
         assert obtained_setting == expected_settings
 
         # Override an existing configuration. Success expected.
-        new_settings = initial_configuration["settings"].copy()
+        new_settings = deepcopy(valid_settings_A)
         new_settings["integer_setting"] = new_settings["integer_setting"] + 1
         configuration_manager.define_configuration(
-            name=initial_configuration["name"], settings=new_settings, override=True,
+            name="configuration_name", settings=new_settings, override=True,
         )
-        obtained_setting = configuration_manager.configurations[initial_configuration["name"]]
-        assert obtained_setting == new_settings
+        obtained_settings = configuration_manager.configurations["configuration_name"]
+        assert obtained_settings == new_settings
 
         # Define a configuration with settings that do not follow the schema. Failure expected.
         with pytest.raises(SchemaViolation):
             configuration_manager.define_configuration(
                 name=schema_violating_configuration["name"],
-                settings=schema_violating_configuration,
+                settings=schema_violating_configuration["settings"],
             )
 
-        # Test defining an existent configuration with the override parameter not activated.
-        # Failure expected.
+        # Define an existent configuration without the override flag. Failure expected.
         with pytest.raises(ConfigurationAlreadyDefined):
             configuration_manager.define_configuration(
-                name=initial_configuration["name"],
-                settings=initial_configuration["settings"],
-                override=False,
+                name="configuration_name", settings=valid_settings_A, override=False,
             )
 
-    def test_get_configuration(self, initial_configuration, configuration_manager):
-        # Test retrieving a defined configuration. Success expected.
-        expected_settings = initial_configuration["settings"]
+    def test_get_configuration(self, valid_configuration_A, configuration_manager):
+        # Retrieve an existing configuration. Success expected.
+        expected_settings = valid_configuration_A["settings"]
         obtained_settings = configuration_manager.get_configuration(
-            name=initial_configuration["name"]
+            name=valid_configuration_A["name"]
         )
         assert obtained_settings == expected_settings
 
-        # Test retrieving an undefined configuration. Failure expected.
+        # Retrieve an undefined configuration. Failure expected.
         with pytest.raises(UndefinedConfiguration):
             configuration_manager.get_configuration(name="undefined_configuration")
 
-    def test_apply_configuration(
-        self, initial_configuration, test_configuration, configuration_manager
-    ):
-        # Test the current configuration is changed correctly. Success expected.
-        configuration_manager.apply_configuration(name=test_configuration["name"])
-        expected_settings = test_configuration["settings"]
+    def test_apply_configuration(self, valid_configuration_A, configuration_manager):
+        # Applied configuration must be the active one after applying. Success expected.
+        configuration_manager.apply_configuration(name=valid_configuration_A["name"])
+        expected_settings = valid_configuration_A["settings"]
         obtained_settings = configuration_manager.configurations[
             configuration_manager.active_configuration
         ]
         assert obtained_settings == expected_settings
 
-        # Test setting an as initial an undefined configuration. Failure expected.
+        # Apply an unavailable configuration. Failure expected.
         with pytest.raises(UndefinedConfiguration):
-            configuration_manager.apply_configuration(name="invalid_configuration")
+            configuration_manager.apply_configuration(name="unavailable_configuration")
 
-    def test_get_active_configuration(self, initial_configuration, configuration_manager):
-        # Test the current configuration is set correclty. Success expected.
+    def test_get_active_configuration(self, valid_configuration_A, configuration_manager):
+        # Check the active configuration is the expected one. Success expected.
+        expected_configuration = valid_configuration_A["settings"]
         obtained_configuration = configuration_manager.get_active_configuration()
-        expected_configuration = initial_configuration["settings"]
         assert obtained_configuration == expected_configuration
 
-    def test_get_setting(self, initial_configuration, configuration_manager):
-        # Test a setting value of the current configuration can be correctly retrieved.
-        # Success expected.
+    def test_get_setting(self, valid_configuration_A, configuration_manager):
+        # Retrieve a setting value of the active configuration. Success expected.
+        expected_setting = valid_configuration_A["settings"]["integer_setting"]
         obtained_setting = configuration_manager.get_setting(key="integer_setting")
-        expected_setting = initial_configuration["settings"]["integer_setting"]
         assert expected_setting == obtained_setting
 
-        # Test retrieving an undefind setting. Failure expected.
+        # Retrieve an undefind setting. Failure expected.
         with pytest.raises(UndefinedSetting):
             configuration_manager.get_setting(key="undefined_setting")
 
-        # Test a nested settings value of the current configuration can be correctly retrieved.
-        # Success expected.
+        # Retrieve nested setting. Success expected.
+        expected_setting = valid_configuration_A["settings"]["dict_setting"][
+            "nested_boolean_setting"
+        ]
         obtained_setting = configuration_manager.get_setting(
             key=["dict_setting", "nested_boolean_setting"]
         )
-        expected_setting = initial_configuration["settings"]["dict_setting"][
-            "nested_boolean_setting"
-        ]
         assert expected_setting == obtained_setting
 
-        # Test retrieving an undefind nested setting. Failure expected.
+        # Retrieve an undefind nested setting. Failure expected.
         with pytest.raises(UndefinedSetting):
             configuration_manager.get_setting(key=("dict_setting", "nested_undefined_setting"))
