@@ -19,7 +19,7 @@ class ConfigurationAlreadyDefined(Exception):
 
 
 class IllegalAccessPattern(Exception):
-    def __init__(self, key: str) -> None:
+    def __init__(self) -> None:
         super().__init__(f"Acessing non-final nodes in the settings hierarchy is not allowed")
 
 
@@ -39,8 +39,8 @@ class UndefinedConfiguration(Exception):
 
 
 class UndefinedSetting(Exception):
-    def __init__(self, key: str) -> None:
-        super().__init__(f"Setting '{key}' undefined.")
+    def __init__(self, key: str, available: list) -> None:
+        super().__init__(f"Setting '{key}' could not be found amongst {available}.")
 
 
 class SchemaViolation(Exception):
@@ -54,7 +54,7 @@ class ConfigurationManager:
     entire application.
 
     We define one such parameters as a `setting`. A `setting` is a key-value pair. We organize
-    settings in nested collections (essentially, JSON objects).
+    settings in nested collections (essentially JSON objects, except arrays cannot contain objects).
 
     A `configuration` is a named collection of settings. We represent a configuration by a JSON
     object following the structure of this example:
@@ -68,37 +68,53 @@ class ConfigurationManager:
                 "nested_float_setting": 3.14,
                 "nested_string_setting": ""
             }
-            ...
         }
     }
 
     where the value of "settings" is an arbitrary JSON object (the collection of settings).
 
-    Optionally, a schema can be provided, using the JSON Schema specification.
-    Here's how the schema of the above example would have to look like:
+    Optionally, a schema can be provided, using the JSON Schema specification, to which.
+    Here's how the schema for the above example would have to look like:
 
     {
-        "name": {"type": "string"},
-        "settings": {
-            "type": "object",
-            "properties": {
-                "boolean_setting": {"type": "boolean"},
-                "int_setting": {"type": "integer"},
-                "object_setting": {
-                    "type": "object",
-                    "properties": {
-                        "nested_float_setting": {"type": "number"},
-                        "nested_string_setting": {"type": "string"}
-                    }
-                }
+        "type": "object",
+        "properties": {
+            "boolean_setting": {"type": "boolean"},
+            "int_setting": {"type": "integer"},
+            "object_setting": {
+                "type": "object",
+                "properties": {
+                    "nested_float_setting": {"type": "number"},
+                    "nested_string_setting": {"type": "string"}
+                },
+                "required": ["nested_float_setting", "nested_string_setting"],
+                "additionalProperties": false
             }
-        }
+        },
+        "required": ["boolean_setting", "integer_setting", "object_setting"],
+        "additionalProperties": false
     }
 
-    Configurations must follow the schema if given.
+    The settings on each configuration must follow the schema if given.
     """
 
-    JSON = Union[dict, list]  # naive type hint for parsed JSON objects
+    JSON = Union[dict, list]  # naive, non-recursive type hint for parsed JSON objects
+    configuration_list_schema: JSON = {
+        "description": "A list of configurations to be parsed and managed by this class.",
+        "type": "array",
+        "items": {
+            "type": "object",
+            "properties": {
+                "name": {"description": "The name of the configuration.", "type": "string"},
+                "settings": {
+                    "description": "Arbitrary object with values for each setting. Must conform the schema if given",
+                    "type": "object",
+                },
+            },
+            "required": ["name", "settings"],
+            "additionalProperties": False,
+        },
+    }
 
     def __init__(
         self,
@@ -159,6 +175,7 @@ class ConfigurationManager:
 
         self.configurations = {}
         if configurations:
+            jsonschema.validate(instance=configurations, schema=self.configuration_list_schema)
             for config in configurations:
                 settings = config["settings"]
                 self.validate_schema(settings=settings)
@@ -314,7 +331,7 @@ class ConfigurationManager:
             raise NoActiveConfiguration
         return self.get_configuration(name=self.active_configuration)
 
-    def get_setting(self, key: Any) -> Any:
+    def get_setting(self, *args) -> Any:
         """
         Retrieve the value of a particular setting in the active configuration. To access a nested
         value, pass the list of the necessary keys needed to traverse the nesting in order.
@@ -335,22 +352,14 @@ class ConfigurationManager:
         UndefinedSetting
             If a `key` that is not in the active configuration is given.
         """
-        active_configuration = self.get_active_configuration()
-        if type(key) in (str, int):
-            if key not in active_configuration:
-                raise UndefinedSetting(key=key)
-            setting = active_configuration[key]
-        elif type(key) in (list, tuple):
-            setting = active_configuration
-            for k in key:
-                if k not in setting:
-                    raise UndefinedSetting(key=k)
-                setting = setting[k]
-        else:
-            raise TypeError("'name' must be a key/index or a list/tuple of keys and/or indices")
+        setting = self.get_active_configuration()
+        for key in args:
+            if key not in setting:
+                raise UndefinedSetting(key=key, available=list(setting))
+            setting = setting[key]
 
         # Accessing a non-leaf node in the settings hierarchy is disallowed
-        if type(setting) in (list, dict):
-            raise IllegalAccessPattern(key=key)
+        if type(setting) == dict:
+            raise IllegalAccessPattern
 
         return setting
