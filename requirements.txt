@@ -15,6 +15,7 @@ google-resumable-media==0.5.1
 googleapis-common-protos==1.52.0
 idna==2.9
 jmespath==0.10.0
+jsonschema==3.2.0
 multidict==4.7.6
 numpy==1.18.5
 pandas==1.0.3

@@ -286,26 +286,26 @@ class TestConfigurationManager:
     def test_get_setting(self, valid_configuration_A, configuration_manager):
         # Retrieve a setting value of the active configuration. Success expected.
         expected_setting = valid_configuration_A["settings"]["integer_setting"]
-        obtained_setting = configuration_manager.get_setting(key="integer_setting")
+        obtained_setting = configuration_manager.get_setting("integer_setting")
         assert expected_setting == obtained_setting
 
         # Retrieve an undefind setting. Failure expected.
         with pytest.raises(UndefinedSetting):
-            configuration_manager.get_setting(key="undefined_setting")
+            configuration_manager.get_setting("undefined_setting")
 
         # Retrieve nested setting. Success expected.
         expected_setting = valid_configuration_A["settings"]["dict_setting"][
             "nested_boolean_setting"
         ]
         obtained_setting = configuration_manager.get_setting(
-            key=["dict_setting", "nested_boolean_setting"]
+            "dict_setting", "nested_boolean_setting"
         )
         assert expected_setting == obtained_setting
 
         # Retrieve a nested collection of settings (forbidden access pattern). Failure expected.
         with pytest.raises(IllegalAccessPattern):
-            configuration_manager.get_setting(key="dict_setting")
+            configuration_manager.get_setting("dict_setting")
 
         # Retrieve an undefind nested setting. Failure expected.
         with pytest.raises(UndefinedSetting):
-            configuration_manager.get_setting(key=("dict_setting", "nested_undefined_setting"))
+            configuration_manager.get_setting("dict_setting", "nested_undefined_setting")
