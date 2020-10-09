@@ -334,13 +334,12 @@ class ConfigurationManager:
     def get_setting(self, *args) -> Any:
         """
         Retrieve the value of a particular setting in the active configuration. To access a nested
-        value, pass the list of the necessary keys needed to traverse the nesting in order.
+        value, pass all necessary keys needed to traverse the nesting (up to a leaf node) in order.
 
         Parameters
         ----------
-        key : Union[str, List[str]]
-            Name of the setting or list of names needed to traverse the hierarchy in order to reach
-            the setting.
+        args
+            Sequence of keys needed to traverse the configuration tree up to a leaf node.
 
         Returns
         -------
@@ -350,7 +349,26 @@ class ConfigurationManager:
         Raises
         ------
         UndefinedSetting
-            If a `key` that is not in the active configuration is given.
+            If a key that is not in the active configuration is given.
+        IllegalAccessPattern
+            If the keys do not reach a leaf node in the configuration tree.
+        
+        Example
+        -------
+        Given the following settings:
+        {
+            "my_setting": 3,
+            "nested_settings": {"foo": "bar", "stuff": ["this", "that"]}
+        }
+        You can access each of the individual settings, but only final values:
+        >>> configuration_manager.get_setting("my_setting")
+        3
+        >>> configuration_manager.get_setting("nested_settings", "foo")
+        'bar'
+        >>> configuration_manager.get_setting("nested_settings", "stuff")
+        ['this', 'that']
+        >>> configuration_manager.get_setting("nested_settings")
+        IllegalAccessPattern: Acessing non-final nodes in the settings hierarchy is not allowed
         """
         setting = self.get_active_configuration()
         for key in args:
