@@ -7,44 +7,38 @@ The `configuration` module provides classes to store and manage configuration fi
 Configurations can be loaded from Python dictionaries or serialized JSON files, like so:
 
 ```python
-from santoku.utils.configuration import Settings, ConfigurationManager
+from santoku.utils import ConfigurationManager
 
 configuration_manager = ConfigurationManager.(
     configurations=configs_list,
     initial_configuration="configuration_1",
     schema=schema_dict
 )
-
-# or
-
+```
+or
+```python
 configuration_manager = ConfigurationManager.from_json(
-    configurations_file_path="config.json",
+    configurations_file_path="configurations.json",
     initial_configuration="configuration_1",
     schema_file_path="schema.json"
 )
 ```
 
-The value of each settings can be easily accessed:
+The value of each setting can be easily accessed:
 
 ```python
-boolean_setting = configuration_manager.get_setting("boolean_setting")
+boolean_setting = configuration_manager.get_setting("my_setting")
 
-# nested settings can be accessed by calling get_setting() on each level
-nested_boolean_setting = configuration_manager.get_setting("object_setting")\
-                                              .get_setting("nested_boolean_setting")
-
-# alternatively, you can simply pass the list of keys in order
-boolean_setting = configuration_manager.get_setting(
-    ["object_setting", "nested_boolean_setting"]
-)
+# nested settings can be accessed by calling get_setting() on the list of keys, in order
+nested_boolean_setting = configuration_manager.get_setting("object_setting", "nested_setting")
 ```
 
 
 ### Schema validation
-For schema validation of configuration files, we use our own definition of what a configuration looks like and also our own definition of what a schema should look like. In short, our schema is a narrow subset of [JSON Schema](https://json-schema.org/). We plan on fully adopting JSON Schema for our validation needs, but due to the lack of native Python tools and the effort of implementing our own parser we erred on the side of something simpler that allows for faster iteration.
+For schema validation of configuration files, we use [JSON Schema](https://json-schema.org/) and the [jsonschema](https://pypi.org/project/jsonschema/) package. For a 
 
 ```JSON
-# config.json
+# configs.json
 [
     {
         "name": "configuration_1",
@@ -90,7 +84,7 @@ This module would greatly benefit from recursive type hints. We tried but discov
 from typing import List, Union
 
 # a list of str and/or int
-MyCustomType = List[Union[str, int]]
+ListOfStringOrInt = List[Union[str, int]]
 ```
 
 Recursive types can be created with the restriction that, to use a type inside its own definition, one must use a string literal instead of simply the type. This is called a [forward reference](https://www.python.org/dev/peps/pep-0484/#forward-references).
@@ -99,13 +93,13 @@ Recursive types can be created with the restriction that, to use a type inside i
 from typing import Dict, List, Union
 
 # use "JSON" instead of just JSON
-JSON = Union[List["JSON"], Dict[str, Union[bool, int, float, str, "JSON"]]
+JSON = Union[List["JSON"], Dict[str, Union[bool, int, float, str, "JSON"], bool, int, float, str]
 ```
 
-Since this issue is currently [the most demanded from the mypy project](https://github.com/python/mypy/issues/731), it is expected that we will eventually have support for recursive type checking. However, even if mypy raises and error, the code above does compile. For now, we will have to make do with the less powerful (i.e. wrong) version:
+Since this issue is currently [the most demanded from the mypy project](https://github.com/python/mypy/issues/731), it is expected that we will eventually have support for recursive type checking. However, even if mypy raises an error, the code above does compile. For now, we will have to make do with a less powerful (i.e. wrong) but simple version:
 
 ```python
 from typing import Dict, List, Union
-JSON = Union[List[Any], Dict[str, Any]
+JSON = Union[list, dict]
 ```
     
