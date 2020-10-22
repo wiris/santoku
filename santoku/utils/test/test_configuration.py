@@ -2,7 +2,6 @@ import json
 
 import pytest
 
-from collections import namedtuple
 from copy import deepcopy
 
 from jsonschema.exceptions import SchemaError
