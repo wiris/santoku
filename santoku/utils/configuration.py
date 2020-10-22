@@ -3,7 +3,7 @@ import json
 import jsonschema
 
 from jsonschema.exceptions import ValidationError, SchemaError
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Union
 
 
 """
@@ -122,6 +122,8 @@ class ConfigurationManager:
         initial_configuration: str, optional
             Name of the configuration in the `configurations` that will be set as the initial one.
 
+        Raises
+        ------
         ConfigurationError
             If one or more elements in `configurations` does not contain the "name" or "settings" keys.
 
