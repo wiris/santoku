@@ -2,7 +2,6 @@ import json
 
 import jsonschema
 
-from jsonschema import Draft7Validator
 from jsonschema.exceptions import ValidationError, SchemaError
 from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
@@ -13,9 +12,9 @@ either a third party solution or a fully featured version someday.
 """
 
 
-class ConfigurationAlreadyDefined(Exception):
-    def __init__(self, name: str) -> None:
-        super().__init__(f"Configuration '{name}' already exists. ")
+class ConfigurationError(Exception):
+    def __init__(self, message: str) -> None:
+        super().__init__(message)
 
 
 class IllegalAccessPattern(Exception):
@@ -23,24 +22,9 @@ class IllegalAccessPattern(Exception):
         super().__init__(f"Acessing non-final nodes in the settings hierarchy is not allowed")
 
 
-class InvalidConfiguration(Exception):
+class SettingError(Exception):
     def __init__(self, message: str) -> None:
         super().__init__(message)
-
-
-class NoActiveConfiguration(Exception):
-    def __init__(self) -> None:
-        super().__init__("No configuration has been activated.")
-
-
-class UndefinedConfiguration(Exception):
-    def __init__(self, name: str) -> None:
-        super().__init__(f"Configuration '{name}' undefined.")
-
-
-class UndefinedSetting(Exception):
-    def __init__(self, key: str, available: list) -> None:
-        super().__init__(f"Setting '{key}' could not be found amongst {available}.")
 
 
 class SchemaViolation(Exception):
@@ -73,8 +57,8 @@ class ConfigurationManager:
 
     where the value of "settings" is an arbitrary JSON object (the collection of settings).
 
-    Optionally, a schema can be provided, using the JSON Schema specification, to which.
-    Here's how the schema for the above example would have to look like:
+    Optionally, a schema can be provided, using the JSON Schema specification, to which the settings
+    object must conform. Here's how the schema for the above example would look like:
 
     {
         "type": "object",
@@ -98,16 +82,17 @@ class ConfigurationManager:
     The settings on each configuration must follow the schema if given.
     """
 
-    JSON = Union[dict, list]  # naive, non-recursive type hint for parsed JSON objects
-    configuration_list_schema: JSON = {
+    JSON = Union[dict, list]  # naive (i.e. wrong) type hint for parsed JSON objects
+    configuration_list_schema: dict = {
+        "$schema": "http://json-schema.org/draft-07/schema#",
         "description": "A list of configurations to be parsed and managed by this class.",
         "type": "array",
         "items": {
             "type": "object",
             "properties": {
-                "name": {"description": "The name of the configuration.", "type": "string"},
+                "name": {"type": "string", "description": "Name of the configuration."},
                 "settings": {
-                    "description": "Arbitrary object with values for each setting. Must conform the schema if given",
+                    "description": "Arbitrary object with (potentially nested) settings.",
                     "type": "object",
                 },
             },
@@ -119,7 +104,7 @@ class ConfigurationManager:
     def __init__(
         self,
         configurations: List[dict] = None,
-        schema: JSON = None,
+        schema: dict = None,
         initial_configuration: str = None,
     ):
         """
@@ -137,13 +122,15 @@ class ConfigurationManager:
         initial_configuration: str, optional
             Name of the configuration in the `configurations` that will be set as the initial one.
 
-        InvalidConfiguration
+        ConfigurationError
             If one or more elements in `configurations` does not contain the "name" or "settings" keys.
 
         Notes
         -----
-        The schema must conform to draft 7 of the JSON Schema specification [1].
-        The following structure is assumed for the list of predefined configurations:
+        The schema must conform to the appropriate draft of the JSON Schema specification, given by
+        the reserved parameter "$schema" [1].
+        The list of configurations must conform to the following structure, also checked via JSON
+        Schema:
             [
                 {
                     "name": <name_of_the_configuration>,
@@ -157,8 +144,10 @@ class ConfigurationManager:
 
         See also
         --------
+        check_schema
+            Used to validate the schema itself against the JSON Schema specification.
         validate_schema
-            Called to check whether each configuration follow the schema (if provided).
+            Called to check whether each configuration follows the schema (if provided).
         define_configuration
             Called to add each configuration to the list of available configurations.
         apply_configuration
@@ -167,10 +156,10 @@ class ConfigurationManager:
         References
         ----------
         [1] :
-        https://json-schema.org/specification-links.html#draft-7
+        https://json-schema.org/understanding-json-schema/basics.html#declaring-a-json-schema
         """
         if schema:
-            Draft7Validator.check_schema(schema=schema)
+            self.check_schema(schema=schema)
         self.schema = schema
 
         self.configurations = {}
@@ -195,7 +184,14 @@ class ConfigurationManager:
         """
         Initialize the manager with the configurations stored in a JSON file.
 
-
+        Parameters
+        ----------
+        configurations_file_path: str
+            Path to the file containing configurations to be loaded.
+        schema_file_path: str
+            Path to the schema for the settings. Optional.
+        initial_configuration: str
+            Name of the initial configuration. Optional.
         """
         with open(configurations_file_path, "r") as f:
             configurations = json.load(f)
@@ -212,6 +208,41 @@ class ConfigurationManager:
             initial_configuration=initial_configuration,
         )
 
+    @staticmethod
+    def check_schema(schema: dict) -> None:
+        """
+        Throws an exception if the schema is not a valid instance of the JSON Schema specification.
+        The schema can (and should) specify which draft of JSON Schema it follows using the
+        reserved keyword "$schema" [1]. Supports drafts 4, 6 and 7 of JSON Schema [2].
+        If not specified, the check is performed against draft 7, the newest version at the time of
+        writing this module.
+
+        Parameters
+        ----------
+        schema : dict
+            The schema to be checked.
+        
+        References
+        ----------
+        [1] :
+        https://json-schema.org/understanding-json-schema/basics.html#declaring-a-json-schema
+        [2] :
+        https://json-schema.org/understanding-json-schema/reference/schema.html#schema
+        """
+        specification = schema.get("$schema", None)
+        if specification == "http://json-schema.org/draft-07/schema#":
+            jsonschema.Draft7Validator.check_schema(schema=schema)
+        elif specification == "http://json-schema.org/draft-06/schema#":
+            jsonschema.Draft6Validator.check_schema(schema=schema)
+        elif specification == "http://json-schema.org/draft-04/schema#":
+            jsonschema.Draft4Validator.check_schema(schema=schema)
+        elif specification is None:
+            # Default to draft 7 if unspecified
+            jsonschema.Draft7Validator.check_schema(schema=schema)
+        else:
+            # Throw exception if specified but not supported
+            raise SchemaError(f"JSON Schema specification ({specification}) is not supported.")
+
     def validate_schema(self, settings: JSON) -> None:
         """
         Throws an exception if a schema was specified and the settings do not comply with it.
@@ -219,7 +250,7 @@ class ConfigurationManager:
         Parameters
         ----------
         settings : Union[dict, list]
-            An arbitrary JSON object, parsed to use lists and dictionaries.
+            An arbitrary JSON object, parsed to use Python lists and dictionaries.
 
         Raises
         ------
@@ -253,14 +284,14 @@ class ConfigurationManager:
 
         Raises
         ------
-        ConfigurationAlreadyDefined
+        ConfigurationError
             If `override` is set to False and a configuration with the same name already exists.
 
-        InvalidConfiguration
+        ConfigurationError
             If the configuration does not follow the schema.
         """
         if not override and name in self.configurations:
-            raise ConfigurationAlreadyDefined(name=name)
+            raise ConfigurationError(f"Configuration '{name}' already exists.")
 
         self.validate_schema(settings=settings)
         self.configurations[name] = settings
@@ -268,6 +299,17 @@ class ConfigurationManager:
         # If the modified config is the active one, reapply it
         if name == self.active_configuration:
             self.apply_configuration(name=name)
+
+    def list_configurations(self) -> List[str]:
+        """
+        Lists all the available configurations by name.
+
+        Returns
+        -------
+        List[str]
+            A list of the names of the available configurations
+        """
+        return list(self.configurations.keys())
 
     def get_configuration(self, name: str) -> JSON:
         """
@@ -285,13 +327,13 @@ class ConfigurationManager:
 
         Raises
         ------
-        UndefinedConfiguration
+        ConfigurationError
             If no configuration with that name exists.
         """
         try:
             return self.configurations[name]
         except KeyError:
-            raise UndefinedConfiguration(name=name)
+            raise ConfigurationError(f"Configuration '{name}' has not been defined")
 
     def apply_configuration(self, name: str) -> None:
         """
@@ -304,11 +346,11 @@ class ConfigurationManager:
 
         Raises
         ------
-        UndefinedConfiguration
+        ConfigurationError
             If no configuration with that name exists.
         """
         if name not in self.configurations:
-            raise UndefinedConfiguration(name=name)
+            raise ConfigurationError(f"Configuration '{name}' has not been defined")
         self.active_configuration = name
 
     def get_active_configuration(self) -> JSON:
@@ -322,13 +364,11 @@ class ConfigurationManager:
 
         Raises
         ------
-        NoActiveConfiguration
+        ConfigurationError
             If no configuration is set to active
-        UndefinedConfiguration
-            If the active configuration is not available.
         """
         if not self.active_configuration:
-            raise NoActiveConfiguration
+            raise ConfigurationError("No active configuration")
         return self.get_configuration(name=self.active_configuration)
 
     def get_setting(self, *args) -> Any:
@@ -348,7 +388,7 @@ class ConfigurationManager:
 
         Raises
         ------
-        UndefinedSetting
+        SettingError
             If a key that is not in the active configuration is given.
         IllegalAccessPattern
             If the keys do not reach a leaf node in the configuration tree.
@@ -373,10 +413,9 @@ class ConfigurationManager:
         setting = self.get_active_configuration()
         for key in args:
             if key not in setting:
-                raise UndefinedSetting(key=key, available=list(setting))
+                raise SettingError(f"Setting '{key}' not found amongst {list(setting)}.")
             setting = setting[key]
 
-        # Accessing a non-leaf node in the settings hierarchy is disallowed
         if type(setting) == dict:
             raise IllegalAccessPattern
 

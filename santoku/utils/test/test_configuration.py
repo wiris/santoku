@@ -5,13 +5,13 @@ import pytest
 from collections import namedtuple
 from copy import deepcopy
 
+from jsonschema.exceptions import SchemaError
 from santoku.utils.configuration import (
-    ConfigurationAlreadyDefined,
+    ConfigurationError,
     ConfigurationManager,
     IllegalAccessPattern,
     SchemaViolation,
-    UndefinedConfiguration,
-    UndefinedSetting,
+    SettingError,
 )
 
 
@@ -84,6 +84,19 @@ def schema():
 
 
 @pytest.fixture(scope="function")
+def schema_with_spec():
+    def get_schema_with_spec(draft: int):
+        return {"$schema": f"http://json-schema.org/draft-0{draft}/schema#"}
+
+    return get_schema_with_spec
+
+
+@pytest.fixture(scope="function")
+def schema_with_invalid_spec():
+    return {"$schema": f"This is not a valid JSON Schema specification identifier"}
+
+
+@pytest.fixture(scope="function")
 def schema_violating_configuration():
     return {
         "name": "invalid_configuration",
@@ -102,7 +115,7 @@ def create_json_file(tmpdir):
             json.dump(content, f)
         return path
 
-    yield _create_json_file
+    return _create_json_file
 
 
 @pytest.fixture(scope="function")
@@ -122,7 +135,6 @@ def schema_file(tmpdir, schema, create_json_file):
 
 @pytest.fixture(scope="function")
 def configuration_manager(valid_configuration_A, valid_configuration_B, schema):
-    initial_configuration = valid_configuration_A["name"]
     configurations = [valid_configuration_A, valid_configuration_B]
     return ConfigurationManager(
         configurations=configurations,
@@ -164,7 +176,7 @@ class TestConfigurationManager:
             ConfigurationManager(configurations=[schema_violating_configuration], schema=schema)
 
         # Pass an initial configuration to an empty configuration manager. Failure expected.
-        with pytest.raises(UndefinedConfiguration):
+        with pytest.raises(ConfigurationError):
             ConfigurationManager(initial_configuration=valid_configuration_A["name"])
 
     def test_from_json(self, configurations_file, schema_file):
@@ -175,6 +187,24 @@ class TestConfigurationManager:
             )
         except:
             assert False
+
+    def test_check_schema(self, schema_with_spec, schema_with_invalid_spec):
+        # We only check that the appropriate validators are used. The actual work of validating is
+        # performed by the jsonschema package, which has its own set of tests.
+
+        # Check valid schemas using supported specifications. Success expected.
+        ConfigurationManager.check_schema(schema=schema_with_spec(draft=7))
+        ConfigurationManager.check_schema(schema=schema_with_spec(draft=6))
+        ConfigurationManager.check_schema(schema=schema_with_spec(draft=4))
+
+        # Check valid schema without specifying the spec (uses the default). Success expected.
+        ConfigurationManager.check_schema(schema={})
+
+        # Check valid schemas with invalid/unsupported specs. Failure expected.
+        with pytest.raises(SchemaError):
+            ConfigurationManager.check_schema(schema=schema_with_invalid_spec)
+        with pytest.raises(SchemaError):
+            ConfigurationManager.check_schema(schema=schema_with_spec(237))
 
     def test_validate_schema(self, valid_settings_A, configuration_manager, schema):
         # Validate settings with less arguments than schema requires. Failure expected.
@@ -247,10 +277,14 @@ class TestConfigurationManager:
             )
 
         # Define an existent configuration without the override flag. Failure expected.
-        with pytest.raises(ConfigurationAlreadyDefined):
+        with pytest.raises(ConfigurationError):
             configuration_manager.define_configuration(
                 name="configuration_name", settings=valid_settings_A, override=False,
             )
+
+    def test_list_configurations(self, configuration_manager):
+        expected = list(configuration_manager.configurations)
+        assert configuration_manager.list_configurations() == expected
 
     def test_get_configuration(self, valid_configuration_A, configuration_manager):
         # Retrieve an existing configuration. Success expected.
@@ -261,7 +295,7 @@ class TestConfigurationManager:
         assert obtained_settings == expected_settings
 
         # Retrieve an undefined configuration. Failure expected.
-        with pytest.raises(UndefinedConfiguration):
+        with pytest.raises(ConfigurationError):
             configuration_manager.get_configuration(name="undefined_configuration")
 
     def test_apply_configuration(self, valid_configuration_A, configuration_manager):
@@ -274,7 +308,7 @@ class TestConfigurationManager:
         assert obtained_settings == expected_settings
 
         # Apply an unavailable configuration. Failure expected.
-        with pytest.raises(UndefinedConfiguration):
+        with pytest.raises(ConfigurationError):
             configuration_manager.apply_configuration(name="unavailable_configuration")
 
     def test_get_active_configuration(self, valid_configuration_A, configuration_manager):
@@ -290,7 +324,7 @@ class TestConfigurationManager:
         assert expected_setting == obtained_setting
 
         # Retrieve an undefind setting. Failure expected.
-        with pytest.raises(UndefinedSetting):
+        with pytest.raises(SettingError):
             configuration_manager.get_setting("undefined_setting")
 
         # Retrieve nested setting. Success expected.
@@ -307,5 +341,5 @@ class TestConfigurationManager:
             configuration_manager.get_setting("dict_setting")
 
         # Retrieve an undefind nested setting. Failure expected.
-        with pytest.raises(UndefinedSetting):
+        with pytest.raises(SettingError):
             configuration_manager.get_setting("dict_setting", "nested_undefined_setting")
