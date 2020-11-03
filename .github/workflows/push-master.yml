@@ -38,6 +38,7 @@ jobs:
         NEW_VERSION="$(date +%y%m%d).$((CURRENT_BUILD_NUM+1))"
         sed -i "s/version=.*/version=\"${NEW_VERSION}\",/g" setup.py
     - name: Release (Tag in repo)
+      run: |
         git config user.name wiris-ci-bot
         git config user.email cicd@wiris.com
         git add setup.py
