@@ -5,7 +5,7 @@ on:
   push:
     branches: master
 jobs:
-  build:
+  release:
     runs-on: ubuntu-latest
     if: "! contains(toJSON(github.event.commits.*.message), '[skip ci]')"
     strategy:
@@ -32,17 +32,26 @@ jobs:
         DATA_SCIENCE_SALESFORCE_SANDBOX_AUTH_URL: ${{secrets.DATA_SCIENCE_SALESFORCE_SANDBOX_AUTH_URL}}
       run: |
         pytest
-    - name: Bump Version and Tag
+    - name: Bump Version
       run: |
         CURRENT_BUILD_NUM="$(grep -oP 'version="[0-9]+\.\K[0-9]+' setup.py)"
         NEW_VERSION="$(date +%y%m%d).$((CURRENT_BUILD_NUM+1))"
         sed -i "s/version=.*/version=\"${NEW_VERSION}\",/g" setup.py
+    - name: Release (Tag in repo)
         git config user.name wiris-ci-bot
         git config user.email cicd@wiris.com
         git add setup.py
         git commit -m "[skip ci] Bump version to ${NEW_VERSION}"
-        git tag -a "${NEW_VERSION}" -m "version ${NEW_VERSION}"
+        git tag -a "${NEW_VERSION}" -m "Release version ${NEW_VERSION}"
         git push --tags
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python 3.8.3
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.8.3
     - name: Build and Publish
       env:
         TWINE_USERNAME: __token__
