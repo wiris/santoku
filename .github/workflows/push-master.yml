@@ -1,0 +1,52 @@
+# This workflow will install Python dependencies and run tests
+
+name: Install Python Dependencies, Run Tests on Pushes to Main Branch, Bump Version and Tag and Publish to PyPI
+on:
+  push:
+    branches: master
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    if: "! contains(toJSON(github.event.commits.*.message), '[skip ci]')"
+    strategy:
+      matrix:
+        python-version: [3.8.3]
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v2
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        if [ -f requirements-test.txt ]; then pip install -r requirements-test.txt; fi
+        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+    - name: Test with pytest
+      env:
+        SLACK_BOT_API_TOKEN: ${{secrets.SLACK_BOT_API_TOKEN}}
+        DATA_SCIENCE_SALESFORCE_SANDBOX_USR: ${{secrets.DATA_SCIENCE_SALESFORCE_SANDBOX_USR}}
+        DATA_SCIENCE_SALESFORCE_SANDBOX_PSW: ${{secrets.DATA_SCIENCE_SALESFORCE_SANDBOX_PSW}}
+        DATA_SCIENCE_SALESFORCE_SANDBOX_CLIENT_USR: ${{secrets.DATA_SCIENCE_SALESFORCE_SANDBOX_CLIENT_USR}}
+        DATA_SCIENCE_SALESFORCE_SANDBOX_CLIENT_PSW: ${{secrets.DATA_SCIENCE_SALESFORCE_SANDBOX_CLIENT_PSW}}
+        DATA_SCIENCE_SALESFORCE_SANDBOX_AUTH_URL: ${{secrets.DATA_SCIENCE_SALESFORCE_SANDBOX_AUTH_URL}}
+      run: |
+        pytest
+    - name: Bump Version and Tag
+      run: |
+        CURRENT_BUILD_NUM="$(grep -oP 'version="[0-9]+\.\K[0-9]+' setup.py)"
+        NEW_VERSION="$(date +%y%m%d).$((CURRENT_BUILD_NUM+1))"
+        sed -i "s/version=.*/version=\"${NEW_VERSION}\",/g" setup.py
+        git config user.name wiris-ci-bot
+        git config user.email cicd@wiris.com
+        git add setup.py
+        git commit -m "[skip ci] Bump version to ${NEW_VERSION}"
+        git tag -a "${NEW_VERSION}" -m "version ${NEW_VERSION}"
+        git push --tags
+    - name: Build and Publish
+      env:
+        TWINE_USERNAME: __token__
+        TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+      run: |
+        python setup.py bdist_wheel
+        twine upload dist/*
