@@ -15,7 +15,6 @@
         ],
         "python.pythonPath": "/usr/local/bin/python",
         "python.sortImports.args": [
-            "-rc",
             "--line-length",
             "100",
             "--force-single-line-imports"
