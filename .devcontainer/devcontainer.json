@@ -14,6 +14,12 @@
             100
         ],
         "python.pythonPath": "/usr/local/bin/python",
+        "python.sortImports.args": [
+            "-rc",
+            "--line-length",
+            "100",
+            "--force-single-line-imports"
+        ],
         "python.linting.enabled": true,
         "python.linting.pylintEnabled": false,
         "python.linting.mypyEnabled": true,
@@ -21,7 +27,12 @@
         "python.formatting.blackArgs": [
             "--line-length",
             "100"
-        ]
+        ],
+        "[python]": {
+            "editor.codeActionsOnSave": {
+                "source.organizeImports": true
+            }
+        }
     },
     // Add the IDs of extensions you want installed when the container is created.
     "extensions": [
