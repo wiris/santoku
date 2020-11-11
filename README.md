@@ -1,5 +1,7 @@
 [![PyPI version](https://badge.fury.io/py/santoku.svg)](https://badge.fury.io/py/santoku)
-[![Travis build status](https://travis-ci.org/wiris/santoku.svg?branch=master)](https://travis-ci.org/github/wiris/santoku)
+
+[![Install Python Dependencies, Run Tests on Pushes to Main Branch, Bump Version and Tag and Publish to PyPI](https://github.com/wiris/santoku/workflows/Install%20Python%20Dependencies,%20Run%20Tests%20on%20Pushes%20to%20Main%20Branch,%20Bump%20Version%20and%20Tag%20and%20Publish%20to%20PyPI/badge.svg)](https://github.com/wiris/santoku/actions)
+
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
 # What is Santoku?
