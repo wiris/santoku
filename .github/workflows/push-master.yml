@@ -13,6 +13,8 @@ jobs:
         python-version: [3.8.3]
     steps:
     - uses: actions/checkout@v2
+      with:
+        ref: 'master'
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v2
       with:
@@ -48,7 +50,7 @@ jobs:
         git add setup.py
         git commit -m "[skip ci] Bump version to ${NEW_VERSION}"
         git tag -a "${NEW_VERSION}" -m "Release version ${NEW_VERSION}"
-        git push --tags
+        git push origin master --tags
   publish:
     needs: release
     runs-on: ubuntu-latest
