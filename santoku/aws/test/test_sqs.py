@@ -2,11 +2,9 @@ import os
 
 import boto3
 import pytest
-
 from botocore import exceptions
 from moto import mock_sqs
-
-from santoku.aws.sqs import SQSHandler, MessageAttributeError, MessageBatchError
+from santoku.aws.sqs import MessageAttributeError, MessageBatchError, SQSHandler
 
 
 @pytest.fixture(scope="class")
@@ -70,9 +68,18 @@ def fifo_queue(sqs_handler, request):
 @pytest.fixture(scope="function")
 def message_attributes():
     return {
-        "StringAttribute": {"DataType": "String", "StringValue": "Test string value",},
-        "NumberAttribute": {"DataType": "Number", "StringValue": "1000000000000000",},
-        "BinaryAttribute": {"DataType": "Binary", "BinaryValue": "Test binary value",},
+        "StringAttribute": {
+            "DataType": "String",
+            "StringValue": "Test string value",
+        },
+        "NumberAttribute": {
+            "DataType": "Number",
+            "StringValue": "1000000000000000",
+        },
+        "BinaryAttribute": {
+            "DataType": "Binary",
+            "BinaryValue": "Test binary value",
+        },
     }
 
 
@@ -81,8 +88,10 @@ class TestSQSHandler:
         # Test an existing queue. Success expected.
         assert sqs_handler.get_queue_url(queue_name=standard_queue)
 
-        # Test a non-existent queue. Failure expected.
-        with pytest.raises(exceptions.ClientError, match="The specified queue does not exist"):
+        # Test a non-existent queue (according to boto3 documentation,
+        # this function only throws ClientError exception when the queue is not found).
+        # Failure expected.
+        with pytest.raises(exceptions.ClientError):
             assert sqs_handler.get_queue_url(queue_name="WRONG_QUEUE_NAME")
 
     def test_check_queue_is_fifo(self, sqs_handler, standard_queue, fifo_queue):
@@ -107,8 +116,10 @@ class TestSQSHandler:
         expected_url = f"https://{region}.queue.amazonaws.com/{moto_aws_account}/{standard_queue}"
         assert obtained_url == expected_url
 
-        # Test getting the name of a queue that does not exist. Failure expected.
-        with pytest.raises(exceptions.ClientError, match="The specified queue does not exist"):
+        # Test getting the name of a queue that does not exist (according to boto3 documentation,
+        # this function only throws ClientError exception when the queue is not found).
+        # Failure expected.
+        with pytest.raises(exceptions.ClientError):
             sqs_handler.get_queue_url(queue_name="WRONG_QUEUE_NAME")
 
     def test_check_message_attributes_are_well_formed(self, sqs_handler, message_attributes):
@@ -188,7 +199,8 @@ class TestSQSHandler:
         error_message = "The list of 'entries' cannot be emtpy."
         with pytest.raises(MessageBatchError, match=error_message):
             sqs_handler.send_message_batch(
-                queue_name=standard_queue, entries=entries,
+                queue_name=standard_queue,
+                entries=entries,
             )
 
         # Send a batch of n messages to a standard queue. Success expected.
@@ -203,7 +215,10 @@ class TestSQSHandler:
             }
             entries.append(message)
 
-        response = sqs_handler.send_message_batch(queue_name=standard_queue, entries=entries,)
+        response = sqs_handler.send_message_batch(
+            queue_name=standard_queue,
+            entries=entries,
+        )
         assert response["ResponseMetadata"]["HTTPStatusCode"] == 200
 
         # Check whether the received message ids coincide with the ones sent.
@@ -241,7 +256,8 @@ class TestSQSHandler:
         error_message = "The maximum number of messages allowed in a batch is 10."
         with pytest.raises(MessageBatchError, match=error_message):
             sqs_handler.send_message_batch(
-                queue_name=standard_queue, entries=entries,
+                queue_name=standard_queue,
+                entries=entries,
             )
 
         # Send a batch with repeated ids. Failure expected.
@@ -259,7 +275,8 @@ class TestSQSHandler:
         error_message = "'ID' attribute must be unique along all the messages."
         with pytest.raises(MessageBatchError, match=error_message):
             sqs_handler.send_message_batch(
-                queue_name=standard_queue, entries=entries,
+                queue_name=standard_queue,
+                entries=entries,
             )
 
     def test_receive_message(self, sqs_handler, standard_queue, message_attributes):

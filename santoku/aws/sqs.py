@@ -1,7 +1,6 @@
-import boto3
-
 from typing import Any, Dict, List
 
+import boto3
 from botocore import exceptions
 
 
@@ -96,12 +95,9 @@ class SQSHandler:
         https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-general-identifiers.html
 
         """
-        try:
-            response = self.client.get_queue_url(QueueName=queue_name)
-            queue_url = response["QueueUrl"]
-            return queue_url
-        except exceptions.ClientError as e:
-            raise e
+        response = self.client.get_queue_url(QueueName=queue_name)
+        queue_url = response["QueueUrl"]
+        return queue_url
 
     def check_message_attributes_are_well_formed(
         self, message_attributes: Dict[str, Dict[str, str]]
@@ -237,13 +233,12 @@ class SQSHandler:
 
         if message_attributes:
             # Check whether the message attributes are correctly structured.
-            try:
-                self.check_message_attributes_are_well_formed(message_attributes=message_attributes)
-            except MessageAttributeError:
-                raise
+            self.check_message_attributes_are_well_formed(message_attributes=message_attributes)
 
             response = self.client.send_message(
-                QueueUrl=queue_url, MessageBody=message_body, MessageAttributes=message_attributes,
+                QueueUrl=queue_url,
+                MessageBody=message_body,
+                MessageAttributes=message_attributes,
             )
 
         else:
@@ -314,10 +309,7 @@ class SQSHandler:
                 raise MessageBatchError(error_message)
 
             if "MessageAttributes" in entry:
-                try:
-                    self.check_message_attributes_are_well_formed(entry["MessageAttributes"])
-                except MessageAttributeError:
-                    raise
+                self.check_message_attributes_are_well_formed(entry["MessageAttributes"])
 
         # Check the message ids are unique along the batch.
         if len(entries_ids) != len(set(entries_ids)):
