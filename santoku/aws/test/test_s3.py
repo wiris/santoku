@@ -1,18 +1,15 @@
-import os
 import json
+import os
+from io import BytesIO, StringIO
+from typing import Dict, List
 
 import boto3
-import pytest
 import pandas as pd
-
-from typing import List, Dict
-from io import StringIO, BytesIO
-
-from moto import mock_s3
+import pytest
 from botocore import exceptions
-
+from moto import mock_s3
 from santoku.aws import utils
-from santoku.aws.s3 import S3Handler, ManifestError
+from santoku.aws.s3 import ManifestError, S3Handler
 
 """
 TODO: this whole section might serve in the future as test suite for this library
@@ -28,7 +25,7 @@ def aws_credentials():
     os.environ["AWS_SECRET_ACCESS_KEY"] = "testing"
     os.environ["AWS_SECURITY_TOKEN"] = "testing"
     os.environ["AWS_SESSION_TOKEN"] = "testing"
-    os.environ["AWS_DEFAULT_REGION"] = "eu-west-1"
+    os.environ["AWS_DEFAULT_REGION"] = "us-east-1"
 
 
 @pytest.fixture(scope="class")
@@ -153,24 +150,39 @@ class TestS3Handler:
         # Folder in a bucket without file. Success expected.
         folder = "folder"
         expected_path = f"s3://{bucket}/{folder}/"
-        obtained_path = s3_handler.get_uri(bucket=bucket, folder_path=folder,)
+        obtained_path = s3_handler.get_uri(
+            bucket=bucket,
+            folder_path=folder,
+        )
         assert obtained_path == expected_path
 
         # Folder in a bucket with file. Success expected.
         expected_path = f"s3://{bucket}/{folder}/{file_name}"
-        obtained_path = s3_handler.get_uri(bucket=bucket, folder_path=folder, file_name=file_name,)
+        obtained_path = s3_handler.get_uri(
+            bucket=bucket,
+            folder_path=folder,
+            file_name=file_name,
+        )
         assert obtained_path == expected_path
 
         # Folder in a bucket with a / at the begining. Success expected.
         folder = "/folder"
         expected_path = f"s3://{bucket}{folder}/{file_name}"
-        obtained_path = s3_handler.get_uri(bucket=bucket, folder_path=folder, file_name=file_name,)
+        obtained_path = s3_handler.get_uri(
+            bucket=bucket,
+            folder_path=folder,
+            file_name=file_name,
+        )
         assert obtained_path == expected_path
 
         # Folder in a bucket with subfolder. Success expected.
         folder = "folder/subfolder"
         expected_path = f"s3://{bucket}/{folder}/{file_name}"
-        obtained_path = s3_handler.get_uri(bucket=bucket, folder_path=folder, file_name=file_name,)
+        obtained_path = s3_handler.get_uri(
+            bucket=bucket,
+            folder_path=folder,
+            file_name=file_name,
+        )
         assert obtained_path == expected_path
 
     def test_list_objects(
