@@ -1,11 +1,10 @@
 import json
-
 from typing import List
+
+from santoku.aws.secretsmanager import SecretsManagerHandler
 
 from slack import WebClient
 from slack.errors import SlackApiError
-
-from santoku.aws.secretsmanager import SecretsManagerHandler
 
 
 class SlackBotHandler:
@@ -106,10 +105,7 @@ class SlackBotHandler:
         [2] :
         https://api.slack.com/block-kit
         """
-        try:
-            self.client.chat_postMessage(channel=channel, **kwargs)
-        except SlackApiError as e:
-            raise e
+        self.client.chat_postMessage(channel=channel, **kwargs)
 
     def send_process_report(
         self,

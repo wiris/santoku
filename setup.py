@@ -1,6 +1,7 @@
 from os import path
-from setuptools import setup, find_packages
+
 from pip._internal.req import parse_requirements
+from setuptools import find_packages, setup
 
 # Read the contents of the README file.
 this_directory = path.abspath(path.dirname(__file__))

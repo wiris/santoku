@@ -1,21 +1,18 @@
-import os
 import json
-import requests
+import os
+from typing import Dict, List
 
 import pytest
-
-from typing import List, Dict
+import requests
 from moto import mock_secretsmanager
-
 from santoku.aws.secretsmanager import SecretsManagerHandler
 from santoku.exceptions import MissingEnvironmentVariables
 from santoku.salesforce.lightning import (
     LightningRestApiHandler,
+    RequestMethodError,
     SalesforceObjectError,
     SalesforceObjectFieldError,
-    RequestMethodError,
 )
-
 
 """
 Note: This class necessitates a Salesforce instance up and running in order to pass the tests.
@@ -111,7 +108,8 @@ def contact_payloads():
 def delete_record(api_handler):
     def _delete_record(sobject: str, record_id: str) -> None:
         api_handler.do_request(
-            method="DELETE", path=f"sobjects/{sobject}/{record_id}",
+            method="DELETE",
+            path=f"sobjects/{sobject}/{record_id}",
         )
 
     return _delete_record
@@ -158,7 +156,9 @@ class TestLightningRestApiHandler:
         )
         with pytest.raises(requests.exceptions.RequestException):
             api_handler.do_request(
-                method="POST", path="sobjects/Contact", payload=contact_payloads[0],
+                method="POST",
+                path="sobjects/Contact",
+                payload=contact_payloads[0],
             )
 
         api_handler = LightningRestApiHandler(
@@ -170,7 +170,9 @@ class TestLightningRestApiHandler:
         )
         with pytest.raises(requests.exceptions.RequestException):
             api_handler.do_request(
-                method="POST", path="sobjects/Contact", payload=contact_payloads[0],
+                method="POST",
+                path="sobjects/Contact",
+                payload=contact_payloads[0],
             )
 
     def test_salesforce_object_required_fields(self, api_handler):
@@ -180,7 +182,9 @@ class TestLightningRestApiHandler:
         expected_message = f"`{invalid_field}` isn't a valid field."
         with pytest.raises(SalesforceObjectFieldError, match=expected_message):
             api_handler.do_request(
-                method="POST", path="sobjects/Contact", payload=bad_contact_payload,
+                method="POST",
+                path="sobjects/Contact",
+                payload=bad_contact_payload,
             )
 
         # Test inserting a contact without a required field. Failure expected.
@@ -195,7 +199,9 @@ class TestLightningRestApiHandler:
         )
         with pytest.raises(SalesforceObjectFieldError, match=expected_message):
             api_handler.do_request(
-                method="POST", path="sobjects/Contact", payload=bad_contact_payload,
+                method="POST",
+                path="sobjects/Contact",
+                payload=bad_contact_payload,
             )
 
         # Test inserting a contact with an empty required field. Failure expected.
@@ -203,7 +209,9 @@ class TestLightningRestApiHandler:
         expected_message = f"`{missing_field}` is a required field and must not be empty."
         with pytest.raises(SalesforceObjectFieldError, match=expected_message):
             api_handler.do_request(
-                method="POST", path="sobjects/Contact", payload=bad_contact_payload,
+                method="POST",
+                path="sobjects/Contact",
+                payload=bad_contact_payload,
             )
 
     def test_contact_insertion(self, api_handler, contact_payloads, delete_record):
@@ -221,14 +229,18 @@ class TestLightningRestApiHandler:
         # Insert a Contact that already exist. Failure expected.
         with pytest.raises(requests.exceptions.RequestException):
             api_handler.do_request(
-                method="POST", path="sobjects/Contact", payload=contact_payloads[0],
+                method="POST",
+                path="sobjects/Contact",
+                payload=contact_payloads[0],
             )
 
         # Insert a Contact that already exist with a new email. Success expected.
         new_contact_payload = contact_payloads[0].copy()
         new_contact_payload["Email"] = "new.email@example.com"
         response_text = api_handler.do_request(
-            method="POST", path="sobjects/Contact", payload=new_contact_payload,
+            method="POST",
+            path="sobjects/Contact",
+            payload=new_contact_payload,
         )
         response = json.loads(response_text)
         created_record_ids.append(response["id"])
@@ -247,7 +259,9 @@ class TestLightningRestApiHandler:
             secret_name=sf_credentials_secret
         )
         response_text = api_handler.do_request(
-            method="POST", path="sobjects/Contact", payload=contact_payloads[0],
+            method="POST",
+            path="sobjects/Contact",
+            payload=contact_payloads[0],
         )
         response = json.loads(response_text)
         assert response["success"]
@@ -317,7 +331,9 @@ class TestLightningRestApiHandler:
         new_contact_payload = {"FirstName": new_first_name, "LastName": new_last_name}
         contact_id = contacts[0]
         api_handler.do_request(
-            method="PATCH", path=f"sobjects/Contact/{contact_id}", payload=new_contact_payload,
+            method="PATCH",
+            path=f"sobjects/Contact/{contact_id}",
+            payload=new_contact_payload,
         )
 
         obtained_contact = api_handler.do_query_with_SOQL(
@@ -331,7 +347,9 @@ class TestLightningRestApiHandler:
         new_email = f"{new_first_name.lower()}@example.com"
         new_contact_payload = {"Email": new_email}
         api_handler.do_request(
-            method="PATCH", path=f"sobjects/Contact/{contact_id}", payload=new_contact_payload,
+            method="PATCH",
+            path=f"sobjects/Contact/{contact_id}",
+            payload=new_contact_payload,
         )
 
         obtained_contact = api_handler.do_query_with_SOQL(
@@ -344,13 +362,16 @@ class TestLightningRestApiHandler:
         new_contact_payload = {"FirstName": "NEWNAME"}
         with pytest.raises(requests.exceptions.RequestException):
             api_handler.do_request(
-                method="PATCH", path="sobjects/Contact/WRONGID", payload=new_contact_payload,
+                method="PATCH",
+                path="sobjects/Contact/WRONGID",
+                payload=new_contact_payload,
             )
 
     def test_contact_deletion(self, api_handler, contacts):
         # Delete an existing Contact. Success expected.
         api_handler.do_request(
-            method="DELETE", path=f"sobjects/Contact/{contacts[0]}",
+            method="DELETE",
+            path=f"sobjects/Contact/{contacts[0]}",
         )
 
         obtained_contacts = api_handler.do_query_with_SOQL(
@@ -361,7 +382,8 @@ class TestLightningRestApiHandler:
         # Delete a Contact that does not exist. Failure expected.
         with pytest.raises(requests.exceptions.RequestException):
             api_handler.do_request(
-                method="DELETE", path=f"sobjects/Contact/{contacts[0]}",
+                method="DELETE",
+                path=f"sobjects/Contact/{contacts[0]}",
             )
 
     def test_contact_insertion_high_level(self, api_handler, contact_payloads, delete_record):
@@ -377,7 +399,8 @@ class TestLightningRestApiHandler:
         # Insert a Contact that already exist. Failure expected.
         with pytest.raises(requests.exceptions.RequestException):
             api_handler.insert_record(
-                sobject="Contact", payload=contact_payloads[0],
+                sobject="Contact",
+                payload=contact_payloads[0],
             )
 
         # Insert a Contact that already exist with a new email. Success expected.
@@ -404,7 +427,9 @@ class TestLightningRestApiHandler:
         new_contact_payload = {"FirstName": new_first_name, "LastName": new_last_name}
         contact_id = contacts[0]
         api_handler.modify_record(
-            sobject="Contact", record_id=contact_id, payload=new_contact_payload,
+            sobject="Contact",
+            record_id=contact_id,
+            payload=new_contact_payload,
         )
 
         obtained_contact = api_handler.do_query_with_SOQL(
@@ -417,7 +442,9 @@ class TestLightningRestApiHandler:
         new_email = f"{new_first_name.lower()}@example.com"
         new_contact_payload = {"Email": new_email}
         api_handler.modify_record(
-            sobject="Contact", record_id=contact_id, payload=new_contact_payload,
+            sobject="Contact",
+            record_id=contact_id,
+            payload=new_contact_payload,
         )
 
         obtained_contact = api_handler.do_query_with_SOQL(
@@ -430,7 +457,9 @@ class TestLightningRestApiHandler:
         new_contact_payload = {"FirstName": "NEWNAME"}
         with pytest.raises(requests.exceptions.RequestException):
             api_handler.modify_record(
-                sobject="Contact", record_id="WRONGID", payload=new_contact_payload,
+                sobject="Contact",
+                record_id="WRONGID",
+                payload=new_contact_payload,
             )
 
     def test_contact_deletion_high_level(self, api_handler, contacts):
