@@ -41,7 +41,7 @@
     // "forwardPorts": [],
     // postCreateCommand runs commands after the container is created:
     // - enables git autocomplete and...
-    "postCreateCommand": "echo source /usr/share/bash-completion/completions/git >> /root/.bashrc",
+    "postCreateCommand": "echo source /usr/share/bash-completion/completions/git >> /root/.bashrc && poetry install",
     // This includes your dotenv file inside the container.
     "runArgs": [
         "--env-file",
