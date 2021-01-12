@@ -88,9 +88,10 @@ class TestSQSHandler:
         # Test an existing queue. Success expected.
         assert sqs_handler.get_queue_url(queue_name=standard_queue)
 
-        # Test a non-existent queue (according to boto3 documentation,
-        # this function only throws ClientError exception when the queue is not found).
-        # Failure expected.
+        # Test a non-existent queue (according to boto3 documentation, this function only throws
+        # ClientError exception when the queue is not found. ClientError is a generic exception, but
+        # we dont match this specific message because boto changes this frequently and we would
+        # easily break compatibility). Failure expected.
         with pytest.raises(exceptions.ClientError):
             assert sqs_handler.get_queue_url(queue_name="WRONG_QUEUE_NAME")
 
@@ -117,8 +118,9 @@ class TestSQSHandler:
         assert obtained_url == expected_url
 
         # Test getting the name of a queue that does not exist (according to boto3 documentation,
-        # this function only throws ClientError exception when the queue is not found).
-        # Failure expected.
+        # this function only throws ClientError exception when the queue is not found. ClientError
+        # is a generic exception, but we dont match this specific message because boto changes this
+        # frequently and we would easily break compatibility). Failure expected.
         with pytest.raises(exceptions.ClientError):
             sqs_handler.get_queue_url(queue_name="WRONG_QUEUE_NAME")
 
