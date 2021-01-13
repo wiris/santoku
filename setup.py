@@ -16,7 +16,7 @@ def load_requirements(fname):
 
 setup(
     name="santoku",
-    version="201111.17",
+    version="210113.18",
     description="Custom Python wrapper around many third party APIs, including AWS, BigQuery, Slack and Salesforce.",
     packages=find_packages(),
     install_requires=load_requirements("requirements.txt"),
