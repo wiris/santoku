@@ -1,11 +1,10 @@
-import re
 import json
-import requests
-
-from typing import List, Dict, Any, Optional
-
+import re
+from typing import Any, Dict, List, Optional
 from urllib import parse
 
+import pandas as pd
+import requests
 from santoku.aws import SecretsManagerHandler
 
 
@@ -371,7 +370,12 @@ class LightningRestApiHandler:
                         f"`{field}` is a required field and must not be empty."
                     )
 
-    def do_request(self, method: str, path: str, payload: Optional[Dict[str, str]] = None,) -> str:
+    def do_request(
+        self,
+        method: str,
+        path: str,
+        payload: Optional[Dict[str, str]] = None,
+    ) -> str:
         """
         Construct and send a request.
 
@@ -420,7 +424,9 @@ class LightningRestApiHandler:
                     raise SalesforceObjectError(f"{path_salesforce_object} isn't a valid object")
 
         url = self._url_to_format.format(
-            self._instance_scheme_and_authority, self._api_version, path,
+            self._instance_scheme_and_authority,
+            self._api_version,
+            path,
         )
 
         try:
@@ -436,12 +442,15 @@ class LightningRestApiHandler:
                             path_salesforce_object
                         )
                         self._validate_required_fields_in_payload(
-                            payload=payload, object_required_fields=object_required_fields,
+                            payload=payload,
+                            object_required_fields=object_required_fields,
                         )
 
                 # We use reflection to choose which method (POST or PATCH) to execute.
                 response = getattr(requests, method.lower())(
-                    url=url, json=payload, headers=self.request_headers,
+                    url=url,
+                    json=payload,
+                    headers=self.request_headers,
                 )
             else:  # method == "GET" or method == "DELETE":
                 response = getattr(requests, method.lower())(url=url, headers=self.request_headers)
@@ -526,6 +535,55 @@ class LightningRestApiHandler:
             records.extend(response_dict["records"])
         return records
 
+    def soql_response_to_dataframe(
+        self,
+        response: Dict[str, Any],
+        column_mapping: Dict[str, str] = None,
+        drop_columns_containing: str = None,
+    ) -> pd.DataFrame:
+        """
+        Flattens a SOQL response and converts it into a pandas DataFrame.
+
+        To flatten the response json we use the function json_normalize from Pandas [1]
+
+        Parameters
+        ----------
+        response : Dict[str, Any]
+            SOQL response to convert to DataFrame.
+
+        column_mapping: Dict[str, str]
+            Dictionary containing the names of the columns to map.
+
+        drop_columns_containing: str
+            Columns containing this string will be dropped.
+
+        Returns
+        -------
+        pd.DataFrame
+            DataFrame with the flattened SOQL response.
+
+        References
+        ----------
+        [1] :
+            https://pandas.pydata.org/docs/reference/api/pandas.json_normalize.html
+
+        """
+        import pandas as pd
+
+        df = pd.json_normalize(data=response)
+
+        if column_mapping:
+            df.rename(columns=column_mapping, errors="raise", inplace=True)
+
+        if drop_columns_containing:
+            df.drop(
+                columns=[column for column in df.columns if drop_columns_containing in column],
+                axis=1,
+                inplace=True,
+            )
+
+        return df
+
     def insert_record(self, sobject: str, payload: Dict[str, str]) -> str:
         """
         Create a new instance of a salesforce object.
@@ -549,7 +607,11 @@ class LightningRestApiHandler:
         do_request : this method does a request of type POST.
 
         """
-        return self.do_request(method="POST", path=f"sobjects/{sobject}", payload=payload,)
+        return self.do_request(
+            method="POST",
+            path=f"sobjects/{sobject}",
+            payload=payload,
+        )
 
     def modify_record(self, sobject: str, record_id: str, payload: Dict[str, str]) -> str:
         """
@@ -580,7 +642,9 @@ class LightningRestApiHandler:
 
         """
         return self.do_request(
-            method="PATCH", path=f"sobjects/{sobject}/{record_id}", payload=payload,
+            method="PATCH",
+            path=f"sobjects/{sobject}/{record_id}",
+            payload=payload,
         )
 
     def delete_record(self, sobject: str, record_id: str) -> str:
@@ -608,7 +672,10 @@ class LightningRestApiHandler:
         do_request : this method does a request of type DELETE.
 
         """
-        return self.do_request(method="DELETE", path=f"sobjects/{sobject}/{record_id}",)
+        return self.do_request(
+            method="DELETE",
+            path=f"sobjects/{sobject}/{record_id}",
+        )
 
     def get_remaining_daily_api_requests(self) -> int:
         """
