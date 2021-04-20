@@ -2,6 +2,7 @@ import json
 import os
 from typing import Dict, List
 
+import pandas as pd
 import pytest
 import requests
 from moto import mock_secretsmanager
@@ -142,6 +143,70 @@ def contacts(contact_payloads, insert_record, delete_record, request):
                 pass
 
     request.addfinalizer(teardown)
+
+
+@pytest.fixture(scope="function")
+def response():
+    return [
+        {
+            "Quantity__c": 1.0,
+            "Product__r": {
+                "attributes": {
+                    "type": "Product2",
+                    "url": "/services/data/v47.0/sobjects/Product2/01t0N000009sBmaQAE",
+                },
+                "Recurrency__c": "Subscription",
+            },
+            "Quote": {
+                "attributes": {
+                    "type": "Quote",
+                    "url": "/services/data/v47.0/sobjects/Quote/0Q00N000002AO0NSAW",
+                },
+                "Account": {
+                    "attributes": {
+                        "type": "Account",
+                        "url": "/services/data/v47.0/sobjects/Account/0010N00004j7w2KQAQ",
+                    },
+                    "Name": "Viewpoint School - Upper & Middle School",
+                },
+            },
+        },
+        {
+            "Quantity__c": 2.0,
+            "Product__r": {
+                "attributes": {
+                    "type": "Product2",
+                    "url": "/services/data/v47.0/sobjects/Product2/01t0N000009sBmaQAE",
+                },
+                "Recurrency__c": "Renewal",
+            },
+            "Quote": {
+                "attributes": {
+                    "type": "Quote",
+                    "url": "/services/data/v47.0/sobjects/Quote/0Q00N000002AO0NSAW",
+                },
+                "Account": {
+                    "attributes": {
+                        "type": "Account",
+                        "url": "/services/data/v47.0/sobjects/Account/0010N00004j7w2KQAQ",
+                    },
+                    "Name": "Viewpoint School",
+                },
+            },
+        },
+    ]
+
+
+@pytest.fixture(scope="function")
+def reference():
+
+    return pd.DataFrame(
+        {
+            "quantity": [1.0, 2.0],
+            "product_recurrency": ["Subscription", "Renewal"],
+            "quote_account_name": ["Viewpoint School - Upper & Middle School", "Viewpoint School"],
+        }
+    )
 
 
 class TestLightningRestApiHandler:
@@ -479,3 +544,15 @@ class TestLightningRestApiHandler:
         # Delete a Contact that does not exist. Failure expected.
         with pytest.raises(requests.exceptions.RequestException):
             api_handler.delete_record(sobject="Contact", record_id=contacts[0])
+
+    def test_soql_response_to_dataframe(self, api_handler, response, reference):
+        test_result = api_handler.soql_response_to_dataframe(
+            response=response,
+            drop_columns_containing="attributes",
+            column_mapping={
+                "Quantity__c": "quantity",
+                "Product__r.Recurrency__c": "product_recurrency",
+                "Quote.Account.Name": "quote_account_name",
+            },
+        )
+        assert test_result.equals(reference)
