@@ -370,6 +370,27 @@ class LightningRestApiHandler:
                         f"`{field}` is a required field and must not be empty."
                     )
 
+    @staticmethod
+    def _soql_response_to_dataframe(
+        response: List[dict],
+        column_mapping: Dict[str, str] = None,
+        drop_columns_containing: str = None,
+    ) -> pd.DataFrame:
+
+        df = pd.json_normalize(data=response)
+
+        if column_mapping:
+            df.rename(columns=column_mapping, errors="raise", inplace=True)
+
+        if drop_columns_containing:
+            df.drop(
+                columns=[column for column in df.columns if drop_columns_containing in column],
+                axis=1,
+                inplace=True,
+            )
+
+        return df
+
     def do_request(self, method: str, path: str, payload: Optional[Dict[str, str]] = None) -> str:
         """
         Construct and send a request.
@@ -457,22 +478,34 @@ class LightningRestApiHandler:
         # Response is returned as is, it's caller's responsability to do the parsing.
         return response.text
 
-    def do_query_with_SOQL(self, query: str) -> List[Dict[str, Any]]:
+    def do_query_with_SOQL(
+        self,
+        query: str,
+        column_mapping: Dict[str, str] = None,
+        drop_columns_containing: str = "attributes",
+    ) -> pd.DataFrame:
         """
         Constructs and sends a request using SOQL.
 
         Use the Salesforce Object Query Language (SOQL) to search Salesforce data for specific
-        information.
+        information. Once the query is done, the response is flattened and transformed into a pandas
+        DataFrame.
 
         Parameters
         ----------
         query : str
             SOQL with the desired query.
 
+        column_mapping: Dict[str, str]
+            Dictionary containing the names of the columns to map.
+
+        drop_columns_containing: str
+            Columns containing this string will be dropped.
+
         Returns
         -------
-        List[Dict[str, Any]]
-            A list of records resulting from the query.
+        pd.DataFrame
+            A dataframe containing the results of the query.
 
         Raises
         ------
@@ -491,10 +524,14 @@ class LightningRestApiHandler:
         maximum number of records that a single SOQL request can return is 2000, when this limit is
         exceeded, the field `nextRecordsUrl` from the response of the query is used, this method
         already manages this problem, hence all the records of the query will be returned.
+        This method calls the private method _soql_response_to_dataframe. The response JSON object
+        is flattened using the Pandas json_normalize method.
+
         For more information related to SOQL: [1]
         For a complete description of the SOQL syntax: [2].
         For more information about the SOQL requests URIs: [3].
         For more information about the limits of the SOQL requests: [4].
+        For more information about the json_normalize method [5]
 
         References
         ----------
@@ -510,6 +547,9 @@ class LightningRestApiHandler:
         [4] :
         https://developer.salesforce.com/docs/atlas.en-us.salesforce_app_limits_cheatsheet.meta/salesforce_app_limits_cheatsheet/salesforce_app_limits_platform_soslsoql.htm
 
+        [5] :
+        https://pandas.pydata.org/docs/reference/api/pandas.json_normalize.html
+
         """
         # Encode the query to clean possible special characters to fit in the url.
         encoded_query = parse.quote_plus(query)
@@ -517,6 +557,8 @@ class LightningRestApiHandler:
         response = self.do_request(method="GET", path=f"query?q={query}")
         response_dict = json.loads(response)
         records = response_dict["records"]
+
+        # Salesforce returns records in batches. Here we collect all the batches.
         while "nextRecordsUrl" in response_dict:
             next_url = response_dict["nextRecordsUrl"]
             # The nextRecordsUrl field has the form .../query/query_identifier
@@ -524,55 +566,12 @@ class LightningRestApiHandler:
             response = self.do_request(method="GET", path=f"query/{query_identifier}")
             response_dict = json.loads(response)
             records.extend(response_dict["records"])
-        return records
 
-    @staticmethod
-    def soql_response_to_dataframe(
-        response: Dict[str, Any],
-        column_mapping: Dict[str, str] = None,
-        drop_columns_containing: str = None,
-    ) -> pd.DataFrame:
-        """
-        Flattens an SOQL response and converts it into a pandas DataFrame.
-
-        The response JSON object is flattened using the Pandas json_normalize function [1]
-
-        Parameters
-        ----------
-        response : Dict[str, Any]
-            SOQL response to convert to DataFrame.
-
-        column_mapping: Dict[str, str]
-            Dictionary containing the names of the columns to map.
-
-        drop_columns_containing: str
-            Columns containing this string will be dropped.
-
-        Returns
-        -------
-        pd.DataFrame
-            DataFrame with the flattened SOQL response.
-
-        References
-        ----------
-        [1] :
-            https://pandas.pydata.org/docs/reference/api/pandas.json_normalize.html
-
-        """
-
-        df = pd.json_normalize(data=response)
-
-        if column_mapping:
-            df.rename(columns=column_mapping, errors="raise", inplace=True)
-
-        if drop_columns_containing:
-            df.drop(
-                columns=[column for column in df.columns if drop_columns_containing in column],
-                axis=1,
-                inplace=True,
-            )
-
-        return df
+        return self._soql_response_to_dataframe(
+            response=records,
+            column_mapping=column_mapping,
+            drop_columns_containing=drop_columns_containing,
+        )
 
     def insert_record(self, sobject: str, payload: Dict[str, str]) -> str:
         """
