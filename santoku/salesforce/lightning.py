@@ -370,12 +370,7 @@ class LightningRestApiHandler:
                         f"`{field}` is a required field and must not be empty."
                     )
 
-    def do_request(
-        self,
-        method: str,
-        path: str,
-        payload: Optional[Dict[str, str]] = None,
-    ) -> str:
+    def do_request(self, method: str, path: str, payload: Optional[Dict[str, str]] = None) -> str:
         """
         Construct and send a request.
 
@@ -424,9 +419,7 @@ class LightningRestApiHandler:
                     raise SalesforceObjectError(f"{path_salesforce_object} isn't a valid object")
 
         url = self._url_to_format.format(
-            self._instance_scheme_and_authority,
-            self._api_version,
-            path,
+            self._instance_scheme_and_authority, self._api_version, path
         )
 
         try:
@@ -448,9 +441,7 @@ class LightningRestApiHandler:
 
                 # We use reflection to choose which method (POST or PATCH) to execute.
                 response = getattr(requests, method.lower())(
-                    url=url,
-                    json=payload,
-                    headers=self.request_headers,
+                    url=url, json=payload, headers=self.request_headers
                 )
             else:  # method == "GET" or method == "DELETE":
                 response = getattr(requests, method.lower())(url=url, headers=self.request_headers)
@@ -535,16 +526,16 @@ class LightningRestApiHandler:
             records.extend(response_dict["records"])
         return records
 
+    @staticmethod
     def soql_response_to_dataframe(
-        self,
         response: Dict[str, Any],
         column_mapping: Dict[str, str] = None,
         drop_columns_containing: str = None,
     ) -> pd.DataFrame:
         """
-        Flattens a SOQL response and converts it into a pandas DataFrame.
+        Flattens an SOQL response and converts it into a pandas DataFrame.
 
-        To flatten the response json we use the function json_normalize from Pandas [1]
+        The response JSON object is flattened using the Pandas json_normalize function [1]
 
         Parameters
         ----------
@@ -568,7 +559,6 @@ class LightningRestApiHandler:
             https://pandas.pydata.org/docs/reference/api/pandas.json_normalize.html
 
         """
-        import pandas as pd
 
         df = pd.json_normalize(data=response)
 
@@ -607,11 +597,7 @@ class LightningRestApiHandler:
         do_request : this method does a request of type POST.
 
         """
-        return self.do_request(
-            method="POST",
-            path=f"sobjects/{sobject}",
-            payload=payload,
-        )
+        return self.do_request(method="POST", path=f"sobjects/{sobject}", payload=payload)
 
     def modify_record(self, sobject: str, record_id: str, payload: Dict[str, str]) -> str:
         """
@@ -672,10 +658,7 @@ class LightningRestApiHandler:
         do_request : this method does a request of type DELETE.
 
         """
-        return self.do_request(
-            method="DELETE",
-            path=f"sobjects/{sobject}/{record_id}",
-        )
+        return self.do_request(method="DELETE", path=f"sobjects/{sobject}/{record_id}")
 
     def get_remaining_daily_api_requests(self) -> int:
         """
