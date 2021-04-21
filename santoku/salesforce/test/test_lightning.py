@@ -209,6 +209,15 @@ def reference():
     )
 
 
+@pytest.fixture(scope="function")
+def contacts_df(contact_payloads):
+
+    df = pd.DataFrame(contact_payloads)
+
+    # Sort dataframe to ensure determinism
+    return df.sort_values(by=list(df.columns), ignore_index=True)
+
+
 class TestLightningRestApiHandler:
     def test_wrong_credentials(self, sf_credentials, contact_payloads):
         # Connect Salesforce with wrong credentials. Failure expected.
@@ -337,11 +346,11 @@ class TestLightningRestApiHandler:
     def test_different_query_syntaxes(self, api_handler):
         # Do a query written in uppercase. Success expected.
         obtained_contacts = api_handler.do_query_with_SOQL("SELECT ID, NAME FROM CONTACT")
-        assert len(obtained_contacts) == 0
+        assert obtained_contacts.empty
 
         # Do a query written in lowercase. Success expected.
         obtained_contacts = api_handler.do_query_with_SOQL("select id, name from contact")
-        assert len(obtained_contacts) == 0
+        assert obtained_contacts.empty
 
         # Do a query to a non-existent object. Failure expected.
         wrong_object_name = "Contacts"
@@ -351,45 +360,46 @@ class TestLightningRestApiHandler:
                 f"SELECT Id, Name From {wrong_object_name}"
             )
 
-    def test_contact_query(self, api_handler, contact_payloads, contacts, delete_record):
-        expected_names = []
-        for contact_payload in contact_payloads:
-            first_name = contact_payload["FirstName"]
-            last_name = contact_payload["LastName"]
-            expected_names.append(f"{first_name} {last_name}")
+    def test_contact_query(
+        self, api_handler, contact_payloads, contacts, delete_record, contacts_df
+    ):
 
         # Read the Contacts inserted with SOQL. Success expected.
-        obtained_contacts = api_handler.do_query_with_SOQL("SELECT Id, Name from Contact")
-
-        # At least, all the inserted records should be in the result of the query.
-        assert len(obtained_contacts) >= len(contact_payloads)
-
-        obtained_names = []
-        obtained_ids = []
-        for obtained_contact in obtained_contacts:
-            obtained_names.append(obtained_contact["Name"])
-            obtained_ids.append(obtained_contact["Id"])
-
-        for expected_name in expected_names:
-            assert expected_name in obtained_names
-
-        # Read a specific contact with SOQL by Id. Success expected.
-        expected_id = obtained_ids[0]
-        expected_name = obtained_names[0]
         obtained_contacts = api_handler.do_query_with_SOQL(
-            f"SELECT Id, Name from contact WHERE Id = '{expected_id}'"
+            "SELECT FirstName, LastName, Email FROM Contact"
         )
-        assert len(obtained_contacts) == 1
-        assert obtained_contacts[0]["Name"] == expected_name
+
+        # Sort dataframe to ensure determinism
+        obtained_contacts.sort_values(
+            by=list(obtained_contacts.columns), inplace=True, ignore_index=True
+        )
+
+        assert obtained_contacts.equals(other=contacts_df)
+
+        # Read a specific contact with SOQL by FirstName. Success expected.
+        first_name = contact_payloads[0]["FirstName"]
+
+        obtained_contacts = api_handler.do_query_with_SOQL(
+            f"SELECT FirstName, LastName, Email FROM contact WHERE FirstName = '{first_name}'"
+        )
+        obtained_contacts.sort_values(
+            by=list(obtained_contacts.columns), inplace=True, ignore_index=True
+        )
+
+        expected_contacts = contacts_df[contacts_df["FirstName"] == first_name]
+        expected_contacts.sort_values(
+            by=list(expected_contacts.columns), inplace=True, ignore_index=True
+        )
+
+        assert obtained_contacts.equals(other=expected_contacts)
 
         # Query a contact that does not exists with SOQL. Success expected.
-        delete_record(sobject="Contact", record_id=contacts[0])
         obtained_contacts = api_handler.do_query_with_SOQL(
-            f"SELECT Name from contact WHERE Id = '{contacts[0]}'"
+            f"SELECT FirstName, LastName, Email FROM contact WHERE FirstName = 'dummyname'"
         )
-        assert len(obtained_contacts) == 0
+        assert obtained_contacts.empty
 
-    def test_contact_modification(self, api_handler, contact_payloads, contacts):
+    def test_contact_modification(self, api_handler, contact_payloads, contacts, contacts_df):
         # Modify an existing contact's Name. Success expected.
         new_first_name = "Ken"
         new_last_name = "Williams"
@@ -401,27 +411,26 @@ class TestLightningRestApiHandler:
             payload=new_contact_payload,
         )
 
-        obtained_contact = api_handler.do_query_with_SOQL(
-            f"SELECT Id, Name from Contact WHERE Id = '{contact_id}'"
-        )[0]
-
-        expected_contact_name = f"{new_first_name} {new_last_name}"
-        assert obtained_contact["Name"] == expected_contact_name
-
-        # Modify an existing contact's Email. Success expected.
-        new_email = f"{new_first_name.lower()}@example.com"
-        new_contact_payload = {"Email": new_email}
-        api_handler.do_request(
-            method="PATCH",
-            path=f"sobjects/Contact/{contact_id}",
-            payload=new_contact_payload,
+        contacts_df.replace(
+            {"FirstName": {contact_payloads[0]["FirstName"]: new_first_name}}, inplace=True
+        )
+        contacts_df.replace(
+            {"LastName": {contact_payloads[0]["LastName"]: new_last_name}}, inplace=True
         )
 
         obtained_contact = api_handler.do_query_with_SOQL(
-            f"SELECT Id, Name, Email from Contact WHERE Id = '{contact_id}'"
-        )[0]
-        assert obtained_contact["Name"] == expected_contact_name
-        assert obtained_contact["Email"] == new_email
+            f"SELECT FirstName, LastName, Email from Contact WHERE FirstName = '{new_first_name}'"
+        )
+
+        obtained_contact.sort_values(
+            by=list(obtained_contact.columns), inplace=True, ignore_index=True
+        )
+
+        contacts_df = contacts_df[contacts_df["FirstName"] == new_first_name]
+
+        contacts_df.sort_values(by=list(contacts_df.columns), inplace=True, ignore_index=True)
+
+        assert obtained_contact.equals(other=contacts_df)
 
         # Modify a Contact that does not exist. Failure expected.
         new_contact_payload = {"FirstName": "NEWNAME"}
@@ -442,7 +451,7 @@ class TestLightningRestApiHandler:
         obtained_contacts = api_handler.do_query_with_SOQL(
             f"SELECT Name from Contact WHERE Id = '{contacts[0]}'"
         )
-        assert len(obtained_contacts) == 0
+        assert obtained_contacts.empty
 
         # Delete a Contact that does not exist. Failure expected.
         with pytest.raises(requests.exceptions.RequestException):
@@ -485,7 +494,9 @@ class TestLightningRestApiHandler:
         for record_id in created_record_ids:
             delete_record(sobject="Contact", record_id=record_id)
 
-    def test_contact_modification_high_level(self, api_handler, contacts):
+    def test_contact_modification_high_level(
+        self, api_handler, contacts, contact_payloads, contacts_df
+    ):
         # Modify an existing contact's Name. Success expected.
         new_first_name = "Ralph"
         new_last_name = "Alexander"
@@ -498,25 +509,24 @@ class TestLightningRestApiHandler:
         )
 
         obtained_contact = api_handler.do_query_with_SOQL(
-            f"SELECT Id, Name from Contact WHERE Id = '{contact_id}'"
-        )[0]
-        expected_contact_name = f"{new_first_name} {new_last_name}"
-        assert obtained_contact["Name"] == expected_contact_name
-
-        # Modify an existing contact's Email. Success expected.
-        new_email = f"{new_first_name.lower()}@example.com"
-        new_contact_payload = {"Email": new_email}
-        api_handler.modify_record(
-            sobject="Contact",
-            record_id=contact_id,
-            payload=new_contact_payload,
+            f"SELECT FirstName, LastName, Email FROM Contact WHERE FirstName = '{new_first_name}'"
         )
 
-        obtained_contact = api_handler.do_query_with_SOQL(
-            f"SELECT Id, Name, Email from Contact WHERE Id = '{contact_id}'"
-        )[0]
-        assert obtained_contact["Name"] == expected_contact_name
-        assert obtained_contact["Email"] == new_email
+        obtained_contact.sort_values(by=list(contacts_df.columns), inplace=True, ignore_index=True)
+
+        contacts_df.replace(
+            {"FirstName": {contact_payloads[0]["FirstName"]: new_first_name}}, inplace=True
+        )
+        contacts_df.replace(
+            {"LastName": {contact_payloads[0]["LastName"]: new_last_name}}, inplace=True
+        )
+
+        contacts_df = contacts_df[contacts_df["FirstName"] == new_first_name]
+
+        contacts_df.sort_values(by=list(contacts_df.columns), inplace=True, ignore_index=True)
+
+        # expected_contact_name = f"{new_first_name} {new_last_name}"
+        assert obtained_contact.equals(contacts_df)
 
         # Modify a Contact that does not exist. Failure expected.
         new_contact_payload = {"FirstName": "NEWNAME"}
@@ -534,7 +544,7 @@ class TestLightningRestApiHandler:
         obtained_contacts = api_handler.do_query_with_SOQL(
             f"SELECT Name from Contact WHERE Id = '{contacts[0]}'"
         )
-        assert len(obtained_contacts) == 0
+        assert obtained_contacts.empty
 
         obtained_contacts = api_handler.do_query_with_SOQL(
             f"SELECT Name from contact WHERE Id = '{contacts[1]}'"
@@ -546,7 +556,7 @@ class TestLightningRestApiHandler:
             api_handler.delete_record(sobject="Contact", record_id=contacts[0])
 
     def test_soql_response_to_dataframe(self, api_handler, response, reference):
-        test_result = api_handler.soql_response_to_dataframe(
+        test_result = api_handler._soql_response_to_dataframe(
             response=response,
             drop_columns_containing="attributes",
             column_mapping={
