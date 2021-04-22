@@ -496,11 +496,15 @@ class LightningRestApiHandler:
         query : str
             SOQL with the desired query.
 
-        column_mapping: Dict[str, str]
-            Dictionary containing the names of the columns to map.
+        column_mapping: Dict[str, str], Optional
+            Dictionary containing the names of the columns to map, being the key the Salesforce
+            Object field name and the value the name of the dataframe. If not given, the Salesforce
+            Object field name will be set as column name in the dataframe by default.
 
-        drop_columns_containing: str
-            Columns containing this string will be dropped.
+        drop_columns_containing: str, Optional
+            Columns containing this string will be dropped. By default we drop columns containing
+            `attributes`, because SOQL response contains additional `attributes` fields when the
+            query contains a selection of a field through relationship.
 
         Returns
         -------
@@ -520,18 +524,24 @@ class LightningRestApiHandler:
         Notes
         ----
         Use this method when you know which objects the data resides in, and you want to
-        retrieve data from a single salesforce object or from multiple objects that are related. The
-        maximum number of records that a single SOQL request can return is 2000, when this limit is
-        exceeded, the field `nextRecordsUrl` from the response of the query is used, this method
+        retrieve data from a single salesforce object or from multiple objects that are related.
+
+        The maximum number of records that a single SOQL request can return is 2000, when this limit
+        is exceeded, the field `nextRecordsUrl` from the response of the query is used, this method
         already manages this problem, hence all the records of the query will be returned.
+
+        Salesforce object relationships stands for associations between different Salesforce
+        objects, when objects are related, their fields can be accessed directly in the SOQL query.
+
         This method calls the private method _soql_response_to_dataframe. The response JSON object
         is flattened using the Pandas json_normalize method.
 
         For more information related to SOQL: [1]
-        For a complete description of the SOQL syntax: [2].
-        For more information about the SOQL requests URIs: [3].
-        For more information about the limits of the SOQL requests: [4].
-        For more information about the json_normalize method [5]
+        For a complete description of the SOQL syntax: [2]
+        For more information about the SOQL requests URIs: [3]
+        For more information about the limits of the SOQL requests: [4]
+        For more information about Salesforce objects relationships: [5]
+        For more information about the json_normalize method: [6]
 
         References
         ----------
@@ -548,6 +558,9 @@ class LightningRestApiHandler:
         https://developer.salesforce.com/docs/atlas.en-us.salesforce_app_limits_cheatsheet.meta/salesforce_app_limits_cheatsheet/salesforce_app_limits_platform_soslsoql.htm
 
         [5] :
+        https://developer.salesforce.com/docs/atlas.en-us.api.meta/api/relationships_among_objects.htm
+
+        [6] :
         https://pandas.pydata.org/docs/reference/api/pandas.json_normalize.html
 
         """
