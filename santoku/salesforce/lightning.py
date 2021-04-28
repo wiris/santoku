@@ -483,6 +483,7 @@ class LightningRestApiHandler:
         query: str,
         column_mapping: Dict[str, str] = None,
         drop_columns_containing: str = "attributes",
+        drop_empty_columns: bool = False,
     ) -> pd.DataFrame:
         """
         Constructs and sends a request using SOQL.
@@ -506,6 +507,8 @@ class LightningRestApiHandler:
             `attributes`, because SOQL response contains additional `attributes` fields when the
             query contains a selection of a field through relationship.
 
+        drop_empty_columns: bool, Optional
+            Comlumns that do not contain any value will be removed. Set to false by default.
         Returns
         -------
         pd.DataFrame
@@ -580,11 +583,16 @@ class LightningRestApiHandler:
             response_dict = json.loads(response)
             records.extend(response_dict["records"])
 
-        return self._soql_response_to_dataframe(
+        df = self._soql_response_to_dataframe(
             response=records,
             column_mapping=column_mapping,
             drop_columns_containing=drop_columns_containing,
         )
+
+        if drop_empty_columns:
+            df.dropna(axis=1, how="all", inplace=True)
+
+        return df
 
     def insert_record(self, sobject: str, payload: Dict[str, str]) -> str:
         """
