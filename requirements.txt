@@ -6,3 +6,4 @@ pandas>=1.0.3
 pyarrow>=0.17.1
 requests>=2.23.0
 slackclient>=2.5.0
+tldextract>=3.1.0
