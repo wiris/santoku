@@ -509,6 +509,7 @@ class LightningRestApiHandler:
 
         drop_empty_columns: bool, Optional
             Comlumns that do not contain any value will be removed. Set to false by default.
+
         Returns
         -------
         pd.DataFrame
@@ -525,7 +526,7 @@ class LightningRestApiHandler:
         do_request : this method does a request of type GET.
 
         Notes
-        ----
+        -----
         Use this method when you know which objects the data resides in, and you want to
         retrieve data from a single salesforce object or from multiple objects that are related.
 
