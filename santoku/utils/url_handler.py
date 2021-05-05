@@ -81,7 +81,7 @@ class URLHandler:
                 # If URL doesn't contain anything identified as domain or suffix, return as it is
                 return url
 
-            raise InvalidURLError(f"The given URL '{url}' does not contain domain or suffix.")
+            raise InvalidURLError(f"The {url} URL does not contain domain or suffix")
 
         components = []
         # If the url contains subdomains and subdomains are needed
@@ -162,7 +162,7 @@ class URLHandler:
                 # If URL doesn't contain anything identified as domain or suffix, return as it is
                 return url
 
-            raise InvalidURLError(f"The given URL '{url}' does not contain domain or suffix.")
+            raise InvalidURLError(f"The {url} URL does not contain domain or suffix")
 
         return ".".join(part for part in res if part)
 
@@ -265,7 +265,7 @@ class URLHandler:
             if not raise_exception_if_invalid_url:
                 return [url]
 
-        raise InvalidURLError(f"The given URL '{url}' does not contain domain or suffix.")
+        raise InvalidURLError(f"The {url} URL does not contain domain or suffix")
         # We comment this code block out until we are sure of what to do
         # try:
         #     res = tld.get_tld(url, fix_protocol=True, as_object=True)
