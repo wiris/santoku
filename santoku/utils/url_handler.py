@@ -258,7 +258,13 @@ class URLHandler:
                     return [res.suffix]
         elif res.domain:
             if not raise_exception_if_invalid_url:
-                return [res.domain]
+                exploded_subdomains = [res.domain]
+                if res.subdomain:
+                    # Append splitted subdomains successively
+                    for subdomain in reversed(res.subdomain.split(".")):
+                        exploded_subdomains.append(f"{subdomain}.{exploded_subdomains[-1]}")
+
+                return exploded_subdomains
         else:
             # If a URL isn't valid and no particle has been identified, the same invalid URL will be
             # returned. It's the case of: "", " ", "//", ".", etc

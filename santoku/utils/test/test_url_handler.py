@@ -85,25 +85,25 @@ def get_raw_url_and_exploded_domains():
     # raised), and the list of exploded domains if `raise_exception_if_invalid_url` is set to `True`
     return [
         (
-            "https://sub1.example.com/path?query#fragment",
-            ["example.com", "sub1.example.com"],
-            ["example.com", "sub1.example.com"],
-        ),
-        (
             "http://sub2.sub1.example.com?query#fragment",
             ["example.com", "sub1.example.com", "sub2.sub1.example.com"],
             ["example.com", "sub1.example.com", "sub2.sub1.example.com"],
         ),
-        ("https://localhost.com", ["localhost.com"], ["localhost.com"]),
+        (
+            "https://sub1.example.com/path?query#fragment",
+            ["example.com", "sub1.example.com"],
+            ["example.com", "sub1.example.com"],
+        ),
+        ("https://example.com", ["example.com"], ["example.com"]),
         ("https://example.co.uk", ["example.co.uk"], ["example.co.uk"]),
         ("https://user@example.co.uk:8000", ["example.co.uk"], ["example.co.uk"]),
-        # Notice that com.uk isn't a valid tld, so it is expected that the funcition would consider
-        # 'example' as subdomain, 'com' as domain, and 'uk' as suffix
         ("https://example.com.uk", ["com.uk", "example.com.uk"], ["com.uk", "example.com.uk"]),
         ("www.example.com", ["example.com", "www.example.com"], ["example.com", "www.example.com"]),
+        ("https://localhost.example", None, ["example", "localhost.example"]),
         ("localhost", None, ["localhost"]),
         ("125.0.0.0", None, ["125.0.0.0"]),
         ("com", None, ["com"]),
+        ("*", None, ["*"]),
         ("//", None, ["//"]),
         ("", None, [""]),
     ]
@@ -144,6 +144,7 @@ def raw_dataframe_and_exploded_dataframe():
                     "https://example.co.uk",
                     "https://example.com.uk",
                     "www.example.com",
+                    "https://localhost.example",
                     "localhost",
                     "125.0.0.0",
                     "com",
@@ -183,6 +184,8 @@ def raw_dataframe_and_exploded_dataframe():
                     "example.com.uk",
                     "example.com",
                     "www.example.com",
+                    "example",
+                    "localhost.example",
                     "localhost",
                     "125.0.0.0",
                     "com",
