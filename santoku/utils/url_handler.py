@@ -1,14 +1,20 @@
 import ipaddress
 from typing import List
 
+import numpy as np
 import pandas as pd
 import tldextract
+
+
+class InvalidURLError(Exception):
+    def __init__(self, message):
+        super().__init__(message)
 
 
 class URLHandler:
     @staticmethod
     def get_partial_domain(
-        url: str, num_subdomains: int = 0, return_invalid_urls: bool = False
+        url: str, num_subdomains: int = 0, raise_exception_if_invalid_url: bool = True
     ) -> str:
         """
         Given a URL, return the domain name up to a particular number of subdomains.
@@ -18,19 +24,25 @@ class URLHandler:
         url : str
             The URL to get the partial domain from.
 
-        num_subdomains : int
-            Number of subdomains that are extracted.
+        num_subdomains : int, Optional
+            Number of subdomains that are extracted. No subdomains are extracted by default.
 
-        return_invalid_urls : bool
-            We consider as invalid those URLs that do not contain domain or do not contain suffix,
-            except for URLs containing IP addresses. Set to `False` by default.
+        raise_exception_if_invalid_url : bool, Optional
+            We consider as invalid those URLs that do not contain domain or do not contain suffix.
+            Set to `True` by default.
 
         Returns
         -------
         str
-            The partial domain of the `url`. If `return_invalid_urls` set to `False`, empty string
-            will be returned for invalid urls, otherwise, if subdomain is detected, num_subdomains +
-            domain will be returend, if no subdomain is detected, the URL will be returned as it is.
+            The partial domain of the `url`. When the given URL is invalid, if
+            `raise_exception_if_invalid_url` set to `True`, `InvalidURLError` exception will be
+            raised, otherwise, if subdomain is detected, num_subdomains + domain will be returend,
+            if no subdomain is detected, the URL will be returned as it is.
+
+        Raises
+        ------
+        InvalidURLError
+            If `url` is invalid.
 
         Notes
         -----
@@ -51,7 +63,7 @@ class URLHandler:
         if not res.domain or not res.suffix:
 
             # If URL contain a domain or a suffix, we remove the scheme and path
-            if return_invalid_urls:
+            if not raise_exception_if_invalid_url:
 
                 if res.domain:
                     if res.subdomain and num_subdomains > 0:
@@ -69,7 +81,7 @@ class URLHandler:
                 # If URL doesn't contain anything identified as domain or suffix, return as it is
                 return url
 
-            return ""
+            raise InvalidURLError(f"The given URL '{url}' does not contain domain or suffix.")
 
         components = []
         # If the url contains subdomains and subdomains are needed
@@ -84,7 +96,7 @@ class URLHandler:
         return ".".join(components)
 
     @staticmethod
-    def get_fully_qualified_domain(url: str, return_invalid_urls: bool = False) -> str:
+    def get_fully_qualified_domain(url: str, raise_exception_if_invalid_url: bool = True) -> str:
         """
         Given a URL return its fully qualified domain name without the trailing dot, defined as the
         domain name with all its subdomains.
@@ -94,16 +106,21 @@ class URLHandler:
         url : str
             The URL to get the fully qualified domain.
 
-        return_invalid_urls : bool
-            We consider as invalid those URLs that do not contain domain or do not contain suffix,
-            except for URLs containing IP addresses. Set to `False` by default.
+        raise_exception_if_invalid_url : bool, Optional
+            We consider as invalid those URLs that do not contain domain or do not contain suffix.
+            Set to `True` by default.
 
         Returns
         -------
         str
-            The fully qualified domain of the `url`. If `return_invalid_urls` set to `False`, empty
-            string will be returned for invalid urls, otherwise, the URL without scheme, path, query
-            and fragment will be returned.
+            The fully qualified domain of the `url`. When the given URL is invalid, if
+            `raise_exception_if_invalid_url` set to `True`, `InvalidURLError` exception will be
+            raised, otherwise, the URL without scheme, path, query and fragment will be returned.
+
+        Raises
+        ------
+        InvalidURLError
+            If `url` is invalid.
 
         Notes
         -----
@@ -128,7 +145,7 @@ class URLHandler:
         if not res.domain or not res.suffix:
 
             # If URL contain a domain or a suffix, we remove the scheme and path
-            if return_invalid_urls:
+            if not raise_exception_if_invalid_url:
 
                 if res.domain:
                     # URL contain subdomain and domain, we return subdomain + domain
@@ -145,7 +162,7 @@ class URLHandler:
                 # If URL doesn't contain anything identified as domain or suffix, return as it is
                 return url
 
-            return ""
+            raise InvalidURLError(f"The given URL '{url}' does not contain domain or suffix.")
 
         return ".".join(part for part in res if part)
 
@@ -171,6 +188,7 @@ class URLHandler:
 
         References
         ----------
+        [1] :
         https://docs.python.org/3/library/ipaddress.html
 
         """
@@ -185,7 +203,7 @@ class URLHandler:
         return True
 
     @staticmethod
-    def explode_domain(url: str, return_invalid_urls: bool = False) -> List[str]:
+    def explode_domain(url: str, raise_exception_if_invalid_url: bool = True) -> List[str]:
         """
         Takes in a string with a URL and computes all possible levels of subdomain including top
         level domain, from less complete to more.
@@ -195,19 +213,28 @@ class URLHandler:
         url : str
             The URL to get the fully qualified domain.
 
-        return_invalid_urls : bool
-            We consider as invalid those URLs that do not contain domain or do not contain suffix,
-            except for URLs containing IP addresses. Set to `False` by default.
+        raise_exception_if_invalid_url : bool, Optional
+            We consider as invalid those URLs that do not contain domain or do not contain suffix.
+            Set to `True` by default.
 
         Returns
         -------
         List[str]
-            The exploded domains from less complete to more.
+            The exploded domains from less complete to more. When the given URL is invalid, if
+            `raise_exception_if_invalid_url` is set to `True`, `InvalidURLError` exception will be
+            raised, otherwise, a list containing exploded subdomains of the invalid URL will be
+            returned.
+
+        Raises
+        ------
+        InvalidURLError
+            If `url` is invalid.
 
         Example
         -------
         'www.s1.s2.example.com' -> ['example.com', 's2.example.com', 's1.s2.example.com',
         'www.s1.s2.example.com'].
+
         """
         res = tldextract.extract(url)
 
@@ -225,20 +252,20 @@ class URLHandler:
                 return exploded_subdomains
 
             else:
-                if return_invalid_urls:
+                if not raise_exception_if_invalid_url:
                     # A URL can be identified as suffix when it contains only tlds, i.e: 'com' or
                     # 'co.uk'
                     return [res.suffix]
         elif res.domain:
-            if return_invalid_urls:
+            if not raise_exception_if_invalid_url:
                 return [res.domain]
         else:
             # If a URL isn't valid and no particle has been identified, the same invalid URL will be
             # returned. It's the case of: "", " ", "//", ".", etc
-            if return_invalid_urls:
+            if not raise_exception_if_invalid_url:
                 return [url]
 
-        return [""]
+        raise InvalidURLError(f"The given URL '{url}' does not contain domain or suffix.")
         # We comment this code block out until we are sure of what to do
         # try:
         #     res = tld.get_tld(url, fix_protocol=True, as_object=True)
@@ -260,7 +287,7 @@ class URLHandler:
         df: pd.DataFrame,
         referrer_column="referrer",
         exploded_domains_column="domain",
-        return_invalid_urls: bool = False,
+        raise_exception_if_invalid_url: bool = True,
     ) -> pd.DataFrame:
         """
         Explode the referrers in a `referrer_column` into a `exploded_domains_column`, removing the
@@ -271,22 +298,24 @@ class URLHandler:
         df : pd.DataFrame
             The dataframe to which the referrers will be exploded.
 
-        referrer_column : str
+        referrer_column : str, Optional
             Name of the column containing the referrers to be exploded. Set to `referrer` by
             default.
 
-        exploded_domains_column : str
+        exploded_domains_column : str, Optional
             Name of the column containing the exploded domains. Set to `domain` by default.
 
-        return_invalid_urls : bool
-            We consider as invalid those URLs that do not contain domain or do not contain suffix,
-            except for URLs containing IP addresses. Set to `False` by default.
+        raise_exception_if_invalid_url : bool, Optional
+            We consider as invalid those URLs that do not contain domain or do not contain suffix.
+            Set to `True` by default.
 
         Returns
         -------
         pd.DataFrame
             A dataframe with exploded domains in `exploded_domains_column`, and `referrer_column`
-            removed.
+            removed. If `raise_exception_if_invalid_url` is set to `True`, the rows where the
+            referrer are invalid will be removed, otherwise, the rows where the referrer are invalid
+            will be exploded.
 
         Raises
         ------
@@ -301,8 +330,8 @@ class URLHandler:
         -------
         'www.s1.s2.example.com' -> ['example.com', 's2.example.com', 's1.s2.example.com',
         'www.s1.s2.example.com'].
-        """
 
+        """
         # Check that the `referrer_column` does not contain nan values
         if df[referrer_column].isna().values.any():
             raise ValueError(f"Column {referrer_column} must not contain nan values.")
@@ -311,11 +340,29 @@ class URLHandler:
         result = df.copy()
 
         # Transform the domain into the list of all possible subdomains
-        result[exploded_domains_column] = result[referrer_column].apply(
-            lambda referrer: URLHandler.explode_domain(
-                url=referrer, return_invalid_urls=return_invalid_urls
+        if raise_exception_if_invalid_url:
+
+            def handle_explode_domain(referrer: str):
+                # Return nan if the referrer cannot be exploded
+                try:
+                    exploded_domains = URLHandler.explode_domain(
+                        url=referrer, raise_exception_if_invalid_url=True
+                    )
+                except:
+                    return np.nan
+                else:
+                    return exploded_domains
+
+            # Set the rows with invalid referrers to nan and remove them afterwards
+            result[exploded_domains_column] = result[referrer_column].apply(handle_explode_domain)
+            result.dropna(subset=[exploded_domains_column], inplace=True)
+
+        else:
+            result[exploded_domains_column] = result[referrer_column].apply(
+                lambda referrer: URLHandler.explode_domain(
+                    url=referrer, raise_exception_if_invalid_url=False
+                )
             )
-        )
 
         # Drop referrers, as they are not needed any more
         result.drop(columns=[referrer_column], inplace=True)
