@@ -34,13 +34,13 @@ class LightningRestApiHandler:
     Notes
     -----
     The functionalities of the private methods are the following:
-        Pass authentication credentials to establish connection with salesforce.
-        Collect the object names available in salesforce, which is used to verify the correctness
+        Pass authentication credentials to establish connection with Salesforce.
+        Collect the object names available in Salesforce, which is used to verify the correctness
         of the parameters.
-        Collect the object fields available of a specific salesforce object and store this
+        Collect the object fields available of a specific Salesforce object and store this
         information as a cache, which is used to verify the correctness of the parameters.
         Extract the object name from a given path.
-        Verify if the introduced parameters are valid fields of a salesforce object.
+        Verify if the introduced parameters are valid fields of a Salesforce object.
 
     More information on the use of Salesforce REST API: [1]
 
@@ -67,19 +67,19 @@ class LightningRestApiHandler:
         Parameters
         ----------
         auth_url : str
-            Url used to authenticate with salesforce.
+            Url used to authenticate with Salesforce.
         username : str
-            Username used to authenticate with salesforce.
+            Username used to authenticate with Salesforce.
         password : str
-            Password used to authenticate with salesforce.
+            Password used to authenticate with Salesforce.
         client_id : str
-            Consumer key used to authenticate with salesforce.
+            Consumer key used to authenticate with Salesforce.
         client_secret : str
-            Consumer secret used to authenticate with salesforce.
+            Consumer secret used to authenticate with Salesforce.
         api_version : str, optional
             Version of the Salesforce API used (the default is 47.0).
         grant_type : str, optional
-            Type of credentials used to authenticate with salesforce(the default is 'password').
+            Type of credentials used to authenticate with Salesforce(the default is 'password').
 
         """
         self._url_to_format = "{}/services/data/v{}/{}"
@@ -104,7 +104,7 @@ class LightningRestApiHandler:
             "Content-type": "application/json",
         }
 
-        # Indicates if there is need to validate whether the requesting salesforce object is valid.
+        # Indicates if there is need to validate whether the requesting Salesforce object is valid.
         self._validate_salesforce_object = True
         self._is_authenticated = False
 
@@ -123,22 +123,22 @@ class LightningRestApiHandler:
         grant_type: str = "password",
     ) -> "LightningRestApiHandler":
         """
-        Retrieve the salesforce credentials from AWS Secrets Manager and initialize the class.
+        Retrieve the Salesforce credentials from AWS Secrets Manager and initialize the class.
         Requires that AWS credentials with the appropriate permissions are located somewhere on the
         AWS credential chain in the local machine.
 
         Parameters
         ----------
         secret_name : str
-            Name or ARN for the secret containing the JSON needed for the salesforce authentication.
+            Name or ARN for the secret containing the JSON needed for the Salesforce authentication.
         secret_keys : Dict[str, str], optional
             Sepecification of the secret keys used in AWS Secrets Manager to store the credentials.
             (By default "AUTH_URL", "USR", "PSW", "CLIENT_USR", "CLIENT_PSW" will be the keys that
-            stores the salesforce credentials.)
+            stores the Salesforce credentials.)
         api_version : str, optional
             Version of the Salesforce API used (the default is 47.0).
         grant_type : str, optional
-            Type of credentials used to authenticate with salesforce(the default is 'password').
+            Type of credentials used to authenticate with Salesforce(the default is 'password').
 
         Raises
         ------
@@ -219,7 +219,7 @@ class LightningRestApiHandler:
         Return
         ------
         List[str]
-            List of names of the salesforce object in the organization.
+            List of names of the Salesforce object in the organization.
 
         """
         if not self._salesforce_object_names_cache:
@@ -241,12 +241,12 @@ class LightningRestApiHandler:
         Parameters
         ----------
         salesforce_object_name : str, optional
-            A salesforce object.
+            A Salesforce object.
 
         Return
         ------
         List[str]
-            List of all the fields that a salesforce object has.
+            List of all the fields that a Salesforce object has.
 
         """
         if salesforce_object_name not in self._salesforce_object_fields_cache:
@@ -277,12 +277,12 @@ class LightningRestApiHandler:
         Parameters
         ----------
         salesforce_object_name : str, optional
-            A salesforce object.
+            A Salesforce object.
 
         Return
         ------
         List[str]
-            List of the required fields that a salesforce object needs to be created.
+            List of the required fields that a Salesforce object needs to be created.
 
         Notes
         -----
@@ -305,7 +305,7 @@ class LightningRestApiHandler:
             )
 
             # A required field cannot be null, its value will not be assigned automatically by
-            # salesforce when the record is created, and its value can be assigned by the user.
+            # Salesforce when the record is created, and its value can be assigned by the user.
             self._salesforce_object_required_fields_cache[salesforce_object_name] = [
                 fields["name"]
                 for fields in json.loads(response)["fields"]
@@ -317,7 +317,7 @@ class LightningRestApiHandler:
         return self._salesforce_object_required_fields_cache[salesforce_object_name]
 
     def _obtain_salesforce_object_name_from_path(self, path: str) -> str:
-        # Extract salesforce_object_name taking into account that we'll find something like...
+        # Extract Salesforce_object_name taking into account that we'll find something like...
         if "describe" in path:
             # ...sobjects/Account/describe
             salesforce_object_name = path.split("/")[1]
@@ -415,13 +415,13 @@ class LightningRestApiHandler:
             If any field in the payload is invalid, any required field is empty or missing.
 
         SalesforceObjectError
-            If the object in the query is not a valid salesforce object.
+            If the object in the query is not a valid Salesforce object.
 
         RequestMethodError
             If the method is not supported, or the payload is missing when needed.
 
         requests.exceptions.RequestException
-            If the connection with salesforce fails, e.g. the requesting resource does not exist.
+            If the connection with Salesforce fails, e.g. the requesting resource does not exist.
 
         """
         if method not in ["POST", "GET", "PATCH", "DELETE"]:
@@ -508,7 +508,7 @@ class LightningRestApiHandler:
             query contains a selection of a field through relationship.
 
         drop_empty_columns: bool, Optional
-            Comlumns that do not contain any value will be removed. Set to false by default.
+            Columns that do not contain any value will be removed. Set to false by default.
 
         Returns
         -------
@@ -518,7 +518,7 @@ class LightningRestApiHandler:
         Raises
         ------
         requests.exceptions.RequestException
-            If the request fails, e.g. the requesting attribute does not exist for the salesforce
+            If the request fails, e.g. the requesting attribute does not exist for the Salesforce
             object class.
 
         See Also
@@ -528,7 +528,7 @@ class LightningRestApiHandler:
         Notes
         -----
         Use this method when you know which objects the data resides in, and you want to
-        retrieve data from a single salesforce object or from multiple objects that are related.
+        retrieve data from a single Salesforce object or from multiple objects that are related.
 
         The maximum number of records that a single SOQL request can return is 2000, when this limit
         is exceeded, the field `nextRecordsUrl` from the response of the query is used, this method
@@ -597,14 +597,14 @@ class LightningRestApiHandler:
 
     def insert_record(self, sobject: str, payload: Dict[str, str]) -> str:
         """
-        Create a new instance of a salesforce object.
+        Create a new instance of a Salesforce object.
 
         Create a new record of type `sobject` with the information in the payload.
 
         Parameters
         ----------
         sobject : str
-            A salesforce object.
+            A Salesforce object.
         payload : Dict[str, str]
             Payload that contains information to create the record.
 
@@ -622,7 +622,7 @@ class LightningRestApiHandler:
 
     def modify_record(self, sobject: str, record_id: str, payload: Dict[str, str]) -> str:
         """
-        Update an instance of a salesforce object.
+        Update an instance of a Salesforce object.
 
         Modify a record of type `sobject` with id `record_id` using the new
         information in the `payload`.
@@ -630,7 +630,7 @@ class LightningRestApiHandler:
         Parameters
         ----------
         sobject : str
-            A salesforce object.
+            A Salesforce object.
         record_id : str
             The record identifier.
         payload : Dict[str, str]
@@ -641,7 +641,7 @@ class LightningRestApiHandler:
             Response from Salesforce. This is a JSON encoded as text.
 
         requests.exceptions.RequestException
-            If the connection with salesforce fails, e.g. the record does not exist.
+            If the connection with Salesforce fails, e.g. the record does not exist.
 
         See Also
         --------
@@ -656,14 +656,14 @@ class LightningRestApiHandler:
 
     def delete_record(self, sobject: str, record_id: str) -> str:
         """
-        Remove an instance of a salesforce object.
+        Remove an instance of a Salesforce object.
 
         Delete a record of type `sobject` with id `record_id`.
 
         Parameters
         ----------
         sobject : str
-            A salesforce object.
+            A Salesforce object.
         record_id : str
             The identification of the record.
         Returns
@@ -672,7 +672,7 @@ class LightningRestApiHandler:
             Response from Salesforce. This is a JSON encoded as text.
 
         requests.exceptions.RequestException
-            If the connection with salesforce fails, e.g. the record does not exist.
+            If the connection with Salesforce fails, e.g. the record does not exist.
 
         See Also
         --------
@@ -696,7 +696,7 @@ class LightningRestApiHandler:
 
         Notes
         -----
-        For more information about the salesforce organization limits: [1]
+        For more information about the Salesforce organization limits: [1]
 
         References
         ----------
