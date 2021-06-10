@@ -1,4 +1,4 @@
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import boto3
 from botocore import exceptions
@@ -184,6 +184,8 @@ class SQSHandler:
         self,
         queue_name: str,
         message_body: str,
+        message_deduplication_id: Optional[str] = None,
+        message_group_id: Optional[str] = None,
         message_attributes: Dict[str, Dict[str, Any]] = {},
     ) -> Dict[str, Any]:
         """
@@ -198,6 +200,11 @@ class SQSHandler:
             Name of the queue to send the message.
         message_body : str
             Body of of the message to be sent.
+        message_deduplication_id : str, optional
+            Token used for deduplication of sent messages. Required for FIFO queues.
+        message_group_id : str, optional
+             Tag that specifies that a message belongs to a specific message group. Required for
+             FIFO queues.
         message_attributes : Dict[str, Dict[str, Any]], optional
             Attributes of the message to send. Will be empty by default.
 
@@ -231,18 +238,47 @@ class SQSHandler:
             queue_url = self.get_queue_url(queue_name=queue_name)
             self.queue_url[queue_name] = queue_url
 
-        if message_attributes:
-            # Check whether the message attributes are correctly structured.
-            self.check_message_attributes_are_well_formed(message_attributes=message_attributes)
+        # Check if the type of queue is FIFO
+        fifo = self.check_queue_is_fifo(queue_name)
 
-            response = self.client.send_message(
-                QueueUrl=queue_url,
-                MessageBody=message_body,
-                MessageAttributes=message_attributes,
-            )
+        if fifo:  # Add required parameters in send_message method for fifo queues
+            if message_attributes:
+                # Check whether the message attributes are correctly structured.
+                self.check_message_attributes_are_well_formed(message_attributes=message_attributes)
+
+                response = self.client.send_message(
+                    QueueUrl=queue_url,
+                    MessageBody=message_body,
+                    MessageAttributes=message_attributes,
+                    MessageDeduplicationId=message_deduplication_id,
+                    MessageGroupId=message_group_id,
+                )
+
+            else:
+                response = self.client.send_message(
+                    QueueUrl=queue_url,
+                    MessageBody=message_body,
+                    MessageDeduplicationId=message_deduplication_id,
+                    MessageGroupId=message_group_id,
+                )
 
         else:
-            response = self.client.send_message(QueueUrl=queue_url, MessageBody=message_body)
+
+            if message_attributes:
+                # Check whether the message attributes are correctly structured.
+                self.check_message_attributes_are_well_formed(message_attributes=message_attributes)
+
+                response = self.client.send_message(
+                    QueueUrl=queue_url,
+                    MessageBody=message_body,
+                    MessageAttributes=message_attributes,
+                )
+
+            else:
+                response = self.client.send_message(
+                    QueueUrl=queue_url,
+                    MessageBody=message_body,
+                )
 
         return response
 
