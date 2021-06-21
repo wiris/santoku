@@ -360,9 +360,7 @@ class TestLightningRestApiHandler:
                 f"SELECT Id, Name From {wrong_object_name}"
             )
 
-    def test_contact_query(
-        self, api_handler, contact_payloads, contacts, delete_record, contacts_df
-    ):
+    def test_contact_query(self, api_handler, contact_payloads, contacts, contacts_df):
 
         # Read the Contacts inserted with SOQL. Success expected.
         obtained_contacts = api_handler.do_query_with_SOQL(
@@ -386,9 +384,8 @@ class TestLightningRestApiHandler:
             by=list(obtained_contacts.columns), inplace=True, ignore_index=True
         )
 
-        expected_contacts = contacts_df[contacts_df["FirstName"] == first_name]
-        expected_contacts.sort_values(
-            by=list(expected_contacts.columns), inplace=True, ignore_index=True
+        expected_contacts = contacts_df[contacts_df["FirstName"] == first_name].sort_values(
+            by=list(contacts_df.columns), ignore_index=True
         )
 
         assert obtained_contacts.equals(other=expected_contacts)
@@ -426,9 +423,9 @@ class TestLightningRestApiHandler:
             by=list(obtained_contact.columns), inplace=True, ignore_index=True
         )
 
-        contacts_df = contacts_df[contacts_df["FirstName"] == new_first_name]
-
-        contacts_df.sort_values(by=list(contacts_df.columns), inplace=True, ignore_index=True)
+        contacts_df = contacts_df[contacts_df["FirstName"] == new_first_name].sort_values(
+            by=list(contacts_df.columns), ignore_index=True
+        )
 
         assert obtained_contact.equals(other=contacts_df)
 
@@ -521,9 +518,9 @@ class TestLightningRestApiHandler:
             {"LastName": {contact_payloads[0]["LastName"]: new_last_name}}, inplace=True
         )
 
-        contacts_df = contacts_df[contacts_df["FirstName"] == new_first_name]
-
-        contacts_df.sort_values(by=list(contacts_df.columns), inplace=True, ignore_index=True)
+        contacts_df = contacts_df[contacts_df["FirstName"] == new_first_name].sort_values(
+            by=list(contacts_df.columns), ignore_index=True
+        )
 
         # expected_contact_name = f"{new_first_name} {new_last_name}"
         assert obtained_contact.equals(contacts_df)

@@ -1,4 +1,4 @@
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional, Union
 
 import boto3
 from botocore import exceptions
@@ -10,6 +10,11 @@ class MessageAttributeError(Exception):
 
 
 class MessageBatchError(Exception):
+    def __init__(self, message):
+        super().__init__(message)
+
+
+class SQSMissingArgumentError(Exception):
     def __init__(self, message):
         super().__init__(message)
 
@@ -184,7 +189,9 @@ class SQSHandler:
         self,
         queue_name: str,
         message_body: str,
-        message_attributes: Dict[str, Dict[str, Any]] = {},
+        message_deduplication_id: str = None,
+        message_group_id: str = None,
+        message_attributes: Dict[str, dict] = {},
     ) -> Dict[str, Any]:
         """
         Deliver a message to a SQS Queue.
@@ -198,6 +205,11 @@ class SQSHandler:
             Name of the queue to send the message.
         message_body : str
             Body of of the message to be sent.
+        message_deduplication_id : str, optional
+            Token used for deduplication of sent messages. Required for FIFO queues.
+        message_group_id : str, optional
+             Tag that specifies that a message belongs to a specific message group. Required for
+             FIFO queues.
         message_attributes : Dict[str, Dict[str, Any]], optional
             Attributes of the message to send. Will be empty by default.
 
@@ -212,6 +224,10 @@ class SQSHandler:
         ------
         MessageAttributeError
             If the message argument is not correctly structured.
+
+        SQSMissingArgumentError
+            If`queue_name` is a FIFO queue and the message doesn't contain a `MessageDeduplicationId`
+            or a MessageGroupId
 
         See Also
         --------
@@ -231,18 +247,33 @@ class SQSHandler:
             queue_url = self.get_queue_url(queue_name=queue_name)
             self.queue_url[queue_name] = queue_url
 
+        # Check if the type of queue is FIFO
+        fifo = self.check_queue_is_fifo(queue_name)
+
+        # Add optional arguments
+        args: Dict[str, Union[str, Dict[str, dict]]] = {}
+
         if message_attributes:
             # Check whether the message attributes are correctly structured.
             self.check_message_attributes_are_well_formed(message_attributes=message_attributes)
+            args["MessageAttributes"] = message_attributes
+        if fifo:
+            if not message_deduplication_id:
+                raise SQSMissingArgumentError(
+                    "Missing `message_deduplication_id` argument for FIFO Queues"
+                )
 
-            response = self.client.send_message(
-                QueueUrl=queue_url,
-                MessageBody=message_body,
-                MessageAttributes=message_attributes,
-            )
+            if not message_group_id:
+                raise SQSMissingArgumentError("Missing `message_group_id` argument for FIFO Queues")
 
-        else:
-            response = self.client.send_message(QueueUrl=queue_url, MessageBody=message_body)
+            args["MessageDeduplicationId"] = message_deduplication_id
+            args["MessageGroupId"] = message_group_id
+
+        response = self.client.send_message(
+            QueueUrl=queue_url,
+            MessageBody=message_body,
+            **args,
+        )
 
         return response
 
@@ -274,6 +305,10 @@ class SQSHandler:
             If any message does not contain id or message body, if the ids are not unique, or if the
             message attributes are not correctly structured.
 
+        SQSMissingArgumentError
+            If `queue_name` is a FIFO queue and any message doesn't contain a `MessageDeduplicationId`
+            or a MessageGroupId
+
         See Also
         --------
         get_queue_url : this method retreives the queue url with the given queue name.
@@ -286,6 +321,7 @@ class SQSHandler:
         messages (message body and attributes all together) cannot exceed 256KB.
 
         """
+
         if not entries:
             error_message = "The list of 'entries' cannot be emtpy."
             raise MessageBatchError(error_message)
@@ -294,7 +330,10 @@ class SQSHandler:
             error_message = "The maximum number of messages allowed in a batch is 10."
             raise MessageBatchError(error_message)
 
-        # Check if all message have the required attributes and if the message attributes are
+        # Check if the type of queue is FIFO
+        fifo = self.check_queue_is_fifo(queue_name)
+
+        # Check if all messages have the required attributes and if the message attributes are
         # correctly structured.
         entries_ids = []
         for entry in entries:
@@ -310,6 +349,17 @@ class SQSHandler:
 
             if "MessageAttributes" in entry:
                 self.check_message_attributes_are_well_formed(entry["MessageAttributes"])
+
+            if fifo:
+                if "MessageDeduplicationId" not in entry:
+                    raise SQSMissingArgumentError(
+                        "`MessageDeduplicationId` is required for each message for FIFO Queues"
+                    )
+
+                if "MessageGroupId" not in entry:
+                    raise SQSMissingArgumentError(
+                        "`MessageGroupId` is required for each message for FIFO Queues"
+                    )
 
         # Check the message ids are unique along the batch.
         if len(entries_ids) != len(set(entries_ids)):

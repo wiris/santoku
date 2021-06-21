@@ -4,7 +4,12 @@ import boto3
 import pytest
 from botocore import exceptions
 from moto import mock_sqs
-from santoku.aws.sqs import MessageAttributeError, MessageBatchError, SQSHandler
+from santoku.aws.sqs import (
+    MessageAttributeError,
+    MessageBatchError,
+    SQSHandler,
+    SQSMissingArgumentError,
+)
 
 
 @pytest.fixture(scope="class")
@@ -176,8 +181,8 @@ class TestSQSHandler:
         with pytest.raises(MessageAttributeError, match=expected_message):
             sqs_handler.check_message_attributes_are_well_formed(attributes)
 
-    def test_send_message(self, sqs_handler, standard_queue, message_attributes):
-        # Send a message to a standard queue. Success expected.
+    def test_send_message_to_standard_queue(self, sqs_handler, standard_queue, message_attributes):
+        # Send a message to a standard queue without message attributes. Success expected.
         message_body = "Test message body."
         response = sqs_handler.send_message(
             queue_name=standard_queue,
@@ -194,7 +199,45 @@ class TestSQSHandler:
         obtained_message_id = response["Messages"][0]["MessageId"]
         assert obtained_message_id == expected_message_id
 
-    def test_send_message_batch(self, sqs_handler, standard_queue, message_attributes):
+        # Check if the received message contains the message attributes
+        assert "MessageAttributes" in response["Messages"][0]
+
+    def test_send_message_to_fifo_queue(self, sqs_handler, fifo_queue, message_attributes):
+        # Send a message to a FIFO queue. Success expected.
+        message_body = "Test message body."
+        message_deduplication_id = "test_deduplication_id"
+        message_group_id = "test_group_id"
+
+        response = sqs_handler.send_message(
+            queue_name=fifo_queue,
+            message_body=message_body,
+            message_deduplication_id=message_deduplication_id,
+            message_group_id=message_group_id,
+            message_attributes=message_attributes,
+        )
+        assert response["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+        # Check if the received ids match the sent ones.
+        expected_message_id = response["MessageId"]
+
+        queue_url = sqs_handler.client.get_queue_url(QueueName=fifo_queue)["QueueUrl"]
+        response = sqs_handler.client.receive_message(QueueUrl=queue_url)
+        obtained_message_id = response["Messages"][0]["MessageId"]
+        assert obtained_message_id == expected_message_id
+
+        # Check if the received message contains the message attributes
+        assert "MessageAttributes" in response["Messages"][0]
+
+        # Send a message to a FIFO queue without passing the required attirbutes. Failure expected.
+        with pytest.raises(SQSMissingArgumentError):
+            sqs_handler.send_message(
+                queue_name=fifo_queue,
+                message_body=message_body,
+            )
+
+    def test_send_message_batch_to_standard_queue(
+        self, sqs_handler, standard_queue, message_attributes
+    ):
         entries = []
 
         # Send a batch without messages to a standard queue. Failure expected.
@@ -278,6 +321,76 @@ class TestSQSHandler:
         with pytest.raises(MessageBatchError, match=error_message):
             sqs_handler.send_message_batch(
                 queue_name=standard_queue,
+                entries=entries,
+            )
+
+    def test_send_message_batch_to_fifo_queue(self, sqs_handler, fifo_queue, message_attributes):
+        entries = []
+
+        # Send a batch without messages to a standard queue. Failure expected.
+        error_message = "The list of 'entries' cannot be emtpy."
+        with pytest.raises(MessageBatchError, match=error_message):
+            sqs_handler.send_message_batch(
+                queue_name=fifo_queue,
+                entries=entries,
+            )
+
+        # Send a batch of n messages to a standard queue. Success expected.
+        number_messages = 3
+        for i in range(1, number_messages + 1):
+            message_id = f"ID{i}"
+            message_body = f"Test message body {i}."
+            message = {
+                "Id": message_id,
+                "MessageBody": message_body,
+                "MessageAttributes": message_attributes,
+                "MessageDeduplicationId": f"test_message_deduplication_id_{i}",
+                "MessageGroupId": "test_message_group_id",
+            }
+            entries.append(message)
+
+        response = sqs_handler.send_message_batch(
+            queue_name=fifo_queue,
+            entries=entries,
+        )
+        assert response["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+        # Check whether the received message ids coincide with the ones sent.
+
+        # Collect the message ids.
+        expected_message_ids = set()
+        for message_response in response["Successful"]:
+            expected_message_ids.add(message_response["MessageId"])
+
+        # We use sets because the reception order is not guaranteed.
+        obtained_message_ids = set()
+        queue_url = sqs_handler.client.get_queue_url(QueueName=fifo_queue)["QueueUrl"]
+
+        # Set the maximum number of messages, by default it was 1.
+        response = sqs_handler.client.receive_message(
+            QueueUrl=queue_url, MaxNumberOfMessages=number_messages
+        )
+
+        for message in response["Messages"]:
+            obtained_message_ids.add(message["MessageId"])
+        assert obtained_message_ids == expected_message_ids
+
+        # Send a batch of n messages to a FIFO queue without all the required attributes. Failure
+        # expected.
+        number_messages = 3
+        for i in range(1, number_messages + 1):
+            message_id = f"ID{i}"
+            message_body = f"Test message body {i}."
+            message = {
+                "Id": message_id,
+                "MessageBody": message_body,
+                "MessageAttributes": message_attributes,
+            }
+            entries.append(message)
+
+        with pytest.raises(SQSMissingArgumentError):
+            sqs_handler.send_message_batch(
+                queue_name=fifo_queue,
                 entries=entries,
             )
 
