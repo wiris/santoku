@@ -306,7 +306,7 @@ class SQSHandler:
             message attributes are not correctly structured.
 
         SQSMissingArgumentError
-            If`queue_name` is a FIFO queue and any message doesn't contain a `MessageDeduplicationId`
+            If `queue_name` is a FIFO queue and any message doesn't contain a `MessageDeduplicationId`
             or a MessageGroupId
 
         See Also
@@ -333,7 +333,7 @@ class SQSHandler:
         # Check if the type of queue is FIFO
         fifo = self.check_queue_is_fifo(queue_name)
 
-        # Check if all message have the required attributes and if the message attributes are
+        # Check if all messages have the required attributes and if the message attributes are
         # correctly structured.
         entries_ids = []
         for entry in entries:
