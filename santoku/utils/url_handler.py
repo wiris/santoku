@@ -13,9 +13,9 @@ class InvalidURLError(Exception):
 
 
 class URLHandler:
-    @staticmethod
+    @classmethod
     def get_partial_domain(
-        url: str, num_subdomains: int = 0, raise_exception_if_invalid_url: bool = True
+        cls, url: str, num_subdomains: int = 0, raise_exception_if_invalid_url: bool = True
     ) -> str:
         """
         Given a URL, return the domain name up to a particular number of subdomains.
@@ -102,8 +102,10 @@ class URLHandler:
 
         return ".".join(components)
 
-    @staticmethod
-    def get_fully_qualified_domain(url: str, raise_exception_if_invalid_url: bool = True) -> str:
+    @classmethod
+    def get_fully_qualified_domain(
+        cls, url: str, raise_exception_if_invalid_url: bool = True
+    ) -> str:
         """
         Given a URL return its fully qualified domain name without the trailing dot, defined as the
         domain name with all its subdomains.
@@ -179,8 +181,8 @@ class URLHandler:
 
         return ".".join(part for part in res if part)
 
-    @staticmethod
-    def contains_ip(url: str) -> bool:
+    @classmethod
+    def contains_ip(cls, url: str) -> bool:
         """
         Return true if the given string contains an IP address.
 
@@ -215,8 +217,8 @@ class URLHandler:
 
         return True
 
-    @staticmethod
-    def explode_domain(url: str, raise_exception_if_invalid_url: bool = True) -> List[str]:
+    @classmethod
+    def explode_domain(cls, url: str, raise_exception_if_invalid_url: bool = True) -> List[str]:
         """
         Takes in a string with a URL and computes all possible levels of subdomain including top
         level domain, from less complete to more.
