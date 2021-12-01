@@ -1,5 +1,6 @@
 import ipaddress
 from typing import List
+from urllib.parse import urlparse
 
 import numpy as np
 import pandas as pd
@@ -78,7 +79,13 @@ class URLHandler:
                     # URL contain only sufix, we return only the suffix
                     return res.suffix
 
-                # If URL doesn't contain anything identified as domain or suffix, return as it is
+                # If URL doesn't contain anything identified as domain or suffix, check whether it
+                # contains scheme. If so, return an empty domain, otherwise, return the url as it is
+                # e.g.: for `http:///integration/...` an empty domain will be returned, while for
+                # `fakedomain`, the whole `fakedomain` will be returned.
+                if urlparse(url).scheme:
+                    return ""
+
                 return url
 
             raise InvalidURLError(f"The {url} URL does not contain domain or suffix")
@@ -159,7 +166,13 @@ class URLHandler:
                     # URL contain only sufix, we return only the suffix
                     return res.suffix
 
-                # If URL doesn't contain anything identified as domain or suffix, return as it is
+                # If URL doesn't contain anything identified as domain or suffix, check whether it
+                # contains scheme. If so, return an empty domain, otherwise, return the url as it is
+                # e.g.: for `http:///integration/...` an empty domain will be returned, while for
+                # `fakedomain`, the whole `fakedomain` will be returned.
+                if urlparse(url).scheme:
+                    return ""
+
                 return url
 
             raise InvalidURLError(f"The {url} URL does not contain domain or suffix")
@@ -266,9 +279,15 @@ class URLHandler:
 
                 return exploded_subdomains
         else:
-            # If a URL isn't valid and no particle has been identified, the same invalid URL will be
-            # returned. It's the case of: "", " ", "//", ".", etc
             if not raise_exception_if_invalid_url:
+                # If URL doesn't contain anything identified as domain or suffix, check whether it
+                # contains scheme. If so, return an empty domain, e.g.: for
+                # `http:///integration/...`, an empty domain will be returned. Otherwise
+                #  return the url as it is: it's the case of: "fakedomain", " ", "//", ".", etc.
+
+                if urlparse(url).scheme:
+                    return [""]
+
                 return [url]
 
         raise InvalidURLError(f"The {url} URL does not contain domain or suffix")

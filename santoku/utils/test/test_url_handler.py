@@ -20,11 +20,7 @@ from santoku.utils.url_handler import InvalidURLError, URLHandler
         ("https://sub2.sub1.example.com", 3, "sub2.sub1.example.com"),
         ("https://example.com", 1, "example.com"),
         ("https://example.co.uk", 0, "example.co.uk"),
-        (
-            "https://user@example.co.uk:8000",
-            0,
-            "example.co.uk",
-        ),
+        ("https://user@example.co.uk:8000", 0, "example.co.uk"),
         # Note that com.uk isn't a valid tld (but it is a valid url), so it is expected that the
         # funcition would consider 'example' as subdomain, 'com' as domain, and 'uk' as suffix
         ("https://example.com.uk", 0, "com.uk"),
@@ -40,6 +36,7 @@ from santoku.utils.url_handler import InvalidURLError, URLHandler
         ("*", 0, None),
         ("//", 0, None),
         ("", 0, None),
+        ("https:///integration/ckeditor", 0, None),
     ],
     scope="function",
 )
@@ -97,6 +94,8 @@ def test_get_partial_domain_raising_exception_for_invalid_url(
         ("*", 0, "*"),
         ("//", 0, "//"),
         ("", 0, ""),
+        ("https:///integration/ckeditor", 0, ""),
+        ("https:///integration/ckeditor", 1, ""),
     ],
     scope="function",
 )
@@ -140,6 +139,9 @@ def test_get_partial_domain_not_raising_exception_for_invalid_url(
         ("*", None),
         ("//", None),
         ("", None),
+        ("https:///js", None),
+        ("https:///integration/", None),
+        ("https:///integration/ckeditor", None),
     ],
 )
 def test_get_fully_qualified_domain_raising_exception_for_invalid_url(
@@ -188,6 +190,9 @@ def test_get_fully_qualified_domain_raising_exception_for_invalid_url(
         ("*", "*"),
         ("//", "//"),
         ("", ""),
+        ("https:///integration/ckeditor", ""),
+        ("https:///js/", ""),
+        ("https:///integration/", ""),
     ],
 )
 def test_get_fully_qualified_domain_not_raising_exception_for_invalid_url(
@@ -219,6 +224,7 @@ def test_get_fully_qualified_domain_not_raising_exception_for_invalid_url(
         ("1", False),
         ("0", False),
         ("", False),
+        ("https:///integration/ckeditor", False),
     ],
     scope="function",
 )
@@ -250,6 +256,8 @@ def test_contains_ip(input_url, reference_containing_ip_evaluation):
         ("*", None),
         ("//", None),
         ("", None),
+        ("https:///js", None),
+        ("https:///integration/ckeditor", None),
     ],
     scope="function",
 )
@@ -299,6 +307,8 @@ def test_explode_domain(input_url, reference_exploded_domains_raising_exception_
         ("*", ["*"]),
         ("//", ["//"]),
         ("", [""]),
+        ("https:///js", [""]),
+        ("https:///integration/ckeditor", [""]),
     ],
     scope="function",
 )
@@ -318,7 +328,7 @@ def test_explode_domain_not_raising_exception_for_invalid_url(
 @pytest.mark.parametrize(
     argnames=(
         "input_df",
-        "reference_df_raising_exception_for_invalid_url",
+        "reference_df_dropping_invalid_urls",
     ),
     # Each tuple contains: an input DataFarme with raw referrers and an expected DataFrame with the
     # resulting exploded domains when `raise_exception_if_invalid_url` is set to `True`
@@ -339,6 +349,8 @@ def test_explode_domain_not_raising_exception_for_invalid_url(
                         "com",
                         "//",
                         "",
+                        "https:///integration/ckeditor",
+                        "https:///js",
                     ]
                 }
             ),
@@ -363,26 +375,24 @@ def test_explode_domain_not_raising_exception_for_invalid_url(
     ],
     scope="function",
 )
-def test_explode_domains_raising_exception_for_invalid_url(
+def test_explode_domains_dropping_invalid_urls(
     input_df,
-    reference_df_raising_exception_for_invalid_url,
+    reference_df_dropping_invalid_urls,
 ):
 
-    test_df_raising_exception_for_invalid_url = URLHandler.explode_domains(
+    test_df_dropping_invalid_urls = URLHandler.explode_domains(
         df=input_df, raise_exception_if_invalid_url=True
     )
-    assert test_df_raising_exception_for_invalid_url.equals(
-        reference_df_raising_exception_for_invalid_url
-    )
+    assert test_df_dropping_invalid_urls.equals(reference_df_dropping_invalid_urls)
 
     # Test referrer column is removed
-    assert "referrer" not in test_df_raising_exception_for_invalid_url.columns
+    assert "referrer" not in test_df_dropping_invalid_urls.columns
 
 
 @pytest.mark.parametrize(
     argnames=(
         "input_df",
-        "reference_df_not_raising_exception_for_invalid_url",
+        "reference_df_not_dropping_invalid_urls",
     ),
     # Each tuple contains: an input DataFarme with raw referrers and an expected DataFrame with the
     # resulting exploded domains when `raise_exception_if_invalid_url` is set to `False`
@@ -434,20 +444,18 @@ def test_explode_domains_raising_exception_for_invalid_url(
     ],
     scope="function",
 )
-def test_explode_domains_not_raising_exception_for_invalid_url(
+def test_explode_domains_not_dropping_invalid_urls(
     input_df,
-    reference_df_not_raising_exception_for_invalid_url,
+    reference_df_not_dropping_invalid_urls,
 ):
     # Test returning invalid urls
-    test_df_not_raising_exception_for_invalid_url = URLHandler.explode_domains(
+    test_df_not_dropping_invalid_urls = URLHandler.explode_domains(
         df=input_df, raise_exception_if_invalid_url=False
     )
-    assert test_df_not_raising_exception_for_invalid_url.equals(
-        reference_df_not_raising_exception_for_invalid_url
-    )
+    assert test_df_not_dropping_invalid_urls.equals(reference_df_not_dropping_invalid_urls)
 
     # Test referrer column is removed
-    assert "referrer" not in test_df_not_raising_exception_for_invalid_url.columns
+    assert "referrer" not in test_df_not_dropping_invalid_urls.columns
 
 
 def test_error_is_raised_for_nan_referrers():
