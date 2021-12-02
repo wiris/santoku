@@ -2,8 +2,6 @@ import ipaddress
 from typing import List
 from urllib.parse import urlparse
 
-import numpy as np
-import pandas as pd
 import tldextract
 
 
@@ -20,6 +18,12 @@ class URLHandler:
         """
         Given a URL, return the domain name up to a particular number of subdomains.
 
+        When the given URL is invalid, if `raise_exception_if_invalid_url` is set to `True`,
+        `InvalidURLError` exception will be raised. Otherwise, if the URL contains subdomain,
+        num_subdomains + domain will be returned, if the URL does not contain subdomain, an empty
+        string will be returned if the scheme is detected, otherwise, the URL will be returned as it
+        is.
+
         Parameters
         ----------
         url : str
@@ -29,16 +33,13 @@ class URLHandler:
             Number of subdomains that are extracted. No subdomains are extracted by default.
 
         raise_exception_if_invalid_url : bool, Optional
-            We consider as invalid those URLs that do not contain domain or do not contain suffix.
-            Set to `True` by default.
+            We consider as invalid those URLs in which some particles are missing in the fully
+            qualified domain name. Set to `True` by default.
 
         Returns
         -------
         str
-            The partial domain of the `url`. When the given URL is invalid, if
-            `raise_exception_if_invalid_url` set to `True`, `InvalidURLError` exception will be
-            raised, otherwise, if subdomain is detected, num_subdomains + domain will be returend,
-            if no subdomain is detected, the URL will be returned as it is.
+            The partial domain of the `url` following the aforementioned criteria.
 
         Raises
         ------
@@ -48,7 +49,7 @@ class URLHandler:
         Notes
         -----
         Notice that with our definition of invalid URLs, URLs containing IP addresses will be
-        considered as invalid as they do not contain suffixes.
+        considered as invalid as they do not contain top level domains.
 
         Examples
         --------
@@ -88,7 +89,7 @@ class URLHandler:
 
                 return url
 
-            raise InvalidURLError(f"The {url} URL does not contain domain or suffix")
+            raise InvalidURLError(f"The {url} URL does not contain top level domain")
 
         components = []
         # If the url contains subdomains and subdomains are needed
@@ -107,24 +108,28 @@ class URLHandler:
         cls, url: str, raise_exception_if_invalid_url: bool = True
     ) -> str:
         """
-        Given a URL return its fully qualified domain name without the trailing dot, defined as the
-        domain name with all its subdomains.
+        Given a URL, return its fully qualified domain name without the trailing dot.
+
+        The fully qualified domain name is  defined as the domain name with all its subdomains.
+        When the given URL is invalid, if `raise_exception_if_invalid_url` is set to `True`,
+        `InvalidURLError` exception will be raised. Otherwise, if any particle of the fully
+        qualified domain is present, the URL without scheme, path, query and fragment will be
+        returned; else, if the URL contains a scheme, an empty string will be returned;
+        otherwise, the url will be returned as it is.
 
         Parameters
         ----------
         url : str
-            The URL to get the fully qualified domain.
+            The URL to get the fully qualified domain from.
 
         raise_exception_if_invalid_url : bool, Optional
-            We consider as invalid those URLs that do not contain domain or do not contain suffix.
-            Set to `True` by default.
+            We consider as invalid those URLs in which some particles are missing in the fully
+            qualified domain name. Set to `True` by default.
 
         Returns
         -------
         str
-            The fully qualified domain of the `url`. When the given URL is invalid, if
-            `raise_exception_if_invalid_url` set to `True`, `InvalidURLError` exception will be
-            raised, otherwise, the URL without scheme, path, query and fragment will be returned.
+            The fully qualified domain of the `url`, following the aforementioned criteria.
 
         Raises
         ------
@@ -220,25 +225,26 @@ class URLHandler:
     @classmethod
     def explode_domain(cls, url: str, raise_exception_if_invalid_url: bool = True) -> List[str]:
         """
-        Takes in a string with a URL and computes all possible levels of subdomain including top
+        Takes in a string with a URL and computes all possible levels of subdomain including the top
         level domain, from less complete to more.
+
+        When the given URL is invalid, if `raise_exception_if_invalid_url` is set to `True`,
+        `InvalidURLError` exception will be raised, otherwise, a list containing exploded subdomains
+        of the invalid URL will be returned.
 
         Parameters
         ----------
         url : str
-            The URL to get the fully qualified domain.
+            The URL to explode the domain from.
 
         raise_exception_if_invalid_url : bool, Optional
-            We consider as invalid those URLs that do not contain domain or do not contain suffix.
-            Set to `True` by default.
+            We consider as invalid those URLs in which some particles are missing in the fully
+            qualified domain name. Set to `True` by default.
 
         Returns
         -------
         List[str]
-            The exploded domains from less complete to more. When the given URL is invalid, if
-            `raise_exception_if_invalid_url` is set to `True`, `InvalidURLError` exception will be
-            raised, otherwise, a list containing exploded subdomains of the invalid URL will be
-            returned.
+            The exploded domains from less complete to more, following the aforementioned criteria.
 
         Raises
         ------
@@ -271,6 +277,7 @@ class URLHandler:
                     # A URL can be identified as suffix when it contains only tlds, i.e: 'com' or
                     # 'co.uk'
                     return [res.suffix]
+
         elif res.domain:
             if not raise_exception_if_invalid_url:
                 exploded_subdomains = [res.domain]
