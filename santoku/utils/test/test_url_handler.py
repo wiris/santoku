@@ -323,3 +323,51 @@ def test_explode_domain_not_raising_exception_for_invalid_url(
         test_exploded_domains_not_raising_exception_for_invalid_url
         == reference_exploded_domains_not_raising_exception_for_invalid_url
     )
+
+
+@pytest.mark.parametrize(
+    argnames=("input_url", "expected_path"),
+    argvalues=(
+        ("https://example.com/path", "/path"),
+        ("https://example.com/path/", "/path/"),
+        ("https://example.com.uk/demo/", "/demo/"),
+        ("https://example.com.uk/demo?query#fragment", "/demo"),
+        ("https:///integration/ckeditor/", "/integration/ckeditor/"),
+        ("https://example.com/", "/"),
+        ("https://example.com", ""),
+        ("localhost", ""),
+        ("*", ""),
+        ("//", ""),
+        ("", ""),
+    ),
+    scope="function",
+)
+def test_get_path_not_raising_exception(input_url, expected_path):
+    output_path = URLHandler.get_path(url=input_url, raise_exception_if_invalid_url=False)
+    assert output_path == expected_path
+
+
+@pytest.mark.parametrize(
+    argnames=("input_url", "expected_path"),
+    argvalues=(
+        ("https://example.com/path", "/path"),
+        ("https://example.com/path/", "/path/"),
+        ("https://example.com.uk/demo/", "/demo/"),
+        ("https://example.com.uk/demo?query#fragment", "/demo"),
+        ("https://example.com/", "/"),
+        ("https://example.com", ""),
+        ("https:///integration/ckeditor/", None),
+        ("localhost", None),
+        ("*", None),
+        ("//", None),
+        ("", None),
+    ),
+    scope="function",
+)
+def test_get_path_raising_exception(input_url, expected_path):
+    if expected_path is None:
+        with pytest.raises(InvalidURLError):
+            output_path = URLHandler.get_path(url=input_url, raise_exception_if_invalid_url=True)
+    else:
+        output_path = URLHandler.get_path(url=input_url, raise_exception_if_invalid_url=True)
+        assert output_path == expected_path

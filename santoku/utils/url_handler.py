@@ -308,3 +308,49 @@ class URLHandler:
         #     parsed_url = parsed_url.split("/")[0].split("?")[0].split("#")[0]
         #     return [parsed_url]
         # exploded_subdomains = [res.fld]
+
+    @classmethod
+    def get_path(cls, url: str, raise_exception_if_invalid_url: bool = True) -> str:
+        """
+        Given a URL, return the path.
+
+        When the given URL is invalid, if `raise_exception_if_invalid_url` is set to `True`,
+        `InvalidURLError`exception will be raised. If the url does not contain a scheme or a domain,
+        an empty string will be returned instead.
+
+        Parameters
+        ----------
+        url : str
+            The URL to get the path from.
+
+        raise_exception_if_invalid_url : bool, Optional
+            We consider as invalid those URLs in which some particles are missing in the fully
+            qualified domain name. Set to `True` by default.
+
+        Returns
+        -------
+        str
+            The path fragment of the URL or an empty string, following the aforementioned criteria.
+
+        Raises
+        ------
+        InvalidURLError
+            If `url` is invalid.
+
+        Example
+        -------
+        'https://example.com/path/' -> '/path/'
+
+        """
+        res = tldextract.extract(url)
+
+        # When URL is invalid
+        if not res.domain or not res.suffix:
+            if raise_exception_if_invalid_url:
+                raise InvalidURLError(f"The {url} URL does not contain domain or suffix")
+
+        parsed_url = urlparse(url)
+        if parsed_url.scheme or parsed_url.netloc:
+            return parsed_url.path
+        else:
+            return ""
