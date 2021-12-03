@@ -5,14 +5,7 @@ from santoku.utils.url_handler import InvalidURLError, URLHandler
 
 
 @pytest.mark.parametrize(
-    argnames=(
-        "input_url",
-        "num_subdomains",
-        "reference_partial_domain_raising_exception_for_invalid_url",
-    ),
-    # Each tuple contains: the raw URL, number of subdomains to extract, the expected partial domain
-    # that the test must return if `raise_exception_if_invalid_url` is set to `True` (None if an
-    # error is expected to be raised)
+    argnames=("input_url", "num_subdomains", "expected_result"),
     argvalues=[
         ("https://sub2.sub1.example.com/path?query#fragment", 0, "example.com"),
         ("https://sub2.sub1.example.com", 1, "sub1.example.com"),
@@ -25,52 +18,50 @@ from santoku.utils.url_handler import InvalidURLError, URLHandler
         # funcition would consider 'example' as subdomain, 'com' as domain, and 'uk' as suffix
         ("https://example.com.uk", 0, "com.uk"),
         ("www.example.com", 0, "example.com"),
-        # Note that this url is invalid because it doesn't contain suffix, so 'localhost' will be
-        # be considered as subdomain, and 'example' as domain
-        ("https://localhost.example", 0, None),
-        ("https://sub1.localhost.example", 1, None),
-        ("https://sub1.localhost.example", 2, None),
-        ("localhost", 0, None),
-        ("https://125.0.0.0", 1, None),
-        ("com", 0, None),
-        ("*", 0, None),
-        ("//", 0, None),
-        ("", 0, None),
-        ("https:///integration/ckeditor", 0, None),
     ],
     scope="function",
 )
-def test_get_partial_domain_raising_exception_for_invalid_url(
+def test_get_partial_domain_does_not_raise_exception_when_parameter_is_true_for_valid_url(
     input_url,
     num_subdomains,
-    reference_partial_domain_raising_exception_for_invalid_url,
+    expected_result,
 ):
+    test_partial_domain_raising_exception_for_invalid_url = URLHandler.get_partial_domain(
+        url=input_url, num_subdomains=num_subdomains, raise_exception_if_invalid_url=True
+    )
+    assert test_partial_domain_raising_exception_for_invalid_url == expected_result
 
-    # Test raising exception if URL is invalid
-    if reference_partial_domain_raising_exception_for_invalid_url is None:
-        with pytest.raises(InvalidURLError):
-            URLHandler.get_partial_domain(
-                url=input_url, num_subdomains=num_subdomains, raise_exception_if_invalid_url=True
-            )
-    else:
-        test_partial_domain_raising_exception_for_invalid_url = URLHandler.get_partial_domain(
+
+@pytest.mark.parametrize(
+    argnames=("input_url", "num_subdomains"),
+    argvalues=[
+        # Note that this url is invalid because it doesn't contain suffix, so 'localhost' will be
+        # be considered as subdomain, and 'example' as domain
+        ("https://localhost.example", 0),
+        ("https://sub1.localhost.example", 1),
+        ("https://sub1.localhost.example", 2),
+        ("localhost", 0),
+        ("https://125.0.0.0", 1),
+        ("com", 0),
+        ("*", 0),
+        ("//", 0),
+        ("", 0),
+        ("https:///integration/ckeditor", 0),
+    ],
+    scope="function",
+)
+def test_get_partial_domain_raises_exception_when_parameter_is_true_for_invalid_url(
+    input_url,
+    num_subdomains,
+):
+    with pytest.raises(InvalidURLError):
+        URLHandler.get_partial_domain(
             url=input_url, num_subdomains=num_subdomains, raise_exception_if_invalid_url=True
-        )
-        assert (
-            test_partial_domain_raising_exception_for_invalid_url
-            == reference_partial_domain_raising_exception_for_invalid_url
         )
 
 
 @pytest.mark.parametrize(
-    argnames=(
-        "input_url",
-        "num_subdomains",
-        "reference_partial_domain_not_raising_exception_for_invalid_url",
-    ),
-    # Each tuple contains: the raw URL, number of subdomains to extract, the expected partial domain
-    # that the test must return if `raise_exception_if_invalid_url`
-    # is set to `False`
+    argnames=("input_url", "num_subdomains", "expected_result"),
     argvalues=[
         ("https://sub2.sub1.example.com/path?query#fragment", 0, "example.com"),
         ("https://sub2.sub1.example.com", 1, "sub1.example.com"),
@@ -99,28 +90,17 @@ def test_get_partial_domain_raising_exception_for_invalid_url(
     ],
     scope="function",
 )
-def test_get_partial_domain_not_raising_exception_for_invalid_url(
-    input_url, num_subdomains, reference_partial_domain_not_raising_exception_for_invalid_url
+def test_get_partial_domain_does_not_raise_exception_when_parameter_is_false_for_valid_or_invalid_url(
+    input_url, num_subdomains, expected_result
 ):
-
-    # Test not raising exception if URL is invalid
     test_partial_domain_not_raising_exception_for_invalid_url = URLHandler.get_partial_domain(
         url=input_url, num_subdomains=num_subdomains, raise_exception_if_invalid_url=False
     )
-    assert (
-        test_partial_domain_not_raising_exception_for_invalid_url
-        == reference_partial_domain_not_raising_exception_for_invalid_url
-    )
+    assert test_partial_domain_not_raising_exception_for_invalid_url == expected_result
 
 
 @pytest.mark.parametrize(
-    argnames=(
-        "input_url",
-        "reference_fully_qualified_domain_raising_exception_for_invalid_url",
-    ),
-    # Each tuple contains: the raw URL and the expected partial domain that the test must return if
-    # `raise_exception_if_invalid_url` is set to `True` (None if an error is expected to be
-    # raised)
+    argnames=("input_url", "expected_result"),
     argvalues=[
         (
             "https://sub2.sub1.example.com/path?query#fragment",
@@ -132,46 +112,41 @@ def test_get_partial_domain_not_raising_exception_for_invalid_url(
         ("https://user@example.co.uk:8000", "example.co.uk"),
         ("https://example.com.uk", "example.com.uk"),
         ("www.example.com", "www.example.com"),
-        ("https://localhost.example", None),
-        ("localhost", None),
-        ("https://125.0.0.0", None),
-        ("com", None),
-        ("*", None),
-        ("//", None),
-        ("", None),
-        ("https:///js", None),
-        ("https:///integration/", None),
-        ("https:///integration/ckeditor", None),
     ],
 )
-def test_get_fully_qualified_domain_raising_exception_for_invalid_url(
-    input_url,
-    reference_fully_qualified_domain_raising_exception_for_invalid_url,
+def test_get_fully_qualified_domain_does_not_raise_exception_when_parameter_is_true_for_valid_url(
+    input_url, expected_result
 ):
-    if reference_fully_qualified_domain_raising_exception_for_invalid_url is None:
-        with pytest.raises(InvalidURLError):
-            URLHandler.get_fully_qualified_domain(
-                url=input_url, raise_exception_if_invalid_url=True
-            )
-    else:
-        test_fully_qualified_domain_raising_exception_for_invalid_url = (
-            URLHandler.get_fully_qualified_domain(
-                url=input_url, raise_exception_if_invalid_url=True
-            )
-        )
-        assert (
-            test_fully_qualified_domain_raising_exception_for_invalid_url
-            == reference_fully_qualified_domain_raising_exception_for_invalid_url
-        )
+    test_fully_qualified_domain_raising_exception_for_invalid_url = (
+        URLHandler.get_fully_qualified_domain(url=input_url, raise_exception_if_invalid_url=True)
+    )
+    assert test_fully_qualified_domain_raising_exception_for_invalid_url == expected_result
 
 
 @pytest.mark.parametrize(
-    argnames=(
-        "input_url",
-        "reference_fully_qualified_domain_not_raising_exception_for_invalid_url",
-    ),
-    # Each tuple contains: the raw URL and the expected partial domain if
-    # `raise_exception_if_invalid_url` is set to `False`
+    argnames=("input_url"),
+    argvalues=[
+        ("https://localhost.example"),
+        ("localhost"),
+        ("https://125.0.0.0"),
+        ("com"),
+        ("*"),
+        ("//"),
+        (""),
+        ("https:///js"),
+        ("https:///integration/"),
+        ("https:///integration/ckeditor"),
+    ],
+)
+def test_get_fully_qualified_domain_raises_exception_when_parameter_is_true_for_invalid_url(
+    input_url,
+):
+    with pytest.raises(InvalidURLError):
+        URLHandler.get_fully_qualified_domain(url=input_url, raise_exception_if_invalid_url=True)
+
+
+@pytest.mark.parametrize(
+    argnames=("input_url", "expected_result"),
     argvalues=[
         (
             "https://sub2.sub1.example.com/path?query#fragment",
@@ -195,25 +170,17 @@ def test_get_fully_qualified_domain_raising_exception_for_invalid_url(
         ("https:///integration/", ""),
     ],
 )
-def test_get_fully_qualified_domain_not_raising_exception_for_invalid_url(
-    input_url,
-    reference_fully_qualified_domain_not_raising_exception_for_invalid_url,
+def test_get_fully_qualified_domain_does_not_raise_exception_when_parameter_is_false_for_valid_or_invalid_url(
+    input_url, expected_result
 ):
     test_fully_qualified_domain_not_raising_exception_for_invalid_url = (
         URLHandler.get_fully_qualified_domain(url=input_url, raise_exception_if_invalid_url=False)
     )
-    assert (
-        test_fully_qualified_domain_not_raising_exception_for_invalid_url
-        == reference_fully_qualified_domain_not_raising_exception_for_invalid_url
-    )
+    assert test_fully_qualified_domain_not_raising_exception_for_invalid_url == expected_result
 
 
 @pytest.mark.parametrize(
-    argnames=(
-        "input_url",
-        "reference_containing_ip_evaluation",
-    ),
-    # Each tuple contains: the raw URL and whether the URL contains an IP idress or not
+    argnames=("input_url", "expected_result"),
     argvalues=[
         ("https://sub1.example.com/path?query#fragment", False),
         ("https://125.0.0.0", True),
@@ -228,16 +195,13 @@ def test_get_fully_qualified_domain_not_raising_exception_for_invalid_url(
     ],
     scope="function",
 )
-def test_contains_ip(input_url, reference_containing_ip_evaluation):
+def test_contains_ip_evaluates_valid_and_invalid_url_correctly(input_url, expected_result):
     test_containing_ip_evaluation = URLHandler.contains_ip(url=input_url)
-    assert test_containing_ip_evaluation == reference_containing_ip_evaluation
+    assert test_containing_ip_evaluation == expected_result
 
 
 @pytest.mark.parametrize(
-    argnames=("input_url", "reference_exploded_domains_raising_exception_for_invalid_url"),
-    # Each tuple contains: the raw URL, the list of exploded domains that the test must return if
-    # `raise_exception_if_invalid_url` is set to `True` (None if an error is expected to be
-    # raised)
+    argnames=("input_url", "expected_result"),
     argvalues=[
         (
             "http://sub2.sub1.example.com?query#fragment",
@@ -249,40 +213,40 @@ def test_contains_ip(input_url, reference_containing_ip_evaluation):
         ("https://user@example.co.uk:8000", ["example.co.uk"]),
         ("https://example.com.uk", ["com.uk", "example.com.uk"]),
         ("www.example.com", ["example.com", "www.example.com"]),
-        ("https://localhost.example", None),
-        ("localhost", None),
-        ("125.0.0.0", None),
-        ("com", None),
-        ("*", None),
-        ("//", None),
-        ("", None),
-        ("https:///js", None),
-        ("https:///integration/ckeditor", None),
     ],
     scope="function",
 )
-def test_explode_domain(input_url, reference_exploded_domains_raising_exception_for_invalid_url):
-    # Test raising exception if URL is invalid
-    if reference_exploded_domains_raising_exception_for_invalid_url is None:
-        with pytest.raises(InvalidURLError):
-            URLHandler.explode_domain(url=input_url, raise_exception_if_invalid_url=True)
-    else:
-        test_exploded_domains_raising_exception_for_invalid_url = URLHandler.explode_domain(
-            url=input_url, raise_exception_if_invalid_url=True
-        )
-        assert (
-            test_exploded_domains_raising_exception_for_invalid_url
-            == reference_exploded_domains_raising_exception_for_invalid_url
-        )
+def test_explode_domain_does_not_raise_exception_when_parameter_is_true_for_valid_url(
+    input_url, expected_result
+):
+    test_exploded_domains_raising_exception_for_invalid_url = URLHandler.explode_domain(
+        url=input_url, raise_exception_if_invalid_url=True
+    )
+    assert test_exploded_domains_raising_exception_for_invalid_url == expected_result
 
 
 @pytest.mark.parametrize(
-    argnames=(
-        "input_url",
-        "reference_exploded_domains_not_raising_exception_for_invalid_url",
-    ),
-    # Each tuple contains: the raw URL, the list of exploded domains that the test must return if
-    # `raise_exception_if_invalid_url` is set to `True`
+    argnames=("input_url"),
+    argvalues=[
+        ("https://localhost.example"),
+        ("localhost"),
+        ("125.0.0.0"),
+        ("com"),
+        ("*"),
+        ("//"),
+        (""),
+        ("https:///js"),
+        ("https:///integration/ckeditor"),
+    ],
+    scope="function",
+)
+def test_explode_domain_raises_exception_when_parameter_is_true_for_invalid_url(input_url):
+    with pytest.raises(InvalidURLError):
+        URLHandler.explode_domain(url=input_url, raise_exception_if_invalid_url=True)
+
+
+@pytest.mark.parametrize(
+    argnames=("input_url", "expected_result"),
     argvalues=[
         (
             "http://sub2.sub1.example.com?query#fragment",
@@ -312,17 +276,13 @@ def test_explode_domain(input_url, reference_exploded_domains_raising_exception_
     ],
     scope="function",
 )
-def test_explode_domain_not_raising_exception_for_invalid_url(
-    input_url, reference_exploded_domains_not_raising_exception_for_invalid_url
+def test_explode_domain_does_not_raise_exception_when_parameter_is_false_for_invalid_url(
+    input_url, expected_result
 ):
-    # Test returning invalid urls
     test_exploded_domains_not_raising_exception_for_invalid_url = URLHandler.explode_domain(
         url=input_url, raise_exception_if_invalid_url=False
     )
-    assert (
-        test_exploded_domains_not_raising_exception_for_invalid_url
-        == reference_exploded_domains_not_raising_exception_for_invalid_url
-    )
+    assert test_exploded_domains_not_raising_exception_for_invalid_url == expected_result
 
 
 @pytest.mark.parametrize(
@@ -342,7 +302,9 @@ def test_explode_domain_not_raising_exception_for_invalid_url(
     ),
     scope="function",
 )
-def test_get_path_not_raising_exception(input_url, expected_path):
+def test_get_path_does_not_raise_exception_when_parameter_is_false_for_valid_and_invalid_url(
+    input_url, expected_path
+):
     output_path = URLHandler.get_path(url=input_url, raise_exception_if_invalid_url=False)
     assert output_path == expected_path
 
@@ -356,18 +318,27 @@ def test_get_path_not_raising_exception(input_url, expected_path):
         ("https://example.com.uk/demo?query#fragment", "/demo"),
         ("https://example.com/", "/"),
         ("https://example.com", ""),
-        ("https:///integration/ckeditor/", None),
-        ("localhost", None),
-        ("*", None),
-        ("//", None),
-        ("", None),
     ),
     scope="function",
 )
-def test_get_path_raising_exception(input_url, expected_path):
-    if expected_path is None:
-        with pytest.raises(InvalidURLError):
-            output_path = URLHandler.get_path(url=input_url, raise_exception_if_invalid_url=True)
-    else:
-        output_path = URLHandler.get_path(url=input_url, raise_exception_if_invalid_url=True)
-        assert output_path == expected_path
+def test_get_path_does_not_raise_exception_when_parameter_is_true_for_valid_url(
+    input_url, expected_path
+):
+    output_path = URLHandler.get_path(url=input_url, raise_exception_if_invalid_url=True)
+    assert output_path == expected_path
+
+
+@pytest.mark.parametrize(
+    argnames=("input_url"),
+    argvalues=(
+        ("https:///integration/ckeditor/"),
+        ("localhost"),
+        ("*"),
+        ("//"),
+        (""),
+    ),
+    scope="function",
+)
+def test_get_path_raises_exception_when_parameter_is_true_for_invalid_url(input_url):
+    with pytest.raises(InvalidURLError):
+        URLHandler.get_path(url=input_url, raise_exception_if_invalid_url=True)

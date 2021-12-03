@@ -337,7 +337,7 @@ class URLHandler:
         Returns
         -------
         str
-            The path fragment of the URL or an empty string, following the aforementioned criteria.
+            The path of the URL or an empty string, following the aforementioned criteria.
 
         Raises
         ------
