@@ -7,3 +7,4 @@ pyarrow>=0.17.1
 requests>=2.23.0
 slackclient>=2.5.0
 tldextract>=3.1.0
+responses==0.16.0 # Remove this constraint when moto is compatible with the new version, issue: https://github.com/spulec/moto/issues/4750
