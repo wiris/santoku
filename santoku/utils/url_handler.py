@@ -1,55 +1,305 @@
 import ipaddress
-from typing import List
-from urllib.parse import urlparse
+from typing import List, Optional, Tuple
+from urllib.parse import ParseResult, urlparse
 
 import tldextract
 
 
-class InvalidURLError(Exception):
-    def __init__(self, message):
-        super().__init__(message)
-
-
 class URLHandler:
-    @classmethod
-    def get_partial_domain(
-        cls, url: str, num_subdomains: int = 0, raise_exception_if_invalid_url: bool = True
-    ) -> str:
-        """
-        Given a URL, return the domain name up to a particular number of subdomains.
+    """
+    This class perfoms some parsing and transformation to a URL and provide methods to obtain
+    different forms of this URL.
 
-        When the given URL is invalid, if `raise_exception_if_invalid_url` is set to `True`,
-        `InvalidURLError` exception will be raised. Otherwise, if the URL contains subdomain,
-        num_subdomains + domain will be returned, if the URL does not contain subdomain, an empty
-        string will be returned if the scheme is detected, otherwise, the URL will be returned as it
-        is.
+    A URL is split into different components: `scheme`, `subdomains`, `base_domain`, `suffix` and
+    `path`.
+
+    Notes
+    -----
+    - The naming of the components does not follow URL standard specifications, and is slightly
+    adapted for convenience reasons.
+    - If you provide an invalid URL, you might get unexpected results for some of the methods.
+    - When a non-valid URL such as 'fakedomain' is provided, it is considered as `base_domain`.
+    - Some components in the URL like 'userinfo' (what goes right before @) will be ignored.
+
+    """
+
+    def __init__(self, url: str) -> None:
+        """
+        Stores the URL and the different components of this URL.
 
         Parameters
         ----------
         url : str
-            The URL to get the partial domain from.
+            The URL to be handled.
 
-        num_subdomains : int, Optional
-            Number of subdomains that are extracted. No subdomains are extracted by default.
+        See also
+        --------
+        split_url_into_components
+            Called to obtain the components of the URL.
 
-        raise_exception_if_invalid_url : bool, Optional
-            We consider as invalid those URLs in which some particles are missing in the fully
-            qualified domain name. Set to `True` by default.
+        """
+        self.url = url
+        (
+            self.scheme,
+            self.subdomains,
+            self.base_domain,
+            self.suffix,
+            self.path,
+        ) = self.split_url_into_components(url=self.url)
+
+    @classmethod
+    def split_url_into_components(
+        cls, url: str
+    ) -> Tuple[Optional[str], List[str], Optional[str], Optional[str], Optional[str]]:
+        """
+        Generates components by separating the URL into different parts and perfom some parsing on
+        these parts.
+
+        Parameters
+        ----------
+        url : str
+            The URL to be split.
 
         Returns
         -------
-        str
-            The partial domain of the `url` following the aforementioned criteria.
+        Tuple[Optional[str], List[str], Optional[str], Optional[str], Optional[str]]
+            Returns the `scheme`, `subdomains`, `base_domain`, `suffix` and `path`. For the
+            `scheme`, `base_domain`, `suffix` and `path`, `None` will be returned if not found.
+            For the `subdomains`, an empty list will be returned if not found.
 
-        Raises
-        ------
-        InvalidURLError
-            If `url` is invalid.
+        See also
+        --------
+        process_subdomains
+            Called to obtain the subdomains in the desired format.
+        process_path
+            Called to obtain the path in the desired format.
+
+        Example
+        -------
+        E.g: https://sub1.sub2.example.co.uk/demo?course=1 is converted into:
+        - scheme -> https
+        - subdomains -> ["sub1", "sub2"]
+        - base_domain -> example
+        - suffix -> co.uk
+        - path -> /demo?course=1
+
+        """
+        scheme = None
+        subdomains = []
+        domain = None
+        suffix = None
+        path = None
+        if url:
+            parsed_url = urlparse(url=url)
+            extracted_url = tldextract.extract(url=url)
+            if parsed_url.scheme:
+                scheme = parsed_url.scheme
+            subdomains = cls.process_subdomain(subdomain=extracted_url.subdomain)
+            if extracted_url.domain:
+                domain = extracted_url.domain
+            if extracted_url.suffix:
+                suffix = extracted_url.suffix
+            path = cls.process_path(parsed_url=parsed_url)
+
+        return scheme, subdomains, domain, suffix, path
+
+    @classmethod
+    def process_subdomain(cls, subdomain: str) -> List[str]:
+        """
+        Processes a subdomain by splitting its components on `.`.
+
+        Parameters
+        ----------
+        subdomain : str
+            The subdomain to be processed.
+
+        Returns
+        -------
+        List[str]
+            The list of split subdomain components. If the subdomain is empty, it returns an empty
+            list.
+
+        Examples
+        --------
+        "sub2.sub1" -> ["sub2", "sub1"]
+        "sub2.sub1." -> ["sub2", "sub1", ""]
+        "" -> []
+
+        """
+        if not subdomain:
+            return []
+
+        return subdomain.split(".")
+
+    def url_is_usable(self) -> bool:
+        """
+        Checks whether the `url` attribute is usable or not. We define as usable a URL that has at
+        least a `base_domain` and a `suffix`.
+
+        Returns
+        -------
+        bool
+            True if the `url` attribute is usable, False otherwise.
 
         Notes
         -----
-        Notice that with our definition of invalid URLs, URLs containing IP addresses will be
-        considered as invalid as they do not contain top level domains.
+        A URL that is usable is not necessarily valid (URL specifications state that the only
+        mandatory component of a URL is the scheme), and a valid URL is not necessarily usable.
+
+        Examples
+        --------
+        "www.example.com" -> True
+        "example.com" -> True
+        "example" -> False
+        "com" -> False
+        "https://example" -> False
+
+        """
+        if not self.base_domain or not self.suffix:
+            return False
+
+        return True
+
+    @classmethod
+    def process_path(cls, parsed_url: ParseResult) -> Optional[str]:
+        """
+        Returns the path component from a given parsed url.
+
+        Parameters
+        ----------
+        parsed_url : ParseResult
+            A parsed url resulting from calling the urllib.parse.urlparse method.
+
+        Returns
+        -------
+        Optional[str]
+            The path component of `parsed_url` or `None`. If the parsed url does not contain a
+            scheme or a domain, `None` is returned instead.
+
+        """
+        # When something like "fakedomain" is passed to urllib.parse.urlparse, "fakedomain" will be
+        # parsed as path, which is not desired for us (we) prefer considering "fakedomain" as
+        # basedomain
+        if not (parsed_url.scheme or parsed_url.netloc):
+            return None
+
+        return parsed_url.path or None
+
+    def get_n_subdomains(self, num_subdomains: int) -> List[str]:
+        """
+        Gets up to `num_subdomains` subdomains from the `subdomains` attribute.
+
+        Parameters
+        ----------
+        num_subdomains : int
+            The number of subdomains to be got. It must be a non-negative integer.
+
+        Returns
+        -------
+        List[str]
+            A list of subdomains up to `num_subdomains`, or an empty list if `num_subdomains` is 0.
+
+        Raises
+        ------
+        ValueError
+            If `num_subdomains` is smaller than 0.
+
+        """
+        if num_subdomains < 0:
+            raise ValueError("`num_subdomains` must be a non-negative integer.")
+
+        if num_subdomains == 0:
+            return []
+
+        return self.subdomains[-num_subdomains:]
+
+    @classmethod
+    def concat_base_domain_with_suffix(
+        cls, base_domain: Optional[str], suffix: Optional[str]
+    ) -> Optional[str]:
+        """
+        Concatenates `base_domain` with `suffix` if found in the `url` attribute.
+
+        Parameters
+        ----------
+        base_domain : Optional[str]
+            The base domain to be concatenated.
+
+        suffix : Optional[str]
+            The suffix to be concatenated.
+
+        Returns
+        -------
+        Optional[str]
+            The contatenated `base_domain` with `suffix`. Returns `base_domain` or `suffix` if one
+            of them is `None`, or `None` if both are `None`.
+
+        """
+        components = []
+        if base_domain:
+            components += [base_domain]
+        if suffix:
+            components += [suffix]
+
+        return ".".join(components) or None
+
+    @classmethod
+    def concat_subdomains_with_base_domain_and_suffix(
+        cls, subdomains: List[str], base_domain_with_suffix: Optional[str]
+    ) -> Optional[str]:
+        """
+        Concatenates `subdomains` with `base_domain_with_suffix` if both or them are not `None`.
+
+        Parameters
+        ----------
+        subdomains : List[str]
+            The list of subdomains to be concatenated.
+
+        base_domain_with_suffix : Optional[str]
+            The base domain with suffix to be concatenated.
+
+        Returns
+        -------
+        Optional[str]
+            The contatenated `subdomains` with `base_domain_with_suffix`. Returns `subdomains` or
+            `base_domain_with_suffix` if one of them is `None`, or `None` if both are `None`.
+
+        """
+        components: List[str] = []
+        if subdomains:
+            components += subdomains
+
+        if base_domain_with_suffix:
+            components += [base_domain_with_suffix]
+
+        return ".".join(components) or None
+
+    def get_partial_domain(self, num_subdomains: Optional[int] = None) -> Optional[str]:
+        """
+        Return the domain name from the `url` attribute, up to a particular number of subdomains.
+
+        We define a partial domain as a domain with a subset of the last subdomains. If no
+        `num_subdomains` is provided, get the fully qualified domain (without final dot) with all
+        its subdomains.
+
+        Parameters
+        ----------
+        num_subdomains : Optional[int], Optional
+            Number of subdomains that are got. By default, all available subdomains are got.
+
+        Returns
+        -------
+        Optional[str]
+            The partial domain of the `url` following the aforementioned criteria, or `None`.
+
+        See also
+        --------
+        get_n_subdomains
+            Called to obtain the left part of the URL.
+        concat_base_domain_with_suffix
+            Called to obtain the right part of the URL.
+        concat_subdomains_with_base_domain_and_suffix
+            Called to join the left part and the right part to build the partial domain.
 
         Examples
         --------
@@ -57,149 +307,31 @@ class URLHandler:
         https://sub2.sub1.example.com.es/path, 1 -> sub1.example.com.es
         https://sub2.sub1.example.com.es/path, 2 -> sub2.sub1.example.com.es
         https://sub2.sub1.example.com.es/path, 3 -> sub2.sub1.example.com.es
+        https://sub2.sub1.example.com.es/path, None -> sub2.sub1.example.com.es
 
         """
-        res = tldextract.extract(url)
+        if num_subdomains is None:
+            subdomains = self.subdomains
+        else:
+            subdomains = self.get_n_subdomains(num_subdomains=num_subdomains)
 
-        # When URL is invalid
-        if not res.domain or not res.suffix:
+        base_domain_with_suffix = self.concat_base_domain_with_suffix(
+            base_domain=self.base_domain, suffix=self.suffix
+        )
+        subdomains_with_base_domain_and_suffix = self.concat_subdomains_with_base_domain_and_suffix(
+            subdomains=subdomains, base_domain_with_suffix=base_domain_with_suffix
+        )
 
-            # If URL contain a domain or a suffix, we remove the scheme and path
-            if not raise_exception_if_invalid_url:
+        return subdomains_with_base_domain_and_suffix or None
 
-                if res.domain:
-                    if res.subdomain and num_subdomains > 0:
-                        # URL contain subdomain and domain, we return the last n subdomains + domain
-                        component = res.subdomain.split(".")[-num_subdomains:] + [res.domain]
-                        return ".".join(component)
-
-                    # URL only contain domain, we return only the domain
-                    return res.domain
-
-                elif res.suffix:
-                    # URL contain only sufix, we return only the suffix
-                    return res.suffix
-
-                # If URL doesn't contain anything identified as domain or suffix, check whether it
-                # contains scheme. If so, return an empty domain, otherwise, return the url as it is
-                # e.g.: for `http:///integration/...` an empty domain will be returned, while for
-                # `fakedomain`, the whole `fakedomain` will be returned.
-                if urlparse(url).scheme:
-                    return ""
-
-                return url
-
-            raise InvalidURLError(f"The {url} URL does not contain top level domain")
-
-        components = []
-        # If the url contains subdomains and subdomains are needed
-        if res.subdomain and num_subdomains > 0:
-            # Split the subdomains and keep the last n
-            components += res.subdomain.split(".")[-num_subdomains:]
-        if res.domain:
-            components.append(res.domain)
-        if res.suffix:
-            components.append(res.suffix)
-
-        return ".".join(components)
-
-    @classmethod
-    def get_fully_qualified_domain(
-        cls, url: str, raise_exception_if_invalid_url: bool = True
-    ) -> str:
+    def contains_ip(self) -> bool:
         """
-        Given a URL, return its fully qualified domain name without the trailing dot.
-
-        The fully qualified domain name is  defined as the domain name with all its subdomains.
-        When the given URL is invalid, if `raise_exception_if_invalid_url` is set to `True`,
-        `InvalidURLError` exception will be raised. Otherwise, if any particle of the fully
-        qualified domain is present, the URL without scheme, path, query and fragment will be
-        returned; else, if the URL contains a scheme, an empty string will be returned;
-        otherwise, the url will be returned as it is.
-
-        Parameters
-        ----------
-        url : str
-            The URL to get the fully qualified domain from.
-
-        raise_exception_if_invalid_url : bool, Optional
-            We consider as invalid those URLs in which some particles are missing in the fully
-            qualified domain name. Set to `True` by default.
-
-        Returns
-        -------
-        str
-            The fully qualified domain of the `url`, following the aforementioned criteria.
-
-        Raises
-        ------
-        InvalidURLError
-            If `url` is invalid.
-
-        Notes
-        -----
-        This method is more useful than get_partial_domain when you don't know how many subdomains
-        the URL contains.
-
-        More information on fully qualified domain name: [1]
-
-        References
-        ----------
-        [1] :
-        https://en.wikipedia.org/wiki/Fully_qualified_domain_name
-
-        Example
-        -------
-        https://sub.example.com.es/path -> sub.example.com.es
-
-        """
-        res = tldextract.extract(url)
-
-        # When URL is invalid
-        if not res.domain or not res.suffix:
-
-            # If URL contain a domain or a suffix, we remove the scheme and path
-            if not raise_exception_if_invalid_url:
-
-                if res.domain:
-                    # URL contain subdomain and domain, we return subdomain + domain
-                    if res.subdomain:
-                        return f"{res.subdomain}.{res.domain}"
-
-                    # URL only contain domain, we return only the domain
-                    return res.domain
-
-                elif res.suffix:
-                    # URL contain only sufix, we return only the suffix
-                    return res.suffix
-
-                # If URL doesn't contain anything identified as domain or suffix, check whether it
-                # contains scheme. If so, return an empty domain, otherwise, return the url as it is
-                # e.g.: for `http:///integration/...` an empty domain will be returned, while for
-                # `fakedomain`, the whole `fakedomain` will be returned.
-                if urlparse(url).scheme:
-                    return ""
-
-                return url
-
-            raise InvalidURLError(f"The {url} URL does not contain domain or suffix")
-
-        return ".".join(part for part in res if part)
-
-    @classmethod
-    def contains_ip(cls, url: str) -> bool:
-        """
-        Return true if the given string contains an IP address.
-
-        Parameters
-        ----------
-        url : str
-            The URL to check.
+        Checks whether the `base_domain` attribute contains a valid IP address.
 
         Returns
         -------
         bool
-            True if the given `url` contains an IP address.
+            True if the `base_domain` attribute contains a valid IP address, False otherwise.
 
         Notes
         -----
@@ -212,152 +344,41 @@ class URLHandler:
         https://docs.python.org/3/library/ipaddress.html
 
         """
-        domain = tldextract.extract(url=url).domain
 
         # If it is a valid IP, the initialization of the IP class should be successful.
         try:
-            ipaddress.ip_address(domain)
+            ipaddress.ip_address(self.base_domain)
         except ValueError:
             return False
 
         return True
 
-    @classmethod
-    def explode_domain(cls, url: str, raise_exception_if_invalid_url: bool = True) -> List[str]:
+    def explode_domain(self) -> Optional[List[str]]:
         """
-        Takes in a string with a URL and computes all possible levels of subdomain including the top
-        level domain, from less complete to more.
-
-        When the given URL is invalid, if `raise_exception_if_invalid_url` is set to `True`,
-        `InvalidURLError` exception will be raised, otherwise, a list containing exploded subdomains
-        of the invalid URL will be returned.
-
-        Parameters
-        ----------
-        url : str
-            The URL to explode the domain from.
-
-        raise_exception_if_invalid_url : bool, Optional
-            We consider as invalid those URLs in which some particles are missing in the fully
-            qualified domain name. Set to `True` by default.
+        Computes all possible levels of partial domains including the top level domain, from less
+        complete to more, from the `url` attribute.
 
         Returns
         -------
-        List[str]
+        Optional[List[str]]
             The exploded domains from less complete to more, following the aforementioned criteria.
 
-        Raises
-        ------
-        InvalidURLError
-            If `url` is invalid.
+        See also
+        --------
+        get_partial_domain
+            Called each time with different number of subdomains to obtain all partial domains.
 
         Example
         -------
         'www.s1.s2.example.com' -> ['example.com', 's2.example.com', 's1.s2.example.com',
-        'www.s1.s2.example.com'].
+        'www.s1.s2.example.com']
 
         """
-        res = tldextract.extract(url)
+        exploded_domains = []
+        # Add 1 to include all subdomains
+        for num_subdomains in range(len(self.subdomains) + 1):
+            partial_domain = self.get_partial_domain(num_subdomains=num_subdomains)
+            if partial_domain:
+                exploded_domains.append(partial_domain)
 
-        if res.suffix:
-            if res.domain:
-                domain = f"{res.domain}.{res.suffix}"
-                exploded_subdomains = [domain]
-
-                if res.subdomain:
-                    # Append splitted subdomains successively
-                    for subdomain in reversed(res.subdomain.split(".")):
-                        exploded_subdomains.append(f"{subdomain}.{exploded_subdomains[-1]}")
-
-                # If the URL doesn't contain subdomain, return only the domain
-                return exploded_subdomains
-
-            else:
-                if not raise_exception_if_invalid_url:
-                    # A URL can be identified as suffix when it contains only tlds, i.e: 'com' or
-                    # 'co.uk'
-                    return [res.suffix]
-
-        elif res.domain:
-            if not raise_exception_if_invalid_url:
-                exploded_subdomains = [res.domain]
-                if res.subdomain:
-                    # Append splitted subdomains successively
-                    for subdomain in reversed(res.subdomain.split(".")):
-                        exploded_subdomains.append(f"{subdomain}.{exploded_subdomains[-1]}")
-
-                return exploded_subdomains
-        else:
-            if not raise_exception_if_invalid_url:
-                # If URL doesn't contain anything identified as domain or suffix, check whether it
-                # contains scheme. If so, return an empty domain, e.g.: for
-                # `http:///integration/...`, an empty domain will be returned. Otherwise
-                #  return the url as it is: it's the case of: "fakedomain", " ", "//", ".", etc.
-
-                if urlparse(url).scheme:
-                    return [""]
-
-                return [url]
-
-        raise InvalidURLError(f"The {url} URL does not contain domain or suffix")
-        # We comment this code block out until we are sure of what to do
-        # try:
-        #     res = tld.get_tld(url, fix_protocol=True, as_object=True)
-        # except (tld.exceptions.TldDomainNotFound, tld.exceptions.TldBadUrl) as error:
-        #     # get_tld raises an exception when the top level domain (tld) is unknown
-        #     # For example, we might find an unknown tld if someone uses ".devel" during development
-        #     # The code below is an attempt to "clean" the domain by doing
-        #     # - Remove http:// and https://
-        #     # - Split by "/" and return position 0 of the list
-        #     # - Split by "?" and return position 0
-        #     # - Split by "#" and return position 0
-        #     parsed_url = url.replace("http://", "").replace("https://", "").replace("//", "")
-        #     parsed_url = parsed_url.split("/")[0].split("?")[0].split("#")[0]
-        #     return [parsed_url]
-        # exploded_subdomains = [res.fld]
-
-    @classmethod
-    def get_path(cls, url: str, raise_exception_if_invalid_url: bool = True) -> str:
-        """
-        Given a URL, return the path.
-
-        When the given URL is invalid, if `raise_exception_if_invalid_url` is set to `True`,
-        `InvalidURLError`exception will be raised. If the url does not contain a scheme or a domain,
-        an empty string will be returned instead.
-
-        Parameters
-        ----------
-        url : str
-            The URL to get the path from.
-
-        raise_exception_if_invalid_url : bool, Optional
-            We consider as invalid those URLs in which some particles are missing in the fully
-            qualified domain name. Set to `True` by default.
-
-        Returns
-        -------
-        str
-            The path of the URL or an empty string, following the aforementioned criteria.
-
-        Raises
-        ------
-        InvalidURLError
-            If `url` is invalid.
-
-        Example
-        -------
-        'https://example.com/path/' -> '/path/'
-
-        """
-        res = tldextract.extract(url)
-
-        # When URL is invalid
-        if not res.domain or not res.suffix:
-            if raise_exception_if_invalid_url:
-                raise InvalidURLError(f"The {url} URL does not contain domain or suffix")
-
-        parsed_url = urlparse(url)
-        if parsed_url.scheme or parsed_url.netloc:
-            return parsed_url.path
-        else:
-            return ""
+        return exploded_domains or None
