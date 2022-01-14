@@ -1,4 +1,4 @@
-FROM python:3.9-buster
+FROM python:3.9.9-buster
 
 # Adding requirements file of the environment to the image
 COPY .devcontainer/requirements.txt /tmp/build/requirements-dev.txt
