@@ -35,9 +35,10 @@ def test_string_subdomain_is_processed_as_expected(input_subdomain, expected_sub
         ("http://sub2.sub1.example.es", ("http", ["sub2", "sub1"], "example", "es", None)),
         ("https://sub1.example.co.uk", ("https", ["sub1"], "example", "co.uk", None)),
         ("https://example.com", ("https", [], "example", "com", None)),
+        ("https://example.XN--1QQW23A", ("https", [], "example", "XN--1QQW23A", None)),
         ("https://user@example.co.uk:8000", ("https", [], "example", "co.uk", None)),
         # Note that com.uk isn't a valid TLD (but it is a valid URL), so it is expected that the
-        # funcition would consider 'example' as subdomain, 'com' as domain, and 'uk' as suffix
+        # function would consider 'example' as subdomain, 'com' as domain, and 'uk' as suffix
         ("https://example.com.uk", ("https", ["example"], "com", "uk", None)),
         ("www.example.com", (None, ["www"], "example", "com", None)),
         ("https://localhost.example", ("https", ["localhost"], "example", None, None)),
@@ -212,6 +213,43 @@ def test_exception_is_raised_for_num_subdomain_smaller_than_0(input_url, num_sub
 
 
 @pytest.mark.parametrize(
+    argnames=("input_domains", "input_paths", "expected_joined_domain_and_path_list"),
+    argvalues=(
+        (["example.com"], ["here"], ["example.com", "example.com/here"]),
+        (
+            ["example.com", "this.example.com"],
+            ["here"],
+            ["example.com", "example.com/here", "this.example.com", "this.example.com/here"],
+        ),
+        (
+            ["example.com", "this.example.com"],
+            ["here", "here/there"],
+            [
+                "example.com",
+                "example.com/here",
+                "example.com/here/there",
+                "this.example.com",
+                "this.example.com/here",
+                "this.example.com/here/there",
+            ],
+        ),
+        (["example.com", "this.example.com"], [], ["example.com", "this.example.com"]),
+    ),
+    scope="function",
+)
+def test_domain_and_path_are_joined_properly(
+    input_domains, input_paths, expected_joined_domain_and_path_list
+):
+    output_joined_domain_and_path_list = URLHandler.join_domain_with_path(
+        domains=input_domains, paths=input_paths
+    )
+
+    assert sorted(output_joined_domain_and_path_list) == sorted(
+        expected_joined_domain_and_path_list
+    )
+
+
+@pytest.mark.parametrize(
     argnames=("input_base_domain", "input_suffix", "expected_base_domain_with_suffix"),
     argvalues=(
         ("domain", "es", "domain.es"),
@@ -225,10 +263,10 @@ def test_exception_is_raised_for_num_subdomain_smaller_than_0(input_url, num_sub
     ),
     scope="function",
 )
-def test_base_domain_is_concatenated_with_suffix_properly(
+def test_base_domain_is_joined_with_suffix_properly(
     input_base_domain, input_suffix, expected_base_domain_with_suffix
 ):
-    output_base_domain_with_suffix = URLHandler.concat_base_domain_with_suffix(
+    output_base_domain_with_suffix = URLHandler.join_base_domain_with_suffix(
         base_domain=input_base_domain, suffix=input_suffix
     )
     assert output_base_domain_with_suffix == expected_base_domain_with_suffix
@@ -249,10 +287,10 @@ def test_base_domain_is_concatenated_with_suffix_properly(
     ),
     scope="function",
 )
-def test_subdomains_are_concatenated_with_base_domain_and_suffix_properly(
+def test_subdomains_are_joined_with_base_domain_and_suffix_properly(
     input_subdomains, input_base_domain_with_suffix, expected_result
 ):
-    output_result = URLHandler.concat_subdomains_with_base_domain_and_suffix(
+    output_result = URLHandler.join_subdomains_with_base_domain_and_suffix(
         subdomains=input_subdomains, base_domain_with_suffix=input_base_domain_with_suffix
     )
     assert expected_result == output_result
@@ -344,13 +382,44 @@ def test_contains_ip_evaluates_valid_and_invalid_url_correctly(input_url, expect
         ("125.0.0.0", ["125.0.0.0"]),
         ("com", ["com"]),
         ("*", ["*"]),
-        ("//", None),
-        ("", None),
-        ("https:///js", None),
-        ("https:///integration/ckeditor", None),
+        ("//", []),
+        ("", []),
+        ("https:///js", []),
+        ("https:///integration/ckeditor", []),
     ],
     scope="function",
 )
 def test_domains_are_exploded_properly(input_url, expected_exploded_domains):
     output_exploded_domains = URLHandler(url=input_url).explode_domain()
     assert output_exploded_domains == expected_exploded_domains
+
+
+@pytest.mark.parametrize(
+    argnames=("input_data", "input_depth", "expected_exploded_paths"),
+    argvalues=(
+        ("/moodle", 1, ["moodle"]),
+        ("/moodle", 2, ["moodle"]),
+        ("/moodle/", 1, ["moodle"]),
+        ("/moodle/this", 1, ["moodle"]),
+        ("/moodle/this/", 1, ["moodle"]),
+        ("/moodle/this", 2, ["moodle", "moodle/this"]),
+        ("/moodle/this/", 2, ["moodle", "moodle/this"]),
+        ("/moodle/this", 3, ["moodle", "moodle/this"]),
+        ("moodle/this", 1, ["moodle"]),
+        ("/moodle/subpath1/subpath2", 2, ["moodle", "moodle/subpath1"]),
+        (
+            "/moodle/subpath1/subpath2",
+            3,
+            ["moodle", "moodle/subpath1", "moodle/subpath1/subpath2"],
+        ),
+        ("/", 1, []),
+        ("/", 2, []),
+        ("", 1, []),
+        ("", 2, []),
+    ),
+    scope="function",
+)
+def test_explode_path(input_data, input_depth, expected_exploded_paths):
+    output_exploded_paths = URLHandler.explode_path(path=input_data, max_depth=input_depth)
+
+    assert output_exploded_paths == expected_exploded_paths

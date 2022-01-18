@@ -1,4 +1,6 @@
+import enum
 import ipaddress
+import itertools
 from typing import List, Optional, Tuple
 from urllib.parse import ParseResult, urlparse
 
@@ -7,11 +9,30 @@ import tldextract
 
 class URLHandler:
     """
-    This class perfoms some parsing and transformation to a URL and provide methods to obtain
-    different forms of this URL.
+    This class provides URL parsing and transformation functionality to different forms.
 
     A URL is split into different components: `scheme`, `subdomains`, `base_domain`, `suffix` and
     `path`.
+
+    - We use the same definition of scheme as in the standards: what precedes `:`.
+    - A subdomain is a domain that is part of a larger domain. Here, for convenience reasons,
+    we define as subdomains each component (split on `.`) of the domain, excluding the base_domain
+    and suffix.
+    - We define as base_domain the part of the domain right before the suffix.
+    - We define as suffix the tld component (note that in some cases it is formed by top + second
+    level domain, as in 'example.co.uk', where it is 'co.uk').
+    - We define as path the part after the '/' after the domain, up until the '?' (which defines the
+    start of the query) or '#' character (which defines the start of the fragment).
+
+    Example
+    -----
+    Given the URL 'https://sub2.sub1.example.com/path?query#fragment':
+
+    - The scheme is 'https'
+    - The subdomains are 'sub1' and 'sub2'
+    - The base_domain is 'example'
+    - The suffix is 'com'
+    - The path is 'path'
 
     Notes
     -----
@@ -20,6 +41,11 @@ class URLHandler:
     - If you provide an invalid URL, you might get unexpected results for some of the methods.
     - When a non-valid URL such as 'fakedomain' is provided, it is considered as `base_domain`.
     - Some components in the URL like 'userinfo' (what goes right before @) will be ignored.
+
+    References
+    ----------
+    [1] :
+    https://datatracker.ietf.org/doc/html/rfc3986
 
     """
 
@@ -92,14 +118,14 @@ class URLHandler:
         if url:
             parsed_url = urlparse(url=url)
             extracted_url = tldextract.extract(url=url)
+            subdomains = cls.process_subdomain(subdomain=extracted_url.subdomain)
+            path = cls.process_path(parsed_url=parsed_url)
             if parsed_url.scheme:
                 scheme = parsed_url.scheme
-            subdomains = cls.process_subdomain(subdomain=extracted_url.subdomain)
             if extracted_url.domain:
                 domain = extracted_url.domain
             if extracted_url.suffix:
                 suffix = extracted_url.suffix
-            path = cls.process_path(parsed_url=parsed_url)
 
         return scheme, subdomains, domain, suffix, path
 
@@ -198,6 +224,8 @@ class URLHandler:
         -------
         List[str]
             A list of subdomains up to `num_subdomains`, or an empty list if `num_subdomains` is 0.
+            If `num_subdomains` is greater than the actual number of subdomains, just return all
+            subdomains.
 
         Raises
         ------
@@ -214,7 +242,32 @@ class URLHandler:
         return self.subdomains[-num_subdomains:]
 
     @classmethod
-    def concat_base_domain_with_suffix(
+    def join_domain_with_path(cls, domains: List[str], paths: List[str]) -> List[str]:
+        """
+        Returns a list of URLs consisting of all possible combinations of domains and paths,
+        *including* no path.
+
+        Examples
+        --------
+        domains=["example.com", "this.example.com"], paths=["here", "here/there"] yields
+        [
+            "example.com", "this.example.com", "example.com/here", "example.com/here/there",
+            "this.example.com/here", "this.example.com/here/there"
+        ]
+        """
+        if not paths:
+            return domains
+
+        domains_with_paths: List[str] = domains.copy()
+
+        for domain, path in itertools.product(domains, paths):
+            domains_with_paths.append(f"{domain}/{path}")
+
+        # Ensure there are no repeated values
+        return list(set(domains_with_paths))
+
+    @classmethod
+    def join_base_domain_with_suffix(
         cls, base_domain: Optional[str], suffix: Optional[str]
     ) -> Optional[str]:
         """
@@ -244,7 +297,7 @@ class URLHandler:
         return ".".join(components) or None
 
     @classmethod
-    def concat_subdomains_with_base_domain_and_suffix(
+    def join_subdomains_with_base_domain_and_suffix(
         cls, subdomains: List[str], base_domain_with_suffix: Optional[str]
     ) -> Optional[str]:
         """
@@ -296,9 +349,9 @@ class URLHandler:
         --------
         get_n_subdomains
             Called to obtain the left part of the URL.
-        concat_base_domain_with_suffix
+        join_base_domain_with_suffix
             Called to obtain the right part of the URL.
-        concat_subdomains_with_base_domain_and_suffix
+        join_subdomains_with_base_domain_and_suffix
             Called to join the left part and the right part to build the partial domain.
 
         Examples
@@ -315,10 +368,10 @@ class URLHandler:
         else:
             subdomains = self.get_n_subdomains(num_subdomains=num_subdomains)
 
-        base_domain_with_suffix = self.concat_base_domain_with_suffix(
+        base_domain_with_suffix = self.join_base_domain_with_suffix(
             base_domain=self.base_domain, suffix=self.suffix
         )
-        subdomains_with_base_domain_and_suffix = self.concat_subdomains_with_base_domain_and_suffix(
+        subdomains_with_base_domain_and_suffix = self.join_subdomains_with_base_domain_and_suffix(
             subdomains=subdomains, base_domain_with_suffix=base_domain_with_suffix
         )
 
@@ -353,14 +406,14 @@ class URLHandler:
 
         return True
 
-    def explode_domain(self) -> Optional[List[str]]:
+    def explode_domain(self) -> List[str]:
         """
         Computes all possible levels of partial domains including the top level domain, from less
         complete to more, from the `url` attribute.
 
         Returns
         -------
-        Optional[List[str]]
+        List[str]
             The exploded domains from less complete to more, following the aforementioned criteria.
 
         See also
@@ -374,11 +427,29 @@ class URLHandler:
         'www.s1.s2.example.com']
 
         """
-        exploded_domains = []
-        # Add 1 to include all subdomains
-        for num_subdomains in range(len(self.subdomains) + 1):
-            partial_domain = self.get_partial_domain(num_subdomains=num_subdomains)
-            if partial_domain:
-                exploded_domains.append(partial_domain)
+        exploded_domains: List[str] = []
+        full_domain = self.get_partial_domain()
 
-        return exploded_domains or None
+        if full_domain:
+            exploded_domains.append(full_domain)
+
+        for _ in range(len(self.subdomains)):
+            exploded_domains.append(exploded_domains[-1].split(".", maxsplit=1)[1])
+
+        # Revert to return a list with increasing number of subdomains
+        return list(reversed(exploded_domains))
+
+    @classmethod
+    def explode_path(cls, path: str, max_depth: int = 1) -> List[str]:
+        """Given a path, returns a list with exploded paths up to the specified `max_depth`.
+
+        Examples
+        --------
+        "here/there", 1 -> ["here"]
+        "here/there", 2 -> ["here", "here/there"]
+        """
+        if path is None or path in ["", "/"]:
+            return []
+
+        path_parts = path.strip("/").split("/")
+        return ["/".join(path_parts[: i + 1]) for i in range(min(max_depth, len(path_parts)))]
