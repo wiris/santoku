@@ -1,182 +1,346 @@
-import numpy as np
-import pandas as pd
+from urllib.parse import ParseResult
+
 import pytest
-from santoku.utils.url_handler import InvalidURLError, URLHandler
+from santoku.utils.url_handler import URLHandler
 
 
 @pytest.mark.parametrize(
-    argnames=("input_url", "num_subdomains", "expected_result"),
+    argnames=("input_subdomain", "expected_subdomain_list"),
+    argvalues=(
+        ("sub1.sub2", ["sub1", "sub2"]),
+        ("sub1", ["sub1"]),
+        ("sub1.", ["sub1", ""]),
+        ("sub1..", ["sub1", "", ""]),
+        ("", []),
+        (None, []),
+    ),
+    scope="function",
+)
+def test_string_subdomain_is_processed_as_expected(input_subdomain, expected_subdomain_list):
+    output_subdomain_list = URLHandler.process_subdomain(subdomain=input_subdomain)
+    assert output_subdomain_list == expected_subdomain_list
+
+
+@pytest.mark.parametrize(
+    argnames=("input_url", "expected_components"),
     argvalues=[
-        ("https://sub2.sub1.example.com/path?query#fragment", 0, "example.com"),
-        ("https://sub2.sub1.example.com", 1, "sub1.example.com"),
-        ("https://sub2.sub1.example.com", 2, "sub2.sub1.example.com"),
-        ("https://sub2.sub1.example.com", 3, "sub2.sub1.example.com"),
-        ("https://example.com", 1, "example.com"),
-        ("https://example.co.uk", 0, "example.co.uk"),
-        ("https://user@example.co.uk:8000", 0, "example.co.uk"),
-        # Note that com.uk isn't a valid tld (but it is a valid url), so it is expected that the
-        # funcition would consider 'example' as subdomain, 'com' as domain, and 'uk' as suffix
-        ("https://example.com.uk", 0, "com.uk"),
-        ("www.example.com", 0, "example.com"),
+        (
+            "https://sub2.sub1.example.com/path?query#fragment",
+            ("https", ["sub2", "sub1"], "example", "com", "/path"),
+        ),
+        (
+            "https://sub1.example.com/path/",
+            ("https", ["sub1"], "example", "com", "/path/"),
+        ),
+        ("http://sub2.sub1.example.es", ("http", ["sub2", "sub1"], "example", "es", None)),
+        ("https://sub1.example.co.uk", ("https", ["sub1"], "example", "co.uk", None)),
+        ("https://example.com", ("https", [], "example", "com", None)),
+        ("https://example.XN--1QQW23A", ("https", [], "example", "XN--1QQW23A", None)),
+        ("https://user@example.co.uk:8000", ("https", [], "example", "co.uk", None)),
+        # Note that com.uk isn't a valid TLD (but it is a valid URL), so it is expected that the
+        # function would consider 'example' as subdomain, 'com' as domain, and 'uk' as suffix
+        ("https://example.com.uk", ("https", ["example"], "com", "uk", None)),
+        ("www.example.com", (None, ["www"], "example", "com", None)),
+        ("https://localhost.example", ("https", ["localhost"], "example", None, None)),
+        ("https://sub1.localhost.example", ("https", ["sub1", "localhost"], "example", None, None)),
+        (
+            "https://sub1..localhost.example",
+            ("https", ["sub1", "", "localhost"], "example", None, None),
+        ),
+        ("localhost", (None, [], "localhost", None, None)),
+        ("https://125.0.0.0", ("https", [], "125.0.0.0", None, None)),
+        ("com", (None, [], None, "com", None)),
+        ("*", (None, [], "*", None, None)),
+        ("//", (None, [], None, None, None)),
+        ("", (None, [], None, None, None)),
+        ("https:///integration/ckeditor", ("https", [], None, None, "/integration/ckeditor")),
     ],
     scope="function",
 )
-def test_get_partial_domain_does_not_raise_exception_when_parameter_is_true_for_valid_url(
-    input_url,
-    num_subdomains,
-    expected_result,
-):
-    test_partial_domain_raising_exception_for_invalid_url = URLHandler.get_partial_domain(
-        url=input_url, num_subdomains=num_subdomains, raise_exception_if_invalid_url=True
+def test_url_are_split_into_components_as_expected(input_url, expected_components):
+    output_components = URLHandler.split_url_into_components(url=input_url)
+    assert output_components == expected_components
+
+
+@pytest.mark.parametrize(
+    argnames=("input_url", "expected_result"),
+    argvalues=[
+        ("https://sub2.sub1.example.com/path?query#fragment", True),
+        ("https://sub2.sub1.example.com", True),
+        ("https://example.com", True),
+        ("https://example.co.uk", True),
+        ("https://user@example.co.uk:8000", True),
+        # Note that com.uk isn't a valid TLD (but it is a usable URL), so it is expected that the
+        # funcition would consider 'example' as subdomain, 'com' as domain, and 'uk' as suffix
+        ("https://example.com.uk", True),
+        ("www.example.com", True),
+        # Note that this URL is not usable because it doesn't contain suffix, so 'localhost' will be
+        # be considered as subdomain, and 'example' as domain
+        ("https://localhost.example", False),
+        ("https://sub1.localhost.example", False),
+        ("localhost", False),
+        ("https://125.0.0.0", False),
+        ("com", False),
+        ("*", False),
+        ("//", False),
+        ("", False),
+        ("https:///integration/ckeditor", False),
+    ],
+    scope="function",
+)
+def test_url_is_validated_as_expected(input_url, expected_result):
+    output_result = URLHandler(url=input_url).url_is_usable()
+    assert output_result == expected_result
+
+
+@pytest.mark.parametrize(
+    argnames=("input_parsed_url", "expected_path"),
+    argvalues=(
+        (
+            ParseResult(
+                scheme="https",
+                netloc="sub1.domain.com",
+                path="/demo",
+                params="",
+                query="",
+                fragment="",
+            ),
+            "/demo",
+        ),
+        (
+            ParseResult(
+                scheme="",
+                netloc="domain.com",
+                path="/demo",
+                params="",
+                query="courses=1",
+                fragment="",
+            ),
+            "/demo",
+        ),
+        (
+            ParseResult(
+                scheme="",
+                netloc="domain.com",
+                path="/demo/",
+                params="",
+                query="",
+                fragment="",
+            ),
+            "/demo/",
+        ),
+        (
+            ParseResult(
+                scheme="https",
+                netloc="",
+                path="/demo",
+                params="",
+                query="courses=1",
+                fragment="",
+            ),
+            "/demo",
+        ),
+        (
+            ParseResult(
+                scheme="https",
+                netloc="125.0.0.0",
+                path="/demo",
+                params="",
+                query="",
+                fragment="",
+            ),
+            "/demo",
+        ),
+        (
+            ParseResult(
+                scheme="https",
+                netloc="domain.com",
+                path="",
+                params="",
+                query="courses=1",
+                fragment="",
+            ),
+            None,
+        ),
+        (
+            ParseResult(scheme="", netloc="", path="domain", params="", query="", fragment=""),
+            None,
+        ),
+    ),
+    scope="function",
+)
+def test_path_is_processed_as_expected(input_parsed_url, expected_path):
+    output_path = URLHandler.process_path(parsed_url=input_parsed_url)
+    assert output_path == expected_path
+
+
+@pytest.mark.parametrize(
+    argnames=("input_url", "num_subdomains", "expected_subdomains_list"),
+    argvalues=(
+        ("https://sub2.sub1.example.com/path?query#fragment", 1, ["sub1"]),
+        ("https://sub2.sub1.example.com/path?query#fragment", 2, ["sub2", "sub1"]),
+        ("https://sub2.sub1.example.com/path?query#fragment", 3, ["sub2", "sub1"]),
+        ("www.example.com", 1, ["www"]),
+        ("www.example.com", 0, []),
+        # Note that com.uk isn't a valid TLD (but it is a usable URL), so it is expected that the
+        # funcition would consider 'example' as subdomain, 'com' as domain, and 'uk' as suffix
+        ("https://example.com.uk", 1, ["example"]),
+        ("https://example.com", 1, []),
+        ("https://user@example.co.uk:8000", 1, []),
+        ("125.0.0.0", 2, []),
+        # Note that 125.0.0.0.0 isn't a valid IP, so the last 0 will be treated as base domain, and
+        # the remaining part as subdomain
+        ("125.0.0.0.0", 4, ["125", "0", "0", "0"]),
+        ("", 1, []),
+    ),
+    scope="function",
+)
+def test_n_subdomains_are_gotten_correctly(input_url, num_subdomains, expected_subdomains_list):
+    output_subdomains_list = URLHandler(url=input_url).get_n_subdomains(
+        num_subdomains=num_subdomains
     )
-    assert test_partial_domain_raising_exception_for_invalid_url == expected_result
+    assert output_subdomains_list == expected_subdomains_list
 
 
 @pytest.mark.parametrize(
     argnames=("input_url", "num_subdomains"),
-    argvalues=[
-        # Note that this url is invalid because it doesn't contain suffix, so 'localhost' will be
-        # be considered as subdomain, and 'example' as domain
-        ("https://localhost.example", 0),
-        ("https://sub1.localhost.example", 1),
-        ("https://sub1.localhost.example", 2),
-        ("localhost", 0),
-        ("https://125.0.0.0", 1),
-        ("com", 0),
-        ("*", 0),
-        ("//", 0),
-        ("", 0),
-        ("https:///integration/ckeditor", 0),
-    ],
+    argvalues=(("https://sub2.sub1.example.com/path?query#fragment", -1),),
     scope="function",
 )
-def test_get_partial_domain_raises_exception_when_parameter_is_true_for_invalid_url(
-    input_url,
-    num_subdomains,
-):
-    with pytest.raises(InvalidURLError):
-        URLHandler.get_partial_domain(
-            url=input_url, num_subdomains=num_subdomains, raise_exception_if_invalid_url=True
-        )
+def test_exception_is_raised_for_num_subdomain_smaller_than_0(input_url, num_subdomains):
+    with pytest.raises(ValueError):
+        URLHandler(url=input_url).get_n_subdomains(num_subdomains=num_subdomains)
 
 
 @pytest.mark.parametrize(
-    argnames=("input_url", "num_subdomains", "expected_result"),
+    argnames=("input_domains", "input_paths", "expected_joined_domain_and_path_list"),
+    argvalues=(
+        (["example.com"], ["here"], ["example.com", "example.com/here"]),
+        (
+            ["example.com", "this.example.com"],
+            ["here"],
+            ["example.com", "example.com/here", "this.example.com", "this.example.com/here"],
+        ),
+        (
+            ["example.com", "this.example.com"],
+            ["here", "here/there"],
+            [
+                "example.com",
+                "example.com/here",
+                "example.com/here/there",
+                "this.example.com",
+                "this.example.com/here",
+                "this.example.com/here/there",
+            ],
+        ),
+        (["example.com", "this.example.com"], [], ["example.com", "this.example.com"]),
+    ),
+    scope="function",
+)
+def test_domain_and_path_are_joined_properly(
+    input_domains, input_paths, expected_joined_domain_and_path_list
+):
+    output_joined_domain_and_path_list = URLHandler.join_domain_with_path(
+        domains=input_domains, paths=input_paths
+    )
+
+    assert sorted(output_joined_domain_and_path_list) == sorted(
+        expected_joined_domain_and_path_list
+    )
+
+
+@pytest.mark.parametrize(
+    argnames=("input_base_domain", "input_suffix", "expected_base_domain_with_suffix"),
+    argvalues=(
+        ("domain", "es", "domain.es"),
+        ("domain", "co.uk", "domain.co.uk"),
+        ("*", "es", "*.es"),
+        ("domain", None, "domain"),
+        ("125.0.0.0", None, "125.0.0.0"),
+        ("*", None, "*"),
+        (None, "es", "es"),
+        (None, None, None),
+    ),
+    scope="function",
+)
+def test_base_domain_is_joined_with_suffix_properly(
+    input_base_domain, input_suffix, expected_base_domain_with_suffix
+):
+    output_base_domain_with_suffix = URLHandler.join_base_domain_with_suffix(
+        base_domain=input_base_domain, suffix=input_suffix
+    )
+    assert output_base_domain_with_suffix == expected_base_domain_with_suffix
+
+
+@pytest.mark.parametrize(
+    argnames=("input_subdomains", "input_base_domain_with_suffix", "expected_result"),
+    argvalues=(
+        (["sub2", "sub1"], "domain.es", "sub2.sub1.domain.es"),
+        (["sub1"], "domain.es", "sub1.domain.es"),
+        ([], "domain.es", "domain.es"),
+        (["sub2", "sub1"], "*", "sub2.sub1.*"),
+        ([], "domain", "domain"),
+        ([], "*", "*"),
+        ([], "es", "es"),
+        (["sub2", "sub1"], None, "sub2.sub1"),
+        ([], None, None),
+    ),
+    scope="function",
+)
+def test_subdomains_are_joined_with_base_domain_and_suffix_properly(
+    input_subdomains, input_base_domain_with_suffix, expected_result
+):
+    output_result = URLHandler.join_subdomains_with_base_domain_and_suffix(
+        subdomains=input_subdomains, base_domain_with_suffix=input_base_domain_with_suffix
+    )
+    assert expected_result == output_result
+
+
+@pytest.mark.parametrize(
+    argnames=("input_url", "num_subdomains", "expected_partial_domain"),
     argvalues=[
         ("https://sub2.sub1.example.com/path?query#fragment", 0, "example.com"),
         ("https://sub2.sub1.example.com", 1, "sub1.example.com"),
         ("https://sub2.sub1.example.com", 2, "sub2.sub1.example.com"),
         ("https://sub2.sub1.example.com", 3, "sub2.sub1.example.com"),
+        ("https://sub2.sub1.example.com", None, "sub2.sub1.example.com"),
         ("https://example.com", 1, "example.com"),
+        ("https://example.com", None, "example.com"),
         ("https://example.co.uk", 0, "example.co.uk"),
         ("https://user@example.co.uk:8000", 0, "example.co.uk"),
-        # Notice that com.uk isn't a valid tld (but it is a valid url), so it is expected that the
-        # funcition would consider 'example' as subdomain, 'com' as domain, and 'uk' as suffix
+        # Note that com.uk isn't a valid TLD (but it is a usable URL), so it is expected that the
+        # function would consider 'example' as subdomain, 'com' as domain, and 'uk' as suffix
         ("https://example.com.uk", 0, "com.uk"),
         ("www.example.com", 0, "example.com"),
-        # Notice that this url is invalid because it doesn't contain suffix, so 'localhost' will be
+        # Notice that this URL is not usable because it doesn't contain suffix, so 'localhost' will be
         # be considered as subdomain, and 'example' as domain
         ("https://localhost.example", 0, "example"),
         ("https://sub1.localhost.example", 1, "localhost.example"),
         ("https://sub1.localhost.example", 2, "sub1.localhost.example"),
         ("localhost", 0, "localhost"),
+        ("localhost", None, "localhost"),
+        ("localhost.example", None, "localhost.example"),
         ("https://125.0.0.0", 1, "125.0.0.0"),
         ("com", 0, "com"),
         ("*", 0, "*"),
-        ("//", 0, "//"),
-        ("", 0, ""),
-        ("https:///integration/ckeditor", 0, ""),
-        ("https:///integration/ckeditor", 1, ""),
+        ("//", 0, None),
+        ("", 1, None),
+        ("https:///integration/ckeditor", 0, None),
+        ("https:///integration/ckeditor", 1, None),
+        ("https:///integration/ckeditor", None, None),
     ],
     scope="function",
 )
-def test_get_partial_domain_does_not_raise_exception_when_parameter_is_false_for_valid_or_invalid_url(
-    input_url, num_subdomains, expected_result
-):
-    test_partial_domain_not_raising_exception_for_invalid_url = URLHandler.get_partial_domain(
-        url=input_url, num_subdomains=num_subdomains, raise_exception_if_invalid_url=False
-    )
-    assert test_partial_domain_not_raising_exception_for_invalid_url == expected_result
-
-
-@pytest.mark.parametrize(
-    argnames=("input_url", "expected_result"),
-    argvalues=[
-        (
-            "https://sub2.sub1.example.com/path?query#fragment",
-            "sub2.sub1.example.com",
-        ),
-        ("https://sub1.example.com", "sub1.example.com"),
-        ("https://example.com", "example.com"),
-        ("https://example.co.uk", "example.co.uk"),
-        ("https://user@example.co.uk:8000", "example.co.uk"),
-        ("https://example.com.uk", "example.com.uk"),
-        ("www.example.com", "www.example.com"),
-    ],
-)
-def test_get_fully_qualified_domain_does_not_raise_exception_when_parameter_is_true_for_valid_url(
-    input_url, expected_result
-):
-    test_fully_qualified_domain_raising_exception_for_invalid_url = (
-        URLHandler.get_fully_qualified_domain(url=input_url, raise_exception_if_invalid_url=True)
-    )
-    assert test_fully_qualified_domain_raising_exception_for_invalid_url == expected_result
-
-
-@pytest.mark.parametrize(
-    argnames=("input_url"),
-    argvalues=[
-        ("https://localhost.example"),
-        ("localhost"),
-        ("https://125.0.0.0"),
-        ("com"),
-        ("*"),
-        ("//"),
-        (""),
-        ("https:///js"),
-        ("https:///integration/"),
-        ("https:///integration/ckeditor"),
-    ],
-)
-def test_get_fully_qualified_domain_raises_exception_when_parameter_is_true_for_invalid_url(
+def test_partial_domain_is_gotten_correctly(
     input_url,
+    num_subdomains,
+    expected_partial_domain,
 ):
-    with pytest.raises(InvalidURLError):
-        URLHandler.get_fully_qualified_domain(url=input_url, raise_exception_if_invalid_url=True)
-
-
-@pytest.mark.parametrize(
-    argnames=("input_url", "expected_result"),
-    argvalues=[
-        (
-            "https://sub2.sub1.example.com/path?query#fragment",
-            "sub2.sub1.example.com",
-        ),
-        ("https://sub1.example.com", "sub1.example.com"),
-        ("https://example.com", "example.com"),
-        ("https://example.co.uk", "example.co.uk"),
-        ("https://user@example.co.uk:8000", "example.co.uk"),
-        ("https://example.com.uk", "example.com.uk"),
-        ("www.example.com", "www.example.com"),
-        ("https://localhost.example", "localhost.example"),
-        ("localhost", "localhost"),
-        ("https://125.0.0.0", "125.0.0.0"),
-        ("com", "com"),
-        ("*", "*"),
-        ("//", "//"),
-        ("", ""),
-        ("https:///integration/ckeditor", ""),
-        ("https:///js/", ""),
-        ("https:///integration/", ""),
-    ],
-)
-def test_get_fully_qualified_domain_does_not_raise_exception_when_parameter_is_false_for_valid_or_invalid_url(
-    input_url, expected_result
-):
-    test_fully_qualified_domain_not_raising_exception_for_invalid_url = (
-        URLHandler.get_fully_qualified_domain(url=input_url, raise_exception_if_invalid_url=False)
+    output_partial_domain = URLHandler(url=input_url).get_partial_domain(
+        num_subdomains=num_subdomains
     )
-    assert test_fully_qualified_domain_not_raising_exception_for_invalid_url == expected_result
+
+    assert output_partial_domain == expected_partial_domain
 
 
 @pytest.mark.parametrize(
@@ -196,12 +360,12 @@ def test_get_fully_qualified_domain_does_not_raise_exception_when_parameter_is_f
     scope="function",
 )
 def test_contains_ip_evaluates_valid_and_invalid_url_correctly(input_url, expected_result):
-    test_containing_ip_evaluation = URLHandler.contains_ip(url=input_url)
+    test_containing_ip_evaluation = URLHandler(url=input_url).contains_ip()
     assert test_containing_ip_evaluation == expected_result
 
 
 @pytest.mark.parametrize(
-    argnames=("input_url", "expected_result"),
+    argnames=("input_url", "expected_exploded_domains"),
     argvalues=[
         (
             "http://sub2.sub1.example.com?query#fragment",
@@ -213,132 +377,49 @@ def test_contains_ip_evaluates_valid_and_invalid_url_correctly(input_url, expect
         ("https://user@example.co.uk:8000", ["example.co.uk"]),
         ("https://example.com.uk", ["com.uk", "example.com.uk"]),
         ("www.example.com", ["example.com", "www.example.com"]),
-    ],
-    scope="function",
-)
-def test_explode_domain_does_not_raise_exception_when_parameter_is_true_for_valid_url(
-    input_url, expected_result
-):
-    test_exploded_domains_raising_exception_for_invalid_url = URLHandler.explode_domain(
-        url=input_url, raise_exception_if_invalid_url=True
-    )
-    assert test_exploded_domains_raising_exception_for_invalid_url == expected_result
-
-
-@pytest.mark.parametrize(
-    argnames=("input_url"),
-    argvalues=[
-        ("https://localhost.example"),
-        ("localhost"),
-        ("125.0.0.0"),
-        ("com"),
-        ("*"),
-        ("//"),
-        (""),
-        ("https:///js"),
-        ("https:///integration/ckeditor"),
-    ],
-    scope="function",
-)
-def test_explode_domain_raises_exception_when_parameter_is_true_for_invalid_url(input_url):
-    with pytest.raises(InvalidURLError):
-        URLHandler.explode_domain(url=input_url, raise_exception_if_invalid_url=True)
-
-
-@pytest.mark.parametrize(
-    argnames=("input_url", "expected_result"),
-    argvalues=[
-        (
-            "http://sub2.sub1.example.com?query#fragment",
-            ["example.com", "sub1.example.com", "sub2.sub1.example.com"],
-        ),
-        (
-            "https://sub1.example.com/path?query#fragment",
-            ["example.com", "sub1.example.com"],
-        ),
-        ("https://example.com", ["example.com"]),
-        ("https://example.co.uk", ["example.co.uk"]),
-        ("https://user@example.co.uk:8000", ["example.co.uk"]),
-        ("https://example.com.uk", ["com.uk", "example.com.uk"]),
-        (
-            "www.example.com",
-            ["example.com", "www.example.com"],
-        ),
         ("https://localhost.example", ["example", "localhost.example"]),
         ("localhost", ["localhost"]),
         ("125.0.0.0", ["125.0.0.0"]),
         ("com", ["com"]),
         ("*", ["*"]),
-        ("//", ["//"]),
-        ("", [""]),
-        ("https:///js", [""]),
-        ("https:///integration/ckeditor", [""]),
+        ("//", []),
+        ("", []),
+        ("https:///js", []),
+        ("https:///integration/ckeditor", []),
     ],
     scope="function",
 )
-def test_explode_domain_does_not_raise_exception_when_parameter_is_false_for_invalid_url(
-    input_url, expected_result
-):
-    test_exploded_domains_not_raising_exception_for_invalid_url = URLHandler.explode_domain(
-        url=input_url, raise_exception_if_invalid_url=False
-    )
-    assert test_exploded_domains_not_raising_exception_for_invalid_url == expected_result
+def test_domains_are_exploded_properly(input_url, expected_exploded_domains):
+    output_exploded_domains = URLHandler(url=input_url).explode_domain()
+    assert output_exploded_domains == expected_exploded_domains
 
 
 @pytest.mark.parametrize(
-    argnames=("input_url", "expected_path"),
+    argnames=("input_data", "input_depth", "expected_exploded_paths"),
     argvalues=(
-        ("https://example.com/path", "/path"),
-        ("https://example.com/path/", "/path/"),
-        ("https://example.com.uk/demo/", "/demo/"),
-        ("https://example.com.uk/demo?query#fragment", "/demo"),
-        ("https:///integration/ckeditor/", "/integration/ckeditor/"),
-        ("https://example.com/", "/"),
-        ("https://example.com", ""),
-        ("localhost", ""),
-        ("*", ""),
-        ("//", ""),
-        ("", ""),
+        ("/moodle", 1, ["moodle"]),
+        ("/moodle", 2, ["moodle"]),
+        ("/moodle/", 1, ["moodle"]),
+        ("/moodle/this", 1, ["moodle"]),
+        ("/moodle/this/", 1, ["moodle"]),
+        ("/moodle/this", 2, ["moodle", "moodle/this"]),
+        ("/moodle/this/", 2, ["moodle", "moodle/this"]),
+        ("/moodle/this", 3, ["moodle", "moodle/this"]),
+        ("moodle/this", 1, ["moodle"]),
+        ("/moodle/subpath1/subpath2", 2, ["moodle", "moodle/subpath1"]),
+        (
+            "/moodle/subpath1/subpath2",
+            3,
+            ["moodle", "moodle/subpath1", "moodle/subpath1/subpath2"],
+        ),
+        ("/", 1, []),
+        ("/", 2, []),
+        ("", 1, []),
+        ("", 2, []),
     ),
     scope="function",
 )
-def test_get_path_does_not_raise_exception_when_parameter_is_false_for_valid_and_invalid_url(
-    input_url, expected_path
-):
-    output_path = URLHandler.get_path(url=input_url, raise_exception_if_invalid_url=False)
-    assert output_path == expected_path
+def test_explode_path(input_data, input_depth, expected_exploded_paths):
+    output_exploded_paths = URLHandler.explode_path(path=input_data, max_depth=input_depth)
 
-
-@pytest.mark.parametrize(
-    argnames=("input_url", "expected_path"),
-    argvalues=(
-        ("https://example.com/path", "/path"),
-        ("https://example.com/path/", "/path/"),
-        ("https://example.com.uk/demo/", "/demo/"),
-        ("https://example.com.uk/demo?query#fragment", "/demo"),
-        ("https://example.com/", "/"),
-        ("https://example.com", ""),
-    ),
-    scope="function",
-)
-def test_get_path_does_not_raise_exception_when_parameter_is_true_for_valid_url(
-    input_url, expected_path
-):
-    output_path = URLHandler.get_path(url=input_url, raise_exception_if_invalid_url=True)
-    assert output_path == expected_path
-
-
-@pytest.mark.parametrize(
-    argnames=("input_url"),
-    argvalues=(
-        ("https:///integration/ckeditor/"),
-        ("localhost"),
-        ("*"),
-        ("//"),
-        (""),
-    ),
-    scope="function",
-)
-def test_get_path_raises_exception_when_parameter_is_true_for_invalid_url(input_url):
-    with pytest.raises(InvalidURLError):
-        URLHandler.get_path(url=input_url, raise_exception_if_invalid_url=True)
+    assert output_exploded_paths == expected_exploded_paths
