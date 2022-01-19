@@ -1,28 +1,28 @@
-# This workflow will install Python dependencies and run tests
-
-name: Install Python Dependencies and Run Tests on Pull Requests
+name: Install deps & Test
 on:
   pull_request:
     branches: master
 jobs:
-  build:
+  install-deps-test:
     runs-on: ubuntu-latest
-    if: "! contains(toJSON(github.event.commits.*.message), '[skip ci]')"
-    strategy:
-      matrix:
-        python-version: [3.9.9]
     steps:
-    - uses: actions/checkout@v2
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v2
+    - name: Checkout repository 
+      uses: actions/checkout@v2.4.0
+
+    - name: Set up Python
+      uses: actions/setup-python@v2.3.1
       with:
-        python-version: ${{ matrix.python-version }}
+        python-version: 3.9.9
+
+    - name: Set up Poetry
+      uses: abatilo/actions-poetry@v2.1.4
+      with:
+        poetry-version: 1.1.12
+
     - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        if [ -f requirements-test.txt ]; then pip install -r requirements-test.txt; fi
-        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-    - name: Test with pytest
+      run: poetry install
+
+    - name: Test
       env:
         SLACK_BOT_API_TOKEN: ${{secrets.SLACK_BOT_API_TOKEN}}
         DATA_SCIENCE_SALESFORCE_SANDBOX_USR: ${{secrets.DATA_SCIENCE_SALESFORCE_SANDBOX_USR}}
@@ -30,5 +30,4 @@ jobs:
         DATA_SCIENCE_SALESFORCE_SANDBOX_CLIENT_USR: ${{secrets.DATA_SCIENCE_SALESFORCE_SANDBOX_CLIENT_USR}}
         DATA_SCIENCE_SALESFORCE_SANDBOX_CLIENT_PSW: ${{secrets.DATA_SCIENCE_SALESFORCE_SANDBOX_CLIENT_PSW}}
         DATA_SCIENCE_SALESFORCE_SANDBOX_AUTH_URL: ${{secrets.DATA_SCIENCE_SALESFORCE_SANDBOX_AUTH_URL}}
-      run: |
-        pytest
+      run: poetry run pytest
