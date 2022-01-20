@@ -41,6 +41,8 @@ class URLHandler:
     - If you provide an invalid URL, you might get unexpected results for some of the methods.
     - When a non-valid URL such as 'fakedomain' is provided, it is considered as `base_domain`.
     - Some components in the URL like 'userinfo' (what goes right before @) will be ignored.
+    - Some components that are case insensitive (scheme, subdomains, base_domain and suffix) are
+    lowercased. However, the path component, which is case sensitive, is stored as it is.
 
     References
     ----------
@@ -99,6 +101,8 @@ class URLHandler:
             Called to obtain the subdomains in the desired format.
         process_path
             Called to obtain the path in the desired format.
+        clean_component
+            Called to clean the URL components.
 
         Example
         -------
@@ -107,7 +111,7 @@ class URLHandler:
         - subdomains -> ["sub1", "sub2"]
         - base_domain -> example
         - suffix -> co.uk
-        - path -> /demo?course=1
+        - path -> demo
 
         """
         scheme = None
@@ -121,16 +125,16 @@ class URLHandler:
             subdomains = cls.process_subdomain(subdomain=extracted_url.subdomain)
             path = cls.process_path(parsed_url=parsed_url)
             if parsed_url.scheme:
-                scheme = parsed_url.scheme
+                scheme = cls.clean_component(component=parsed_url.scheme, lowercase=True)
             if extracted_url.domain:
-                domain = extracted_url.domain
+                domain = cls.clean_component(component=extracted_url.domain, lowercase=True)
             if extracted_url.suffix:
-                suffix = extracted_url.suffix
+                suffix = cls.clean_component(component=extracted_url.suffix, lowercase=True)
 
         return scheme, subdomains, domain, suffix, path
 
     @classmethod
-    def process_subdomain(cls, subdomain: str) -> List[str]:
+    def process_subdomain(cls, subdomain: Optional[str]) -> List[str]:
         """
         Processes a subdomain by splitting its components on `.`.
 
@@ -145,6 +149,11 @@ class URLHandler:
             The list of split subdomain components. If the subdomain is empty, it returns an empty
             list.
 
+        See also
+        --------
+        clean_component
+            Called to clean the subdomain.
+
         Examples
         --------
         "sub2.sub1" -> ["sub2", "sub1"]
@@ -152,6 +161,8 @@ class URLHandler:
         "" -> []
 
         """
+        subdomain = cls.clean_component(component=subdomain, lowercase=True)
+
         if not subdomain:
             return []
 
@@ -202,6 +213,11 @@ class URLHandler:
             The path component of `parsed_url` or `None`. If the parsed url does not contain a
             scheme or a domain, `None` is returned instead.
 
+        See also
+        --------
+        clean_component
+            Called to clean the path.
+
         """
         # When something like "fakedomain" is passed to urllib.parse.urlparse, "fakedomain" will be
         # parsed as path, which is not desired for us (we) prefer considering "fakedomain" as
@@ -209,7 +225,57 @@ class URLHandler:
         if not (parsed_url.scheme or parsed_url.netloc):
             return None
 
-        return parsed_url.path or None
+        # Call to `clean_component` is required as `parsed_url.path` could contain a '/', which in not
+        # desirable when dealing with paths
+        return cls.clean_component(component=parsed_url.path, lowercase=False)
+
+    @classmethod
+    def slash_lfill(cls, component: Optional[str]) -> Optional[str]:
+        """
+        Adds a forward slash ('/') to the left of a given component if it doesn't have one.
+
+        Parameters
+        ----------
+        component : Optional[str]
+            The component to which a forward slash is added.
+
+        Returns
+        -------
+        Optional[str]
+            Returns the component with a forward slash in the first position of the string, or None
+            if the component is empty.
+
+        """
+        if component:
+            if not component.startswith("/"):
+                component = f"/{component}"
+
+        return component or None
+
+    @classmethod
+    def clean_component(cls, component: Optional[str], lowercase: bool = False) -> Optional[str]:
+        """
+        Removes leading and trailing forward slashes ('/') from a given component, and lowercases it
+        if `lowercase` is True.
+
+        Parameters
+        ----------
+        component : Optional[str]
+            The component to be cleaned.
+
+        Returns
+        -------
+        Optional[str]
+            Returns the component without any leading or trailing forward slashes, or None if the
+            component is empty.
+
+        """
+        if component:
+            component = component.strip("/")
+            if lowercase:
+                component = component.lower()
+
+        return component or None
 
     def get_n_subdomains(self, num_subdomains: int) -> List[str]:
         """
@@ -242,31 +308,6 @@ class URLHandler:
         return self.subdomains[-num_subdomains:]
 
     @classmethod
-    def join_domain_with_path(cls, domains: List[str], paths: List[str]) -> List[str]:
-        """
-        Returns a list of URLs consisting of all possible combinations of domains and paths,
-        *including* no path.
-
-        Examples
-        --------
-        domains=["example.com", "this.example.com"], paths=["here", "here/there"] yields
-        [
-            "example.com", "this.example.com", "example.com/here", "example.com/here/there",
-            "this.example.com/here", "this.example.com/here/there"
-        ]
-        """
-        if not paths:
-            return domains
-
-        domains_with_paths: List[str] = domains.copy()
-
-        for domain, path in itertools.product(domains, paths):
-            domains_with_paths.append(f"{domain}/{path}")
-
-        # Ensure there are no repeated values
-        return list(set(domains_with_paths))
-
-    @classmethod
     def join_base_domain_with_suffix(
         cls, base_domain: Optional[str], suffix: Optional[str]
     ) -> Optional[str]:
@@ -287,14 +328,128 @@ class URLHandler:
             The contatenated `base_domain` with `suffix`. Returns `base_domain` or `suffix` if one
             of them is `None`, or `None` if both are `None`.
 
+        See also
+        --------
+        clean_component
+            Called to clean the base_domain and suffix.
+
         """
+
+        cleaned_base_domain = cls.clean_component(component=base_domain, lowercase=True)
+        cleaned_suffix = cls.clean_component(component=suffix, lowercase=True)
+
         components = []
-        if base_domain:
-            components += [base_domain]
-        if suffix:
-            components += [suffix]
+        if cleaned_base_domain:
+            components += [cleaned_base_domain]
+        if cleaned_suffix:
+            components += [cleaned_suffix]
 
         return ".".join(components) or None
+
+    @classmethod
+    def join_domain_with_path(cls, domain: Optional[str], path: Optional[str]) -> Optional[str]:
+        """
+        Cleans and joins `domain` with `path` if both or them are not `None`.
+
+        Parameters
+        ----------
+        domain : Optional[str]
+            The domain to be joined.
+
+        path : Optional[str]
+            The path to be joined.
+
+        Returns
+        -------
+        Optional[str]
+            The joined `domain` with `path`. Returns `domain` or `path` if one of them is `None`, or
+            `None` if both are `None`.
+
+        See also
+        --------
+        clean_component
+            Called to clean the base_domain and path.
+
+        """
+        domain_with_path = []
+
+        cleaned_domain = cls.clean_component(component=domain, lowercase=True)
+        cleaned_path = cls.clean_component(component=path, lowercase=False)
+
+        if cleaned_domain:
+            domain_with_path.append(cleaned_domain)
+        if cleaned_path:
+            if not cleaned_domain:
+                cleaned_path = f"/{cleaned_path}"
+            domain_with_path.append(cleaned_path)
+
+        return "/".join(domain_with_path) or None
+
+    @classmethod
+    def join_domains_with_paths(
+        cls, domains: List[Optional[str]], paths: List[Optional[str]]
+    ) -> List[str]:
+        """
+        Returns the list of cleaned domains without path, and all possible combinations of domains
+        and paths after being cleaned without repetitions.
+
+        Parameters
+        ----------
+        domains : List[Optional[str]]
+            The domains to be joined.
+
+        paths : List[Optional[str]]
+            The paths to be joined.
+
+        Returns
+        -------
+        List[Optional[str]]
+            List of unique cleaned domains, and the joined cleaned `domains` with cleaned `paths`.
+            If both domains and paths are empty (or contain only empty domain and path), returns an
+            empty list.
+
+        See also
+        --------
+        clean_component
+            Called to clean the domains and paths.
+
+        Examples
+        --------
+        domains=["example.com", "this.example.com"], paths=["here", "here/there"] yields
+        [
+            "example.com", "this.example.com", "example.com/here", "example.com/here/there",
+            "this.example.com/here", "this.example.com/here/there"
+        ]
+        """
+        domains_with_paths = []
+        for domain in domains:
+            cleaned_domain = cls.clean_component(component=domain, lowercase=True)
+            if cleaned_domain:
+                domains_with_paths.append(cleaned_domain)
+
+        # Avoid modifying original parameters
+        domains_copy: List[Optional[str]] = []
+        paths_copy: List[Optional[str]] = []
+
+        # If one of domains or paths are empty lists, intertools would not iterate over the other
+        # one. As solution we add a 'None' element to the list.
+        if not domains:
+            domains_copy = [None]
+        else:
+            domains_copy = domains
+
+        if not paths:
+            paths_copy = [None]
+        else:
+            paths_copy = paths
+
+        for domain, path in itertools.product(domains_copy, paths_copy):
+            domain_with_path = cls.join_domain_with_path(domain=domain, path=path)
+            if domain_with_path:
+                domains_with_paths.append(domain_with_path)
+
+        # Ensure there are no repeated values
+        return list(set(domains_with_paths))
 
     @classmethod
     def join_subdomains_with_base_domain_and_suffix(
@@ -311,6 +466,11 @@ class URLHandler:
         base_domain_with_suffix : Optional[str]
             The base domain with suffix to be concatenated.
 
+        See also
+        --------
+        clean_component
+            Called to clean the subdomains and the base_domain_with_suffix.
+
         Returns
         -------
         Optional[str]
@@ -318,12 +478,23 @@ class URLHandler:
             `base_domain_with_suffix` if one of them is `None`, or `None` if both are `None`.
 
         """
-        components: List[str] = []
-        if subdomains:
-            components += subdomains
 
-        if base_domain_with_suffix:
-            components += [base_domain_with_suffix]
+        cleaned_subdomains = []
+        for subdomain in subdomains:
+            cleaned_subdomain = cls.clean_component(component=subdomain, lowercase=True)
+            if cleaned_subdomain:
+                cleaned_subdomains.append(cleaned_subdomain)
+
+        cleaned_base_domain_with_suffix = cls.clean_component(
+            component=base_domain_with_suffix, lowercase=True
+        )
+
+        components: List[str] = []
+        if cleaned_subdomains:
+            components += cleaned_subdomains
+
+        if cleaned_base_domain_with_suffix:
+            components += [cleaned_base_domain_with_suffix]
 
         return ".".join(components) or None
 
@@ -440,16 +611,43 @@ class URLHandler:
         return list(reversed(exploded_domains))
 
     @classmethod
-    def explode_path(cls, path: str, max_depth: int = 1) -> List[str]:
-        """Given a path, returns a list with exploded paths up to the specified `max_depth`.
+    def explode_path(cls, path: Optional[str], max_depth: int = 1) -> List[str]:
+        """
+        Given a path, returns a list with exploded paths up to the specified `max_depth`.
+
+        We consider the path depth as the number of components of a `path` split on '/'.
+
+        Parameters
+        ----------
+        path : Optional[str]
+            Path to be exploded.
+
+        max_depth : int, Optional
+            Depth of paths to be considered in the path exploitation. By default, 1 level of `path`
+            is exploded.
+
+        Returns
+        -------
+        List[str]
+            The list of exploded paths up to `max_depth`, or an empty list if `path` is empty. If
+            `max_depth` is greater than the number of components of the path, explodes the path with
+            all components. If `max_depth` is smaller than 1, an empty list will be returned.
+
+        See also
+        --------
+        clean_component
+            Called to clean the path.
 
         Examples
         --------
         "here/there", 1 -> ["here"]
         "here/there", 2 -> ["here", "here/there"]
+
         """
-        if path is None or path in ["", "/"]:
+        cleaned_path = cls.clean_component(component=path, lowercase=False)
+
+        if not cleaned_path:
             return []
 
-        path_parts = path.strip("/").split("/")
+        path_parts = cleaned_path.split("/")
         return ["/".join(path_parts[: i + 1]) for i in range(min(max_depth, len(path_parts)))]
