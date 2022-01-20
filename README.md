@@ -1,6 +1,6 @@
 [![PyPI version](https://badge.fury.io/py/santoku.svg)](https://badge.fury.io/py/santoku)
 
-[![Install Python Dependencies, Run Tests on Pushes to Main Branch, Bump Version and Tag and Publish to PyPI](https://github.com/wiris/santoku/workflows/Install%20Python%20Dependencies,%20Run%20Tests%20on%20Pushes%20to%20Main%20Branch,%20Bump%20Version%20and%20Tag%20and%20Publish%20to%20PyPI/badge.svg)](https://github.com/wiris/santoku/actions)
+[![Install deps, Test & Release](https://github.com/wiris/santoku/actions/workflows/cd.yml/badge.svg)](https://github.com/wiris/santoku/actions/workflows/cd.yml)
 
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
