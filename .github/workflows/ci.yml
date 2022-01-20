@@ -1,0 +1,33 @@
+name: Install deps & Test
+on:
+  pull_request:
+    branches: master
+jobs:
+  install-deps-test:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository 
+      uses: actions/checkout@v2.4.0
+
+    - name: Set up Python
+      uses: actions/setup-python@v2.3.1
+      with:
+        python-version: 3.9.9
+
+    - name: Set up Poetry
+      uses: abatilo/actions-poetry@v2.1.4
+      with:
+        poetry-version: 1.1.12
+
+    - name: Install dependencies
+      run: poetry install
+
+    - name: Test
+      env:
+        SLACK_BOT_API_TOKEN: ${{secrets.SLACK_BOT_API_TOKEN}}
+        DATA_SCIENCE_SALESFORCE_SANDBOX_USR: ${{secrets.DATA_SCIENCE_SALESFORCE_SANDBOX_USR}}
+        DATA_SCIENCE_SALESFORCE_SANDBOX_PSW: ${{secrets.DATA_SCIENCE_SALESFORCE_SANDBOX_PSW}}
+        DATA_SCIENCE_SALESFORCE_SANDBOX_CLIENT_USR: ${{secrets.DATA_SCIENCE_SALESFORCE_SANDBOX_CLIENT_USR}}
+        DATA_SCIENCE_SALESFORCE_SANDBOX_CLIENT_PSW: ${{secrets.DATA_SCIENCE_SALESFORCE_SANDBOX_CLIENT_PSW}}
+        DATA_SCIENCE_SALESFORCE_SANDBOX_AUTH_URL: ${{secrets.DATA_SCIENCE_SALESFORCE_SANDBOX_AUTH_URL}}
+      run: poetry run pytest

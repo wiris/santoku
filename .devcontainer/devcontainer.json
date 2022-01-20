@@ -1,50 +1,71 @@
-// For format details, see https://aka.ms/vscode-remote/devcontainer.json or this file's README at:
-// https://github.com/microsoft/vscode-dev-containers/tree/v0.101.0/containers/docker-existing-dockerfile
+// For format details, see https://aka.ms/devcontainer.json. For config options, see the README at:
+// https://github.com/microsoft/vscode-dev-containers/tree/v0.209.6/containers/python-3
 {
-    "name": "Existing Dockerfile",
-    // Sets the run context to one level up instead of the .devcontainer folder.
-    "context": "..",
-    // Update the 'dockerFile' property if you aren't using the standard 'Dockerfile' filename.
-    "dockerFile": "Dockerfile",
-    // Set *default* container specific settings.json values on container create.
-    "settings": {
-        "terminal.integrated.shell.linux": null,
-        "editor.formatOnSave": true,
-        "editor.rulers": [
-            100
-        ],
-        "python.pythonPath": "/usr/local/bin/python",
-        "python.sortImports.args": [
-            "--line-length",
-            "100"
-        ],
-        "python.linting.enabled": true,
-        "python.linting.pylintEnabled": false,
-        "python.linting.mypyEnabled": true,
-        "python.formatting.provider": "black",
-        "python.formatting.blackArgs": [
-            "--line-length",
-            "100"
-        ],
-        "[python]": {
-            "editor.codeActionsOnSave": {
-                "source.organizeImports": true
-            }
-        }
-    },
-    // Add the IDs of extensions you want installed when the container is created.
-    "extensions": [
-        "ms-python.python",
-        "ms-vsliveshare.vsliveshare"
-    ],
-    // Use 'forwardPorts' to make a list of ports inside the container available locally.
-    // "forwardPorts": [],
-    // postCreateCommand runs commands after the container is created:
-    // - enables git autocomplete and...
-    "postCreateCommand": "echo source /usr/share/bash-completion/completions/git >> /root/.bashrc",
-    // This includes your dotenv file inside the container.
-    "runArgs": [
-        "--env-file",
-        "${localWorkspaceFolder}/.env"
-    ],
+	"name": "Python 3",
+	"build": {
+		"dockerfile": "Dockerfile",
+		"context": "..",
+		"args": {
+			// Update 'VARIANT' to pick a Python version: 3, 3.10, 3.9, 3.8, 3.7, 3.6
+			// Append -bullseye or -buster to pin to an OS version.
+			// Use -bullseye variants on local on arm64/Apple Silicon.
+			"VARIANT": "3.9-bullseye"
+		}
+	},
+	// Set *default* container specific settings.json values on container create.
+	"settings": {
+		"python.defaultInterpreterPath": "./.venv/bin/python",
+		"editor.formatOnSave": true,
+		"editor.rulers": [
+			100
+		],
+		"python.linting.enabled": true,
+		"python.linting.pylintEnabled": false,
+		"python.linting.mypyEnabled": true,
+		"python.formatting.provider": "black",
+		"python.formatting.blackArgs": [
+			"--line-length",
+			"100"
+		],
+		"python.poetryPath": "/opt/poetry/bin/poetry",
+		"python.terminal.activateEnvInCurrentTerminal": true,
+		"[python]": {
+			"editor.codeActionsOnSave": {
+				"source.organizeImports": true
+			}
+		},
+		"[json]": {
+			"files.insertFinalNewline": true,
+			"files.trimFinalNewlines": true,
+		},
+		"python.formatting.autopep8Path": "/usr/local/py-utils/bin/autopep8",
+		"python.formatting.blackPath": "/usr/local/py-utils/bin/black",
+		"python.formatting.yapfPath": "/usr/local/py-utils/bin/yapf",
+		"python.linting.banditPath": "/usr/local/py-utils/bin/bandit",
+		"python.linting.flake8Path": "/usr/local/py-utils/bin/flake8",
+		"python.linting.mypyPath": "/usr/local/py-utils/bin/mypy",
+		"python.linting.pycodestylePath": "/usr/local/py-utils/bin/pycodestyle",
+		"python.linting.pydocstylePath": "/usr/local/py-utils/bin/pydocstyle",
+		"python.linting.pylintPath": "/usr/local/py-utils/bin/pylint"
+	},
+	// Add the IDs of extensions you want installed when the container is created.
+	"extensions": [
+		"ms-python.python",
+		"ms-python.vscode-pylance",
+		"davidanson.vscode-markdownlint",
+		"yzhang.markdown-all-in-one",
+		"ms-vsliveshare.vsliveshare"
+	],
+	// Use 'forwardPorts' to make a list of ports inside the container available locally.
+	// "forwardPorts": [],
+	"postCreateCommand": "./scripts/configure_dev_environment.sh",
+	"runArgs": [
+		"--env-file",
+		"${localWorkspaceFolder}/.env"
+	],
+	// Comment out connect as root instead. More info: https://aka.ms/vscode-remote/containers/non-root.
+	"remoteUser": "vscode",
+	"features": {
+		"git": "os-provided"
+	}
 }

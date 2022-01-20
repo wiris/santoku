@@ -1,0 +1,55 @@
+name: Install deps, Test & Release
+on:
+  push:
+    branches: master
+jobs:
+  install-deps-test-release:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository 
+      uses: actions/checkout@v2.4.0
+
+    - name: Set up Python
+      uses: actions/setup-python@v2.3.1
+      with:
+        python-version: 3.9.9
+        
+    - name: Set up Poetry
+      uses: abatilo/actions-poetry@v2.1.4
+      with:
+        poetry-version: 1.1.12
+
+    - name: Install dependencies
+      run: poetry install
+
+    - name: Test
+      env:
+        SLACK_BOT_API_TOKEN: ${{secrets.SLACK_BOT_API_TOKEN}}
+        DATA_SCIENCE_SALESFORCE_SANDBOX_USR: ${{secrets.DATA_SCIENCE_SALESFORCE_SANDBOX_USR}}
+        DATA_SCIENCE_SALESFORCE_SANDBOX_PSW: ${{secrets.DATA_SCIENCE_SALESFORCE_SANDBOX_PSW}}
+        DATA_SCIENCE_SALESFORCE_SANDBOX_CLIENT_USR: ${{secrets.DATA_SCIENCE_SALESFORCE_SANDBOX_CLIENT_USR}}
+        DATA_SCIENCE_SALESFORCE_SANDBOX_CLIENT_PSW: ${{secrets.DATA_SCIENCE_SALESFORCE_SANDBOX_CLIENT_PSW}}
+        DATA_SCIENCE_SALESFORCE_SANDBOX_AUTH_URL: ${{secrets.DATA_SCIENCE_SALESFORCE_SANDBOX_AUTH_URL}}
+      run: poetry run pytest
+
+    - name: Bump Version
+      id: bump_version
+      run: |
+        CURRENT_BUILD_NUM="$(poetry version -s | cut -d '.' -f 2)"
+        NEW_VERSION="$(date +%y%m%d).$((CURRENT_BUILD_NUM+1))"
+        echo "::set-output name=new_version::${NEW_VERSION}"
+        poetry version ${NEW_VERSION}
+
+    - name: Release (Tag in repo)
+      run: |
+        git config user.name wiris-ci-bot
+        git config user.email cicd@wiris.com
+        git add pyproject.toml
+        git commit -m "cd: Bump version to ${{ steps.bump_version.outputs.new_version }}"
+        git tag -a "${{ steps.bump_version.outputs.new_version }}" -m "Release version ${{ steps.bump_version.outputs.new_version }}"
+        git push origin master --tags
+
+    - name: Build and Publish
+      env:
+        POETRY_PYPI_TOKEN_PYPI: ${{ secrets.PYPI_API_TOKEN }}
+      run: poetry publish --build

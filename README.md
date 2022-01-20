@@ -14,18 +14,22 @@ The purpose of Santoku is to have the interactions with all the external service
 
 ### Installation
 
-If you have a wheel, run the following command:
+If you have the wheel, you can install it with:
 
 ```bash
 pip install --upgrade --force-reinstall dist/santoku-*.whl
 ```
 
-### Installation with PIP
-
-Run the following command:
+Run the following command to install it from PyPI:
 
 ```bash
 pip install santoku
+```
+
+Or use the following to install it via Poetry
+
+```bash
+poetry add santoku
 ```
 
 ### How To Use It
@@ -58,7 +62,7 @@ Amazon Simple Storage Service (Amazon S3) is an object storage service that offe
 
 We provide methods to easily list and delete objects inside buckets; read and write content within S3 objects; upload a dataframe into csv or parket format to a specific location; generate and upload an Amazon Quicksight manifest in S3 in order to create analysis in Amazon Quicksight, and so on.
 
-##### How to Upload an Object to S3
+An object can be uploaded to S3 with the following:
 
 ```python
 from santoku.aws.s3_handler import S3Handler
@@ -72,8 +76,6 @@ s3_handler.put_object(bucket="your_bucket_name", object_key="your_object_key", c
 AWS Secrets Manager protects secrets needed to access applications, services, and IT resources. The service allows rotating, managing, and retrieving credentials, keys, and other secrets.
 
 We provide methods to get the content of a previously created secret.
-
-##### Example of usage
 
 ```python
 from santoku.aws.secrets_manager_handler import SecretsManagerHandler
@@ -100,7 +102,9 @@ bigquery_handler = BigQueryHandler(
     client_x509_cert_url="your_client_x509_cert_url"
 )
 ```
+
 or
+
 ```python
 bigquery_handler = BigQueryHandler.from_aws_secrets_manager(
     secret_name="your_secret_name"
@@ -112,8 +116,6 @@ bigquery_handler = BigQueryHandler.from_aws_secrets_manager(
 Amazon Simple Queue Service (SQS) is a fully managed message queuing service that supports programmatic sending of messages via web service applications as a way to communicate over the Internet.
 
 We provide methods to receive, delete, and send single or a batch of messages.
-
-##### Example of usage
 
 ```python
 from santoku.aws.sqs_handler import SQSHandler
@@ -138,11 +140,10 @@ Google Cloud Platform a suite of cloud computing services provided by Google tha
 
 The connection to Google Cloud Platform has been done using the [google-cloud-core](https://googleapis.dev/python/google-api-core/latest/index.html) package.
 
-We provide a handler that allows doing queries on BigQuery services.
-
 The use of this subpackage requires having [Google Cloud Platform credentials](https://cloud.google.com/docs/authentication/production#obtaining_and_providing_service_account_credentials_manually) (in this case, a service account for programmatic access), these can be passed as arguments in the initializer of the handler class directly, or you can store them in AWS Secrets Manager and retrieve them during the initialization using the class method instead.
 
-##### Example of queries
+We provide a handler that allows doing queries on BigQuery services:
+
 ```python
 query_results = bigquery_handler.get_query_results(query="SELECT * FROM `your_table`")
 ```
@@ -159,7 +160,7 @@ This subpackage provide methods to insert/modify/delete salesforce object record
 
 The unit tests require valid Salesforce credentials to be executed. The tests are implemented in the way that no new data will remain in the account and no existent data will be modified. However, having Salesforce credentials for sandbox use is recommended.
 
-##### Examples of insertion with different methods
+You can use the package to perform a request as follows.
 
 ```python
 from santoku.salesforce.objects_handler import ObjectsHandler
@@ -175,12 +176,14 @@ contact_payload = {"FirstName": "Alice", "LastName": "Ackerman", "Email": "alice
 
 objects_handler.do_request(method="POST", path="sobjects/Contact", payload=contact_payload)
 ```
-or
+
+or insert a record with
+
 ```python
 objects_handler.insert_record(sobject="Contact", payload=contact_payload)
 ```
 
-##### Example of SOQL
+Finally, you can do a SOQL query with:
 
 ```python
 records = objects_handler.do_query_with_SOQL("SELECT Id, Name from Contact")
@@ -190,13 +193,11 @@ records = objects_handler.do_query_with_SOQL("SELECT Id, Name from Contact")
 
 Slack is a proprietary business communication platform. A Slack Bot is a nifty way to run code and automate tasks. In Slack, a bot is controlled programmatically via a bot user token that can access one or more of Slack’s APIs.
 
-The connection to Slack has been done using the [Slack Web API](https://slack.dev/python-slackclient/basic_usage.html)
+The connection to Slack has been done using the [Slack Web API](https://slack.dev/python-slackclient/basic_usage.html).
 
 The use of this subpackage requires having Slack API Token of a Slack Bot, which can be passed as argument in the initializer of the handler class directly, or you can store it in AWS Secrets Manager and retrieve it during the initialization using the class method instead.
 
-This subpackage provide methods to send messages to a channel.
-
-##### Examples of sending of message
+This subpackage provide methods to send messages to a channel. A message can be sent with:
 
 ```python
 from santoku.slack.slack_bot_handler import SlackBotHandler
@@ -209,15 +210,13 @@ slack_bot_handler.send_message(channel="your_chanel_name", message="Your message
 
 SQL (Structured Query Language) is a domain-specific language designed for managing data held in a relational database management system (RDBMS). The purpose of this subpackage is to provide connection to different RDBMSs.
 
-##### MySQL
+#### MySQL
 
 MySQL is an open-source RDBMS. The connection to MySQL has been done using the [MySQL Connector for python](https://dev.mysql.com/doc/connector-python/en/).
 
 The use of this subpackage requires having MySQL authentication parameters, which can be passed as argument in the initializer of the handler class directly, or you can store it in AWS Secrets Manager and retrieve it during the initialization using the class method instead.
 
 This subpackage provides methods to do queries and retrieve the results in different forms.
-
-##### Example of query
 
 ```python
 from santoku.sql.mysql_handler import MySQLHandler
@@ -228,45 +227,66 @@ mysql_handler.get_query_results(query="SELECT * FROM your_table")
 
 ## Development
 
+### Project
+
+We use Poetry to handle this project. Poetry is a tool for dependency management and packaging in Python. It allows you to declare the libraries your project depends on and it will manage (install/update) them for you. More detais in [their documentation](https://python-poetry.org/docs/basic-usage/).
+
+Poetry is already included in the development environment.
+
+#### Dependencies
+
+If you want to add dependencies to your project, you can specify them in the `tool.poetry.dependencies` section of the `pyproject.toml` file. Also, instead of modifying the `pyproject.toml` file by hand, you can use the add command:
+
+```bash
+poetry add <package_name>
+```
+
+Poetry will automatically find a suitable version constraint and install the package and subdependencies.
+
+**Note:** Remember to commit changes of `poetry.lock` and `pyproject.toml` files after adding a new dependency.
+
+**Note:** You can find more details on how to handle versions of packages [here](https://python-poetry.org/docs/dependency-specification/).
+
 ### Environment
 
 We provide a development environment that uses the Visual Studio Code Remote - Containers extension. This extension lets you use a Docker container in order to have a consistent and easily reproducible development environment.
 
-The files needed to build the container are located in the `.devcontainer` directory.
+The files needed to build the container are located in the `.devcontainer` directory:
+
 * `devcontainer.json` contains a set of configurations, tells VSCode how to access the container and which extensions it should install.
 * `Dockerfile` defines instructions for the building of the container image.
-* `requirements.txt` specifies the required dependencies for the development process, which are then installed via the Dockerfile when building the image.
 
-More info [here](https://code.visualstudio.com/docs/remote/containers-tutorial)
+More info [here](https://code.visualstudio.com/docs/remote/containers-tutorial).
 
-### Sharing Git credentials with your container
+#### Environment Variables
 
-The containerized environment will automatically forward your local SSH agent if one is running.
-More info [here](https://code.visualstudio.com/docs/remote/containers#_using-ssh-keys). It works for Windows and Linux.
+The containerized environment will automatically set as environment variables the your variables stored in a `.env` file at the top level of the repository. For example, this is required for certain tests that require credentials, which are (of course) not versioned. Be aware that:
 
-### Setting credentials as environment variables
+* The Docker image building process will **fail** if you do not include a `.env` file at the top level of the repository.
+* If you change the contents of the `.env` file you will need to rebuild the container for the changes to take effect within the environment.
 
-The code for the tests contains everything the tests need to run with the exception of some credentials, which are (of course) not versioned.
+#### Sharing Git credentials with your container
 
-The containerized environment will automatically forward your credentials stored in a .env file and set them as environment variables.
+The containerized environment will automatically forward your local SSH agent if one is running. More info [here](https://code.visualstudio.com/docs/remote/containers#_using-ssh-keys). It works for Windows and Linux.
 
-Notice that this means you must have a .env file in the root directory of this project no matter you require credentials or not (the file might be empty).
+### Creating a PR
 
-### Running tests
+Create a pull request (PR) to propose and collaborate on changes to the project. These changes MUST BE proposed in a branch, which ensures that the default branch only contains finished and approved work.
 
-The tests are implemented with pytest and there are unit tests for each of the handler modules. Tests in the `aws` subpackage implement mocks to S3 and do not require real credentials, however, the remaining tests in other subpackages do. To run the tests just run `pytest santoku`.
+Be sure to run tests locally before commiting your changes.
 
-### Packaging
+#### Running tests
 
-To create the package execute:
+The tests are implemented with pytest and there are unit tests for each of the handler modules. Tests in the `aws` subpackage implement mocks to S3 and do not require real credentials, however, the remaining tests in other subpackages do.
 
-```bash
-python3 setup.py bdist_wheel
-```
+To run the tests just execute `pytest` if you are already inside Poetry virtual environment or `poetry run pytest`.
 
-The output of this command is the file `dist/santoku-*.whl`.
+Moreover, when a PR is created a GitHub Actions CI pipeline (see [`.github/workflows/ci.yml`](./.github/workflows/ci.yml)) is executed. This pipeline is in charge of running tests.
 
-This file can be uploaded to S3 and included in the list of Python library path for certain job. Several libraries can be provided as dependencies using a comma-separated list.
+### Release
+
+Wheel is automatically created and uploaded to PyPI by the GitHub Actions CD pipeline (see [`.github/workflows/cd.yml`](./.github/workflows/cd.yml)) when the PR is merged in main branch.
+
 
 ## Why Santoku?
 
