@@ -1,7 +1,7 @@
 name: Install deps & Test
 on:
   pull_request:
-    branches: master
+    branches: main
 jobs:
   install-deps-test:
     runs-on: ubuntu-latest
