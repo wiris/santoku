@@ -271,7 +271,7 @@ The containerized environment will automatically forward your local SSH agent if
 
 ### Creating a PR
 
-Create a pull request (PR) to propose and collaborate on changes to the project. These changes MUST BE proposed in a branch, which ensures that the default branch only contains finished and approved work.
+Create a pull request (PR) to propose and collaborate on changes to the project. These changes MUST BE proposed in a branch, which ensures that the main branch only contains finished and approved work.
 
 Be sure to run tests locally before commiting your changes.
 
