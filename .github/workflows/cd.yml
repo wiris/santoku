@@ -1,7 +1,7 @@
 name: Install deps, Test & Release
 on:
   push:
-    branches: master
+    branches: main
 jobs:
   install-deps-test-release:
     runs-on: ubuntu-latest
@@ -45,9 +45,9 @@ jobs:
         git config user.name wiris-ci-bot
         git config user.email cicd@wiris.com
         git add pyproject.toml
-        git commit -m "cd: Bump version to ${{ steps.bump_version.outputs.new_version }}"
+        git commit -m "chore: bump version to ${{ steps.bump_version.outputs.new_version }}"
         git tag -a "${{ steps.bump_version.outputs.new_version }}" -m "Release version ${{ steps.bump_version.outputs.new_version }}"
-        git push origin master --tags
+        git push origin main --tags
 
     - name: Build and Publish
       env:
