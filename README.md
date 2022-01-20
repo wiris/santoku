@@ -285,7 +285,8 @@ Moreover, when a PR is created a GitHub Actions CI pipeline (see [`.github/workf
 
 ### Release
 
-Wheel is automatically created and uploaded to PyPI by the GitHub Actions CD pipeline (see [`.github/workflows/cd.yml`](./.github/workflows/cd.yml)).
+Wheel is automatically created and uploaded to PyPI by the GitHub Actions CD pipeline (see [`.github/workflows/cd.yml`](./.github/workflows/cd.yml)) when the PR is merged in main branch.
+
 
 ## Why Santoku?
 
