@@ -53,6 +53,7 @@
 		"ms-python.python",
 		"ms-python.vscode-pylance",
 		"davidanson.vscode-markdownlint",
+		"yzhang.markdown-all-in-one",
 		"ms-vsliveshare.vsliveshare"
 	],
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.
