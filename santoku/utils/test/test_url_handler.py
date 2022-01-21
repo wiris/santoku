@@ -30,12 +30,14 @@ def test_string_subdomain_is_processed_as_expected(input_subdomain, expected_sub
             ("https", ["sub2", "sub1"], "example", "com", "path"),
         ),
         (
-            "https://sub1.example.com/path/",
-            ("https", ["sub1"], "example", "com", "path"),
+            "https://sub1.example.com/PATH/",
+            ("https", ["sub1"], "example", "com", "PATH"),
         ),
         ("http://sub2.sub1.example.es", ("http", ["sub2", "sub1"], "example", "es", None)),
         ("https://sub1.example.co.uk", ("https", ["sub1"], "example", "co.uk", None)),
         ("https://example.com", ("https", [], "example", "com", None)),
+        # xn-- is prefixes an IDNA (Internationalizing Domain Names in Applications) encoding
+        # (reference: https://en.wikipedia.org/wiki/Internationalized_domain_name)
         ("https://example.XN--1QQW23A", ("https", [], "example", "xn--1qqw23a", None)),
         ("https://user@example.co.uk:8000", ("https", [], "example", "co.uk", None)),
         # Note that com.uk isn't a valid TLD (but it is a valid URL), so it is expected that the
@@ -106,8 +108,8 @@ def test_url_is_validated_as_expected(input_url, expected_result):
         (None, None),
     ],
 )
-def test_component_is_slash_filled_correctly(input_component, expected_filled_path):
-    output_filled_path = URLHandler.slash_lfill(component=input_component)
+def test_component_is_prepended_with_a_slash_correctly(input_component, expected_filled_path):
+    output_filled_path = URLHandler.prepend_slash(component=input_component)
     assert output_filled_path == expected_filled_path
 
 

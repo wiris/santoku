@@ -36,10 +36,21 @@ class URLHandler:
 
     Notes
     -----
-    - The naming of the components does not follow URL standard specifications, and is slightly
-    adapted for convenience reasons.
+    - The naming of the components does not follow URL standard specifications [1], and is slightly
+    adapted for convenience reasons:
+        - When defining `subdomain`, instead of including the 'main' part of the domain name
+        (SLD+TLD [2][3]), we refer to a `subdomain` as each of the components (split on `.`), not
+        including the 'main' part.
+        - Istead of using the generic concept of domain that can include any number of components,
+        we define the concept of base_domain, referring to the 'main' domain excluding the leftmost
+        and the rightmost component(s) of the domain name. This component allows us to identify a
+        URL. In most cases, this is the SLD, except for URLs which might also have a ccTLD [4].
+        - Instead of usign the TLD concept, we are using the `suffix` concept as the rightmost
+        part of the domain name. This might also be known as the TLD+ccTLD. A component is
+        classified as a `suffix` according to a public suffix list [5].
     - If you provide an invalid URL, you might get unexpected results for some of the methods.
-    - When a non-valid URL such as 'fakedomain' is provided, it is considered as `base_domain`.
+    - When a non-valid URL such as 'fakedomain' is provided, 'fakedomain' will be considered as the
+    `base_domain`.
     - Some components in the URL like 'userinfo' (what goes right before @) will be ignored.
     - Some components that are case insensitive (scheme, subdomains, base_domain and suffix) are
     lowercased. However, the path component, which is case sensitive, is stored as it is.
@@ -48,6 +59,18 @@ class URLHandler:
     ----------
     [1] :
     https://datatracker.ietf.org/doc/html/rfc3986
+
+    [2]:
+    https://en.wikipedia.org/wiki/Second-level_domain
+
+    [3]:
+    https://en.wikipedia.org/wiki/Top-level_domain
+
+    [4]
+    https://en.wikipedia.org/wiki/Country_code_top-level_domain
+
+    [5] :
+    https://www.publicsuffix.org/
 
     """
 
@@ -230,7 +253,7 @@ class URLHandler:
         return cls.clean_component(component=parsed_url.path, lowercase=False)
 
     @classmethod
-    def slash_lfill(cls, component: Optional[str]) -> Optional[str]:
+    def prepend_slash(cls, component: Optional[str]) -> Optional[str]:
         """
         Adds a forward slash ('/') to the left of a given component if it doesn't have one.
 
@@ -246,11 +269,12 @@ class URLHandler:
             if the component is empty.
 
         """
-        if component:
-            if not component.startswith("/"):
-                component = f"/{component}"
+        if not component:
+            return None
+        if component.startswith("/"):
+            return component
 
-        return component or None
+        return f"/{component}"
 
     @classmethod
     def clean_component(cls, component: Optional[str], lowercase: bool = False) -> Optional[str]:
@@ -370,6 +394,10 @@ class URLHandler:
         clean_component
             Called to clean the base_domain and path.
 
+        Examples
+        --------
+        "example.com", "here/there" -> "example.com/here/there"
+
         """
         domain_with_path = []
 
@@ -420,6 +448,7 @@ class URLHandler:
             "example.com", "this.example.com", "example.com/here", "example.com/here/there",
             "this.example.com/here", "this.example.com/here/there"
         ]
+
         """
         domains_with_paths = []
         for domain in domains:
@@ -437,7 +466,6 @@ class URLHandler:
             domains_copy = [None]
         else:
             domains_copy = domains
-
         if not paths:
             paths_copy = [None]
         else:
@@ -477,8 +505,11 @@ class URLHandler:
             The contatenated `subdomains` with `base_domain_with_suffix`. Returns `subdomains` or
             `base_domain_with_suffix` if one of them is `None`, or `None` if both are `None`.
 
-        """
+        Examples
+        --------
+        ["sub2", "sub1"], "domain.com" -> "sub2.sub1.domain.com"
 
+        """
         cleaned_subdomains = []
         for subdomain in subdomains:
             cleaned_subdomain = cls.clean_component(component=subdomain, lowercase=True)
@@ -646,8 +677,17 @@ class URLHandler:
         """
         cleaned_path = cls.clean_component(component=path, lowercase=False)
 
-        if not cleaned_path:
+        if max_depth < 1 or not cleaned_path:
             return []
 
         path_parts = cleaned_path.split("/")
-        return ["/".join(path_parts[: i + 1]) for i in range(min(max_depth, len(path_parts)))]
+
+        depth = min(max_depth, len(path_parts))
+        exploded_paths = [path_parts[0]]
+
+        for part in path_parts[1:depth]:
+            last_path = exploded_paths[-1]
+            new_path = "/".join((last_path, part))
+            exploded_paths.append(new_path)
+
+        return exploded_paths
