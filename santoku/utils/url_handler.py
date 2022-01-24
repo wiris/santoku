@@ -294,10 +294,12 @@ class URLHandler:
             component is empty.
 
         """
-        if component:
-            component = component.strip("/")
-            if lowercase:
-                component = component.lower()
+        if not component:
+            return None
+
+        component = component.strip("/")
+        if lowercase:
+            component = component.lower()
 
         return component or None
 
