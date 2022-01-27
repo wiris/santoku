@@ -245,11 +245,13 @@ class URLHandler:
         # When something like "fakedomain" is passed to urllib.parse.urlparse, "fakedomain" will be
         # parsed as path, which is not desired for us (we) prefer considering "fakedomain" as
         # basedomain
-        if not (parsed_url.scheme or parsed_url.netloc):
+        # However, we still want to process the path for cases where only a path exists, such as
+        # in "/quizzesproxy/quizzes/service"
+        if not (parsed_url.scheme or parsed_url.netloc) and not parsed_url.path.startswith("/"):
             return None
 
-        # Call to `clean_component` is required as `parsed_url.path` could contain a '/', which in not
-        # desirable when dealing with paths
+        # Call to `clean_component` is required as `parsed_url.path` could contain a '/', which is
+        # not desirable when dealing with paths
         return cls.clean_component(component=parsed_url.path, lowercase=False)
 
     @classmethod
