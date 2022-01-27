@@ -57,6 +57,7 @@ def test_string_subdomain_is_processed_as_expected(input_subdomain, expected_sub
         ("//", (None, [], None, None, None)),
         ("", (None, [], None, None, None)),
         ("https:///integration/ckeditor", ("https", [], None, None, "integration/ckeditor")),
+        ("/quizzesproxy/quizzes/service", (None, [], None, None, "quizzesproxy/quizzes/service")),
     ],
     scope="function",
 )
@@ -88,6 +89,7 @@ def test_url_is_split_into_components_as_expected(input_url, expected_components
         ("//", False),
         ("", False),
         ("https:///integration/ckeditor", False),
+        ("/quizzesproxy/quizzes/service", False),
     ],
     scope="function",
 )
@@ -266,6 +268,17 @@ def test_component_is_cleaned_properly_when_lowercase_is_set_to_false(
         (
             ParseResult(scheme="", netloc="", path="domain", params="", query="", fragment=""),
             None,
+        ),
+        (
+            ParseResult(
+                scheme="",
+                netloc="",
+                path="/quizzesproxy/quizzes/service",
+                params="",
+                query="",
+                fragment="",
+            ),
+            "quizzesproxy/quizzes/service",
         ),
     ),
     scope="function",
