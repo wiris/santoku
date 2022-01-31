@@ -28,7 +28,6 @@ slackclient = "^2.5.0"
 tldextract = "^3.1.0"
 mysql-connector-python = "^8.0.5"
 requests = "^2.23.0"
-awswrangler = "^2.13.0"
 
 [tool.poetry.dev-dependencies]
 pytest = "^6.2.4"
