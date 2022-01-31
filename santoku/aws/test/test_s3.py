@@ -292,24 +292,6 @@ class TestS3Handler:
         # Remove the new object.
         delete_object_in_s3(key=new_object_key)
 
-    def test_write_dataframe_to_parquet_object(
-        self, bucket, s3_handler, delete_object_in_s3, dataframe
-    ):
-        # Validate that a dataframe can be written and read correctly in parquet format.
-        # Success expected.
-        new_object_key = "dataframe.parquet"
-        s3_handler.write_dataframe_to_parquet_object(
-            bucket=bucket, object_key=new_object_key, dataframe=dataframe
-        )
-
-        read_object = s3_handler.resource.Object(bucket_name=bucket, key=new_object_key)
-        object_content = read_object.get()["Body"].read()
-        obtained_df = pd.read_parquet(path=BytesIO(object_content))
-        assert obtained_df.equals(dataframe)
-
-        # Remove the new object.
-        delete_object_in_s3(key=new_object_key)
-
     def test_generate_quicksight_manifest(
         self,
         bucket,
