@@ -1,120 +1,28 @@
+from typing import Any, Dict, Union
+
 import pandas as pd
-
-from typing import Dict, Union, Any
-
-from google.cloud import bigquery as bq
-from google.oauth2 import service_account
-from google.auth.credentials import Credentials
-from google.cloud.bigquery.job import QueryJob
-from google.cloud.bigquery.table import RowIterator
-from google.cloud.bigquery.retry import DEFAULT_RETRY
-from google.api_core.retry import Retry
-
+import pandas_gbq
 from santoku.aws import SecretsManagerHandler
+
+from google.oauth2 import service_account
 
 
 class BigQueryHandler:
     """
     Manage Google BigQuery interactions, the simplest of which is to query a particular table.
-    This makes use of the official BigQuery API. More information at
-    https://googleapis.dev/python/bigquery/latest/index.html
+    This makes use of the pandas-gbq API. More information at
+    https://github.com/googleapis/python-bigquery-pandas
 
     """
 
-    def __init__(self, **kwargs) -> None:
+    def __init__(self, credential_info: Dict[str, str]) -> None:
         """
-        Base constructor. Use this to authenticate using Application Default Credentials.
-        For alternative methods of authentication use the given class methods.
+        Base constructor. Perform the authentication and the required configurations.
 
         Parameters
         ----------
-        kwargs
-            Additional arguments to be passed to google.cloud.bigquery.client.Client. If an argument
-            is necessary but not provided, Google's API tries to infer it from Application Default
-            Credentials.
-
-        Raises
-        ------
-        google.auth.exceptions.DefaultCredentialsError
-            Raised if credentials are not specified and the library fails to acquire default
-            credentials.
-
-        Notes
-        -----
-        Documentation for google.cloud.bigquery.client.Client in [1].
-        More on authentication methods in [2] and [3].
-        More on Application Default Credentials in [4].
-        More on authentication via service account in [5].
-        More on authentication as an end user in [6].
-        To create a Credentials object, follow the google-auth guide in [7].
-
-        References
-        ----------
-        [1] :
-        https://googleapis.dev/python/bigquery/latest/generated/google.cloud.bigquery.client.Client.html
-        [2] :
-        https://cloud.google.com/bigquery/docs/authentication
-        [3] :
-        https://googleapis.dev/python/google-api-core/latest/auth.html#client-provided-authentication
-        [4] :
-        https://cloud.google.com/docs/authentication/production
-        [5] :
-        https://cloud.google.com/docs/authentication/production#obtaining_and_providing_service_account_credentials_manually
-        [6] :
-        https://cloud.google.com/docs/authentication/end-user
-        [7] :
-        https://google-auth.readthedocs.io/en/latest/user-guide.html#service-account-private-key-files
-        """
-        self.client = bq.Client(**kwargs)
-
-    @classmethod
-    def from_service_account_info(cls, credential_info: Dict[str, str]):
-        """
-        Authenticate via service account credentials, parsed as a dictionary.
-
-        Parameters
-        ----------
-        credential_info: Dict[str, str]
+        credential_info : Dict[str, str]
             Credentials for a Google Cloud service account in dictionary form.
-
-        Notes
-        -----
-        The credentials JSON must look like this:
-        ```
-        {
-            "type": "service_account",
-            "project_id": "<project name>",
-            "private_key_id": "<private key id>",
-            "private_key": "<private key>",
-            "client_email": "<service account email>",
-            "client_id": "<client id>",
-            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-            "token_uri": "https://accounts.google.com/o/oauth2/token",
-            "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-            "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/<email>"
-        }
-        ```
-        See [1] for instructions on how to generate such file.
-
-        References
-        ----------
-        [1] :
-        https://cloud.google.com/iam/docs/creating-managing-service-account-keys#creating_service_account_keys
-        """
-        credentials = service_account.Credentials.from_service_account_info(info=credential_info)
-        return cls(project=credential_info["project_id"], credentials=credentials)
-
-    @classmethod
-    def from_aws_secrets_manager(cls, secret_name: str):
-        """
-        Retrieve the necessary information to generate service account credentials from AWS Secrets
-        Manager. Requires that AWS credentials with the appropriate permissions are located
-        somewhere on the AWS credential chain in the local machine.
-
-        Paramaters
-        ----------
-        secret_name : str
-            Name or ARN for the secret containing the JSON needed for BigQuery authentication.
 
         Notes
         -----
@@ -136,111 +44,45 @@ class BigQueryHandler:
         ```
         See [1] for instructions on how to generate such file.
 
+        More on authentication via service account in [2].
+        To create a Credentials object, follow the google-auth guide in [3].
+
         References
         ----------
         [1] :
         https://cloud.google.com/iam/docs/creating-managing-service-account-keys#creating_service_account_keys
+        [2] :
+        https://cloud.google.com/docs/authentication/production#obtaining_and_providing_service_account_credentials_manually
+        [3] :
+        https://google-auth.readthedocs.io/en/latest/user-guide.html#service-account-private-key-files
+        """
+
+        credentials = service_account.Credentials.from_service_account_info(info=credential_info)
+
+        pandas_gbq.context.credentials = credentials
+        pandas_gbq.context.project = credential_info["project_id"]
+
+    @classmethod
+    def from_aws_secrets_manager(cls, secret_name: str):
+        """
+        Retrieve the necessary information to generate service account credentials from AWS Secrets
+        Manager. Requires that AWS credentials with the appropriate permissions are located
+        somewhere on the AWS credential chain in the local machine.
+
+        Paramaters
+        ----------
+        secret_name : str
+            Name or ARN for the secret containing the JSON needed for BigQuery authentication.
+
         """
         secrets_manager = SecretsManagerHandler()
         credential_info = secrets_manager.get_secret_value(secret_name=secret_name)
-        return cls.from_service_account_info(credential_info=credential_info)
-
-    def _submit_query_job(self, query: str, **kwargs) -> QueryJob:
-        """
-        Submit a SQL query job against datasets reachable from `self.project` (although that can be
-        changed using additional arguments). Returns a native datatype QueryJob, which can be used
-        to start the job, wait for it to finish or get the query results.
-
-        Parameters
-        ----------
-        query : str
-            SQL query to be executed. By default on the standard SQL dialect.
-        kwargs : Dict[str, Any]
-            Additional arguments for google.cloud.bigquery.client.Client.query
-
-        Notes
-        -----
-        More on additional arguments for the query method: [1]. Note that specific arguments are
-        needed if using BigQuery's legacy SQL dialect.
-        More information on the QueryJob data type: [2].
-
-        References
-        ----------
-        [1] :
-        https://googleapis.dev/python/bigquery/latest/generated/google.cloud.bigquery.client.Client.html#google.cloud.bigquery.client.Client.query
-        [2] :
-        https://googleapis.dev/python/bigquery/latest/generated/google.cloud.bigquery.job.QueryJob.html
-
-        Returns
-        -------
-        google.cloud.bigquery.job.QueryJob
-            Native datatype representing a BigQuery job. More information in [2].
-        """
-        return self.client.query(query=query, **kwargs)
-
-    def get_query_results(
-        self,
-        query: str,
-        page_size: int = None,
-        max_results: int = None,
-        retry: Retry = DEFAULT_RETRY,
-        timeout: float = None,
-        **kwargs,
-    ) -> RowIterator:
-        """
-        Run a SQL query and return the results as google.cloud.bigquery.table.RowIterator, which is
-        BigQuery's native type iterating through API row list responses. This object can be easily
-        converted to common datatypes such as pandas dataframes or pyarrow tables (see [3]).
-
-        Parameters
-        ----------
-        query : str
-        page_size : int
-        max_results : int
-        retry : google.api_core.retry.Retry
-        timeout : float
-
-        Notes
-        -----
-        More on additional arguments for the query method: [1]. Note that specific arguments are
-        needed if using BigQuery's legacy SQL dialect.
-        More on the google.cloud.bigquery.job.QueryJob.result() method: [2].
-        More on the google.cloud.bigquery.table.RowIterator type: [3]
-        More on the google.cloud.bigquery.table.Row type: [4].
-        More on retries: [5].
-
-        References
-        ----------
-        [1] :
-        https://googleapis.dev/python/bigquery/latest/generated/google.cloud.bigquery.client.Client.html#google.cloud.bigquery.client.Client.query
-        [2] :
-        https://googleapis.dev/python/bigquery/latest/generated/google.cloud.bigquery.job.QueryJob.html#google.cloud.bigquery.job.QueryJob.result
-        [3] :
-        https://googleapis.dev/python/bigquery/latest/generated/google.cloud.bigquery.table.RowIterator.html
-        [4] :
-        https://googleapis.dev/python/bigquery/latest/generated/google.cloud.bigquery.table.Row.html
-        [5] :
-        https://googleapis.dev/python/bigquery/latest/reference.html#retries
-
-        Return
-        ------
-        google.cloud.bigquery.table.RowIterator
-            Iterator of google.cloud.bigquery.table.Row containing the results of the query. More
-            information in [3].
-        """
-        return self._submit_query_job(query=query, **kwargs).result(
-            page_size=page_size, max_results=max_results, retry=retry, timeout=timeout
-        )
+        return cls(credential_info=credential_info)
 
     def get_query_results_as_dataframe(
         self,
         query: str,
-        page_size: int = None,
-        max_results: int = None,
-        retry: Retry = DEFAULT_RETRY,
-        timeout: float = None,
-        dtypes: Dict[str, Union[str, Any]] = None,
-        progress_bar_type: str = None,
+        use_bqstorage_api: bool = True,
         **kwargs,
     ) -> pd.DataFrame:
         """
@@ -250,46 +92,24 @@ class BigQueryHandler:
         ----------
         query : str
             SQL query to be executed. Using the standard SQL dialect by default.
-        page_size: int
-            Argument for `self.get_query_results`
-        max_results: int
-            Argument for `self.get_query_results`
-        retry: Retry
-            Argument for `self.get_query_results`
-        timeout: float
-            Argument for `self.get_query_results`
-        dtypes: Dict[str, Union[str, Any]]
-            A dictionary of column names to pandas dtypes used when constructing the series for the
-            column specified. Otherwise, the default pandas behavior is used.
-        progress_bar_type: str
-            If set, use the tqdm library to display a progress bar while the data downloads.
-            Install the tqdm package to use this feature.
-        kwargs : Dict[str, Any]
-            Additional arguments for google.cloud.bigquery.client.Client.query
+        use_bqstorage_api: bool
+            If set, use the BigQuery Storage API to download results more quickly.
+        kwargs : dict
+            Additional arguments for Pandas read_gbq method.
 
         Notes
         -----
-        More on additional arguments for the query method: [1]. Note that specific arguments are
-        needed if using the BigQuery's legacy SQL flavor.
-        More on the to_dataframe() method: [2].
+        More on additional arguments for the read_gbq method: [1].
 
         References
         ----------
         [1] :
-        https://googleapis.dev/python/bigquery/latest/generated/google.cloud.bigquery.client.Client.html#google.cloud.bigquery.client.Client.query
-        [2] :
-        https://googleapis.dev/python/bigquery/latest/generated/google.cloud.bigquery.table.RowIterator.html#google.cloud.bigquery.table.RowIterator.to_dataframe
+        https://pandas.pydata.org/docs/reference/api/pandas.read_gbq.html
 
         Returns
         -------
         pd.DataFrame
-            The query results as a pandas dataframe
+            The query results as a Pandas DataFrame
         """
-        return self.get_query_results(
-            query=query,
-            page_size=page_size,
-            max_results=max_results,
-            retry=retry,
-            timeout=timeout,
-            **kwargs,
-        ).to_dataframe(dtypes=dtypes, progress_bar_type=progress_bar_type)
+
+        return pd.read_gbq(query=query, use_bqstorage_api=use_bqstorage_api, **kwargs)
