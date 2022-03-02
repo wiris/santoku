@@ -17,7 +17,7 @@ class BigQueryHandler:
 
     def __init__(self, credential_info: Dict[str, str]) -> None:
         """
-        Base constructor. Perform the authentication and the required configurations.
+        Base constructor that performs authentication against Google Cloud Platform.
 
         Parameters
         ----------
@@ -109,7 +109,7 @@ class BigQueryHandler:
         Returns
         -------
         pd.DataFrame
-            The query result as a Pandas DataFrame
+            The query result as a Pandas DataFrame.
         """
 
         return pd.read_gbq(query=query, use_bqstorage_api=use_bqstorage_api, **kwargs)
