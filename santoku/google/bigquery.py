@@ -1,4 +1,4 @@
-from typing import Any, Dict, Union
+from typing import Dict
 
 import pandas as pd
 import pandas_gbq
@@ -109,7 +109,7 @@ class BigQueryHandler:
         Returns
         -------
         pd.DataFrame
-            The query results as a Pandas DataFrame
+            The query result as a Pandas DataFrame
         """
 
         return pd.read_gbq(query=query, use_bqstorage_api=use_bqstorage_api, **kwargs)
