@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "santoku"
-version = "220302.30"
+version = "220302.31"
 description = "Custom Python wrapper around many third party APIs, including AWS, BigQuery, Slack and Salesforce."
 authors = ["Data Science Team at WIRIS <info@wiris.com>"]
 license = "MIT"
