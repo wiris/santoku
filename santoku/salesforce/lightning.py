@@ -102,6 +102,7 @@ class LightningRestApiHandler:
         self.request_headers: Dict[str, str] = {
             "Authorization": "OAuth",
             "Content-type": "application/json",
+            "Accept-Encoding": "gzip",
         }
 
         # Indicates if there is need to validate whether the requesting Salesforce object is valid.
