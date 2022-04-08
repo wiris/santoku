@@ -279,6 +279,10 @@ class TestLightningRestApiHandler:
                 "NOTANBOBJECT",
             ),
             (
+                "query?q=SELECT FIELDS(ALL) FROM CONTACT LIMIT 10",
+                "CONTACT",
+            ),
+            (
                 "query/0010N00005AoehTQCR",
                 None,
             ),
