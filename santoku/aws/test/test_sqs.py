@@ -195,7 +195,9 @@ class TestSQSHandler:
         expected_message_id = response["MessageId"]
 
         queue_url = sqs_handler.client.get_queue_url(QueueName=standard_queue)["QueueUrl"]
-        response = sqs_handler.client.receive_message(QueueUrl=queue_url)
+        response = sqs_handler.client.receive_message(
+            QueueUrl=queue_url, MessageAttributeNames=["All"]
+        )
         obtained_message_id = response["Messages"][0]["MessageId"]
         assert obtained_message_id == expected_message_id
 
@@ -221,7 +223,9 @@ class TestSQSHandler:
         expected_message_id = response["MessageId"]
 
         queue_url = sqs_handler.client.get_queue_url(QueueName=fifo_queue)["QueueUrl"]
-        response = sqs_handler.client.receive_message(QueueUrl=queue_url)
+        response = sqs_handler.client.receive_message(
+            QueueUrl=queue_url, MessageAttributeNames=["All"]
+        )
         obtained_message_id = response["Messages"][0]["MessageId"]
         assert obtained_message_id == expected_message_id
 
