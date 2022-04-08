@@ -29,12 +29,6 @@
 		],
 		"python.poetryPath": "/opt/poetry/bin/poetry",
 		"python.terminal.activateEnvInCurrentTerminal": true,
-		"python.testing.pytestArgs": [
-			"${containerWorkspaceFolder}/lambdas/refine_events/"
-		],
-		"python.testing.unittestEnabled": false,
-		"python.testing.pytestEnabled": true,
-		"python.testing.cwd": "lambdas/refine_events",
 		"[python]": {
 			"editor.codeActionsOnSave": {
 				"source.organizeImports": true
