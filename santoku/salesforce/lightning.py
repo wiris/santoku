@@ -78,7 +78,7 @@ class LightningRestApiHandler:
         client_secret : str
             Consumer secret used to authenticate with Salesforce.
         api_version : str, optional
-            Version of the Salesforce API used (the default is 47.0).
+            Version of the Salesforce API used (the default is 54.0).
         grant_type : str, optional
             Type of credentials used to authenticate with Salesforce(the default is 'password').
 
@@ -121,7 +121,7 @@ class LightningRestApiHandler:
             "client_id_key": "CLIENT_USR",
             "client_secret_key": "CLIENT_PSW",
         },
-        api_version: str = "47.0",
+        api_version: str = "54.0",
         grant_type: str = "password",
     ) -> "LightningRestApiHandler":
         """
@@ -138,7 +138,7 @@ class LightningRestApiHandler:
             (By default "AUTH_URL", "USR", "PSW", "CLIENT_USR", "CLIENT_PSW" will be the keys that
             stores the Salesforce credentials.)
         api_version : str, optional
-            Version of the Salesforce API used (the default is 47.0).
+            Version of the Salesforce API used (the default is 54.0).
         grant_type : str, optional
             Type of credentials used to authenticate with Salesforce(the default is 'password').
 
