@@ -1,10 +1,11 @@
 import json
 import re
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 from urllib import parse
 
 import pandas as pd
 import requests
+from requests import HTTPError
 from santoku.aws import SecretsManagerHandler
 
 
@@ -58,7 +59,7 @@ class LightningRestApiHandler:
         password: str,
         client_id: str,
         client_secret: str,
-        api_version: str = "47.0",
+        api_version: str = "54.0",
         grant_type: str = "password",
     ) -> None:
         """
@@ -77,7 +78,7 @@ class LightningRestApiHandler:
         client_secret : str
             Consumer secret used to authenticate with Salesforce.
         api_version : str, optional
-            Version of the Salesforce API used (the default is 47.0).
+            Version of the Salesforce API used (the default is 54.0).
         grant_type : str, optional
             Type of credentials used to authenticate with Salesforce(the default is 'password').
 
@@ -120,7 +121,7 @@ class LightningRestApiHandler:
             "client_id_key": "CLIENT_USR",
             "client_secret_key": "CLIENT_PSW",
         },
-        api_version: str = "47.0",
+        api_version: str = "54.0",
         grant_type: str = "password",
     ) -> "LightningRestApiHandler":
         """
@@ -137,7 +138,7 @@ class LightningRestApiHandler:
             (By default "AUTH_URL", "USR", "PSW", "CLIENT_USR", "CLIENT_PSW" will be the keys that
             stores the Salesforce credentials.)
         api_version : str, optional
-            Version of the Salesforce API used (the default is 47.0).
+            Version of the Salesforce API used (the default is 54.0).
         grant_type : str, optional
             Type of credentials used to authenticate with Salesforce(the default is 'password').
 
@@ -222,6 +223,11 @@ class LightningRestApiHandler:
         List[str]
             List of names of the Salesforce object in the organization.
 
+        Raises
+        ------
+        HTTPError
+            If the connection with Salesforce fails, e.g. the record does not exist.
+
         """
         if not self._salesforce_object_names_cache:
             self._validate_salesforce_object = False
@@ -249,6 +255,10 @@ class LightningRestApiHandler:
         List[str]
             List of all the fields that a Salesforce object has.
 
+        Raises
+        ------
+        HTTPError
+            If the connection with Salesforce fails, e.g. the record does not exist.
         """
         if salesforce_object_name not in self._salesforce_object_fields_cache:
             self._validate_salesforce_object = False
@@ -317,38 +327,37 @@ class LightningRestApiHandler:
 
         return self._salesforce_object_required_fields_cache[salesforce_object_name]
 
-    def _obtain_salesforce_object_name_from_path(self, path: str) -> str:
+    @classmethod
+    def _obtain_salesforce_object_name_from_path(cls, path: str) -> Optional[str]:
         # Extract Salesforce_object_name taking into account that we'll find something like...
-        if "describe" in path:
-            # ...sobjects/Account/describe
-            salesforce_object_name = path.split("/")[1]
-
-        elif "query?q=" in path:
-            # ...query?q=SELECT+one+or+more+fields+FROM+an+object+WHERE+filter+statements
+        if "query?q=" in path:
+            # ...query?q=SELECT one or more fields FROM an object WHERE filter statements
             query_start_pos = path.find("query?q=") + len("query?q=")
             query = path[query_start_pos:]
 
             if "WHERE" in query.upper():
-                pattern = "FROM\+(.*)\+WHERE"
+                pattern = "FROM\s*(\S*)\s*WHERE"
             else:
-                pattern = "FROM\+(.*)"
+                pattern = "FROM\s*(\S*)"
 
             matches = re.search(pattern, query, re.IGNORECASE)
             if matches:
                 salesforce_object_name = matches.group(1)
             else:
-                salesforce_object_name = ""
+                salesforce_object_name = None
 
         elif "query/" in path:
             # ...query/identifier to get the next rows of a SOQL.
-            salesforce_object_name = ""
+            salesforce_object_name = None
 
         elif path == "sobjects" or path == "limits":
-            salesforce_object_name = ""
+            salesforce_object_name = None
 
-        else:
-            # ...sobjects/Account or ...sobjects/Account/ID
+        elif "sobjects" in path:
+            #  ...sobjects/Account/describe, ...sobjects/Account or ...sobjects/Account/ID
             salesforce_object_name = path.split("/")[path.index("sobjects") + 1]
+        else:
+            salesforce_object_name = None
 
         return salesforce_object_name
 
@@ -421,7 +430,7 @@ class LightningRestApiHandler:
         RequestMethodError
             If the method is not supported, or the payload is missing when needed.
 
-        requests.exceptions.RequestException
+        HTTPError
             If the connection with Salesforce fails, e.g. the requesting resource does not exist.
 
         """
@@ -432,7 +441,9 @@ class LightningRestApiHandler:
             self._authenticate()
 
         if self._validate_salesforce_object:
-            path_salesforce_object = self._obtain_salesforce_object_name_from_path(path)
+            path_salesforce_object = self._obtain_salesforce_object_name_from_path(
+                path=parse.unquote(path)
+            )
             if path_salesforce_object:
                 # SOQL is case insensitive, thus comparing in uppercase is fine.
                 if path_salesforce_object.upper() not in (
@@ -449,7 +460,7 @@ class LightningRestApiHandler:
                 if not payload:
                     raise RequestMethodError("Payload must be defined for a POST, PATCH request.")
 
-                if self._validate_salesforce_object:
+                if self._validate_salesforce_object and path_salesforce_object:
                     object_fields = self.get_salesforce_object_fields(path_salesforce_object)
                     self._validate_payload_fields(payload=payload, object_fields=object_fields)
                     if method == "POST":
@@ -468,11 +479,11 @@ class LightningRestApiHandler:
             else:  # method == "GET" or method == "DELETE":
                 response = getattr(requests, method.lower())(url=url, headers=self.request_headers)
 
-            # Call Response.raise_for_status method to raise exceptions from http errors (e.g. 401
+            # Call Response.raise_for_status method to raise exceptions from HTTP errors (e.g. 401
             # Unauthorized).
             response.raise_for_status()
-        except requests.exceptions.RequestException as err:
-            raise
+        except requests.exceptions.RequestException:
+            raise HTTPError(json.loads(response.text)[0]["message"])
         else:
             self._validate_salesforce_object = True
 
@@ -569,10 +580,12 @@ class LightningRestApiHandler:
         https://pandas.pydata.org/docs/reference/api/pandas.json_normalize.html
 
         """
-        # Encode the query to clean possible special characters to fit in the url.
-        encoded_query = parse.quote_plus(query)
-        query = parse.unquote(encoded_query)
-        response = self.do_request(method="GET", path=f"query?q={query}")
+        # The `safe` parameter is set to not escape certain characters. This is done in order
+        # to achieve the same behaviour as JavaScript's encodeURIComponent function (which is used
+        # by the Salesforce data exporter extension and is the desired behavior to reproduce here)
+        # https://stackoverflow.com/a/6618858
+        encoded_query = parse.quote(query, safe="()*!'")
+        response = self.do_request(method="GET", path=f"query?q={encoded_query}")
         response_dict = json.loads(response)
         records = response_dict["records"]
 
@@ -636,12 +649,15 @@ class LightningRestApiHandler:
             The record identifier.
         payload : Dict[str, str]
             Payload that contains information to update the record.
+
         Returns
         -------
         str
             Response from Salesforce. This is a JSON encoded as text.
 
-        requests.exceptions.RequestException
+        Raises
+        ------
+        HTTPError
             If the connection with Salesforce fails, e.g. the record does not exist.
 
         See Also
@@ -667,12 +683,15 @@ class LightningRestApiHandler:
             A Salesforce object.
         record_id : str
             The identification of the record.
+
         Returns
         -------
         str
             Response from Salesforce. This is a JSON encoded as text.
 
-        requests.exceptions.RequestException
+        Raises
+        ------
+        HTTPError
             If the connection with Salesforce fails, e.g. the record does not exist.
 
         See Also
@@ -690,6 +709,11 @@ class LightningRestApiHandler:
         -------
         int
             The number of remaining daily API requests.
+
+        Raises
+        ------
+        HTTPError
+            If the connection with Salesforce fails, e.g. the record does not exist.
 
         See Also
         --------
