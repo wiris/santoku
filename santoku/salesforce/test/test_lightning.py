@@ -6,6 +6,7 @@ import pandas as pd
 import pytest
 import requests
 from moto import mock_secretsmanager
+from requests import HTTPError
 from santoku.aws.secretsmanager import SecretsManagerHandler
 from santoku.exceptions import MissingEnvironmentVariables
 from santoku.salesforce.lightning import (
@@ -94,9 +95,17 @@ def api_handler(sf_credentials):
 @pytest.fixture(scope="function")
 def contact_payloads():
     # Using Alice & Bob notation. More info at https://en.wikipedia.org/wiki/Alice_and_Bob
-    names = ["Alice", "Bob", "Carol", "David"]
-    last_names = ["Ackerman", "Bayes", "Cauchy", "Dijkstra"]
-    emails = ["alice@test.com", "bob@test.com", "carol@test.com", "david@test.com"]
+    names = ["Alice", "Bob", "Carol", "David", "Bounmy", "Gwil", "Hernan"]
+    last_names = ["Ackerman", "Bayes", "Cauchy", "Dijkstra", "Aurea", "Suresh", "Saddam"]
+    emails = [
+        "alice@example.com",
+        "bob@example.com",
+        "carol@example.com",
+        "david@example.com",
+        "bounmy+aurea@example.com",
+        "+gwilsuresh@example.com",
+        "hernansaddam+@example.com",
+    ]
 
     payloads = []
     for contact in zip(names, last_names, emails):
@@ -118,7 +127,7 @@ def delete_record(api_handler):
 
 @pytest.fixture(scope="function")
 def insert_record(api_handler):
-    def _insert_record(sobject: str, payload: List[Dict[str, str]]) -> None:
+    def _insert_record(sobject: str, payload: Dict[str, str]) -> None:
         response_text = api_handler.do_request(
             method="POST", path=f"sobjects/{sobject}", payload=payload
         )
@@ -249,6 +258,53 @@ class TestLightningRestApiHandler:
                 payload=contact_payloads[0],
             )
 
+    @pytest.mark.parametrize(
+        argnames=("input_path", "expected_salesforce_object_name"),
+        argvalues=(
+            (
+                "query?q=SELECT FirstName, LastName, Email FROM CONTACT WHERE Email = 'abc@example.com'",
+                "CONTACT",
+            ),
+            ("query?q=SELECT FirstName, LastName, Email FROM CONTACT", "CONTACT"),
+            (
+                "query?q=SELECT FirstName, LastName, Email FROM CONTACT   WHERE   Email = 'abc@example.com'",
+                "CONTACT",
+            ),
+            (
+                "query?q=select FirstName, LastName, Email from CONTACT wHeRe Email = 'abc@example.com'",
+                "CONTACT",
+            ),
+            (
+                "query?q=SELECT FirstName, LastName, Email FROM NOTANBOBJECT   WHERE   Email = 'abc@example.com'",
+                "NOTANBOBJECT",
+            ),
+            (
+                "query/0010N00005AoehTQCR",
+                None,
+            ),
+            (
+                "sobjects",
+                None,
+            ),
+            (
+                "limits",
+                None,
+            ),
+            ("query?q=SELECT FirstName, LastName, Email WHERE Email = 'abc@example.com'", None),
+            ("sobjects/CONTACT/describe", "CONTACT"),
+            ("sobjects/Account/0019p00005VY0aOLCA", "Account"),
+            ("sobjects/Account", "Account"),
+            ("", None),
+        ),
+    )
+    def test_salesforce_object_name_is_obtained_from_path_properly(
+        self, api_handler, input_path, expected_salesforce_object_name
+    ):
+        obtained_salesforce_object_name = api_handler._obtain_salesforce_object_name_from_path(
+            path=input_path
+        )
+        assert obtained_salesforce_object_name == expected_salesforce_object_name
+
     def test_salesforce_object_required_fields(self, api_handler):
         # Test inserting an invalid field. Failure expected.
         invalid_field = "InvalidField"
@@ -360,6 +416,13 @@ class TestLightningRestApiHandler:
                 f"SELECT Id, Name From {wrong_object_name}"
             )
 
+    def test_error_is_raised_as_expected_when_query_syntax_is_invalid(self, api_handler):
+        with pytest.raises(HTTPError):
+            api_handler.do_query_with_SOQL(f"SELECT Id Name From Contact")
+
+        with pytest.raises(HTTPError):
+            api_handler.do_query_with_SOQL(f"SELECT Fields(ALL) From Contact")
+
     def test_contact_query(self, api_handler, contact_payloads, contacts, contacts_df):
 
         # Read the Contacts inserted with SOQL. Success expected.
@@ -395,6 +458,29 @@ class TestLightningRestApiHandler:
             f"SELECT FirstName, LastName, Email FROM contact WHERE FirstName = 'dummyname'"
         )
         assert obtained_contacts.empty
+
+    def test_query_containing_weird_characters_returns_the_expected_results(
+        self, api_handler, contacts, contact_payloads
+    ):
+        expected_num_contacts = len(
+            [
+                contact_payload
+                for contact_payload in contact_payloads
+                if "+" in contact_payload["Email"]
+            ]
+        )
+        obtained_contacts = api_handler.do_query_with_SOQL(
+            "SELECT FirstName, LastName, Email FROM Contact WHERE email LIKE '%+%'"
+        )
+        assert len(obtained_contacts) == expected_num_contacts
+
+    def test_query_containing_parenthesis_is_parsed_properly(
+        self, api_handler, contacts, contact_payloads
+    ):
+        obtained_contacts = api_handler.do_query_with_SOQL(
+            "SELECT FIELDS(ALL) FROM Contact LIMIT 100"
+        )
+        assert len(obtained_contacts) == len(contact_payloads)
 
     def test_contact_modification(self, api_handler, contact_payloads, contacts, contacts_df):
         # Modify an existing contact's Name. Success expected.
