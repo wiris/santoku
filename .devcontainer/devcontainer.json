@@ -29,6 +29,12 @@
 		],
 		"python.poetryPath": "/opt/poetry/bin/poetry",
 		"python.terminal.activateEnvInCurrentTerminal": true,
+		"python.testing.pytestArgs": [
+			"${containerWorkspaceFolder}/lambdas/refine_events/"
+		],
+		"python.testing.unittestEnabled": false,
+		"python.testing.pytestEnabled": true,
+		"python.testing.cwd": "lambdas/refine_events",
 		"[python]": {
 			"editor.codeActionsOnSave": {
 				"source.organizeImports": true
@@ -54,7 +60,8 @@
 		"ms-python.vscode-pylance",
 		"davidanson.vscode-markdownlint",
 		"yzhang.markdown-all-in-one",
-		"ms-vsliveshare.vsliveshare"
+		"ms-vsliveshare.vsliveshare",
+		"littlefoxteam.vscode-python-test-adapter"
 	],
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.
 	// "forwardPorts": [],
