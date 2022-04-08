@@ -421,11 +421,13 @@ class TestLightningRestApiHandler:
             )
 
     def test_error_is_raised_as_expected_when_query_syntax_is_invalid(self, api_handler):
+        # Fails because a comma is missing between the fields to select
         with pytest.raises(HTTPError):
-            api_handler.do_query_with_SOQL(f"SELECT Id Name From Contact")
+            api_handler.do_query_with_SOQL("SELECT Id Name From Contact")
 
+        # Fails because a LIMIT clause is required when using FIELDS(ALL)
         with pytest.raises(HTTPError):
-            api_handler.do_query_with_SOQL(f"SELECT Fields(ALL) From Contact")
+            api_handler.do_query_with_SOQL("SELECT Fields(ALL) From Contact")
 
     def test_contact_query(self, api_handler, contact_payloads, contacts, contacts_df):
 
