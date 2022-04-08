@@ -479,7 +479,7 @@ class LightningRestApiHandler:
             else:  # method == "GET" or method == "DELETE":
                 response = getattr(requests, method.lower())(url=url, headers=self.request_headers)
 
-            # Call Response.raise_for_status method to raise exceptions from http errors (e.g. 401
+            # Call Response.raise_for_status method to raise exceptions from HTTP errors (e.g. 401
             # Unauthorized).
             response.raise_for_status()
         except requests.exceptions.RequestException:
@@ -580,8 +580,8 @@ class LightningRestApiHandler:
         https://pandas.pydata.org/docs/reference/api/pandas.json_normalize.html
 
         """
-        # The `safe` parameter is set to not parse some special characters. This is done in order
-        # to achieve the same behaviour as in the encodeURIComponent of JavaScript (which is used
+        # The `safe` parameter is set to not escape certain characters. This is done in order
+        # to achieve the same behaviour as JavaScript's encodeURIComponent function (which is used
         # by the Salesforce data exporter extension and is the desired behavior to reproduce here)
         # https://stackoverflow.com/a/6618858
         encoded_query = parse.quote(query, safe="()*!'")
