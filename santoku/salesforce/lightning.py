@@ -336,9 +336,9 @@ class LightningRestApiHandler:
             query = path[query_start_pos:]
 
             if "WHERE" in query.upper():
-                pattern = "FROM\s*(\S*)\s*WHERE"
+                pattern = r"FROM\s*(\S*)\s*WHERE"
             else:
-                pattern = "FROM\s*(\S*)"
+                pattern = r"FROM\s*(\S*)"
 
             matches = re.search(pattern, query, re.IGNORECASE)
             if matches:
