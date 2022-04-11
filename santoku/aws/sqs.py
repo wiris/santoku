@@ -376,7 +376,9 @@ class SQSHandler:
         response = self.client.send_message_batch(QueueUrl=queue_url, Entries=entries)
         return response
 
-    def receive_message(self, queue_name: str) -> Dict[str, Any]:
+    def receive_message(
+        self, queue_name: str, message_attribute_names: List[str] = ["All"], **kwargs
+    ) -> Dict[str, Any]:
         """
         Retrieves multiple messages from the SQS Queue.
 
@@ -384,6 +386,9 @@ class SQSHandler:
         ----------
         queue_name : str
             Name of the queue to receive a message.
+        message_attribute_names : List[str]
+            The message attributes names to receive. All message attributes will be retrieved by
+            default.
 
         Returns
         -------
@@ -392,6 +397,11 @@ class SQSHandler:
             can find the message id that identifies each message, the receipt handle used to delte
             the message, and the content of the message such as the message body and message
             attributes.
+
+        Other Parameters
+        ----------------
+        kwargs : dict
+            Additional parameters supported by the receive_message method of the SQS client of boto3.
 
         Raises
         ------
@@ -424,7 +434,12 @@ class SQSHandler:
             queue_url = self.get_queue_url(queue_name=queue_name)
             self.queue_url[queue_name] = queue_url
 
-        response = self.client.receive_message(QueueUrl=queue_url, MaxNumberOfMessages=10)
+        response = self.client.receive_message(
+            QueueUrl=queue_url,
+            MaxNumberOfMessages=10,
+            MessageAttributeNames=message_attribute_names,
+            **kwargs,
+        )
         return response
 
     def delete_message(self, queue_name: str, receipt_handle: str) -> None:
