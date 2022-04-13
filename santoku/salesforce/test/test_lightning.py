@@ -10,8 +10,8 @@ from requests import HTTPError
 from santoku.aws.secretsmanager import SecretsManagerHandler
 from santoku.exceptions import MissingEnvironmentVariables
 from santoku.salesforce.lightning import (
+    AuthenticationError,
     LightningRestApiHandler,
-    RequestMethodError,
     SalesforceObjectError,
     SalesforceObjectFieldError,
 )
@@ -237,7 +237,7 @@ class TestLightningRestApiHandler:
             client_id=sf_credentials["CLIENT_USR"],
             client_secret=sf_credentials["CLIENT_PSW"],
         )
-        with pytest.raises(requests.exceptions.RequestException):
+        with pytest.raises(AuthenticationError):
             api_handler.do_request(
                 method="POST",
                 path="sobjects/Contact",
@@ -251,7 +251,7 @@ class TestLightningRestApiHandler:
             client_id="false_client_id",
             client_secret="false_client_secret",
         )
-        with pytest.raises(requests.exceptions.RequestException):
+        with pytest.raises(AuthenticationError):
             api_handler.do_request(
                 method="POST",
                 path="sobjects/Contact",
@@ -360,25 +360,15 @@ class TestLightningRestApiHandler:
             created_record_ids.append(response["id"])
             assert response["success"]
 
-        # Insert a Contact that already exist. Failure expected.
-        with pytest.raises(requests.exceptions.RequestException):
+        # Insert a Contact with an invalid email. Failure expected.
+        contact_with_invalid_email = contact_payloads[0].copy()
+        contact_with_invalid_email["Email"] = "invalid_email"
+        with pytest.raises(requests.exceptions.HTTPError):
             api_handler.do_request(
                 method="POST",
                 path="sobjects/Contact",
-                payload=contact_payloads[0],
+                payload=contact_with_invalid_email,
             )
-
-        # Insert a Contact that already exist with a new email. Success expected.
-        new_contact_payload = contact_payloads[0].copy()
-        new_contact_payload["Email"] = "new.email@example.com"
-        response_text = api_handler.do_request(
-            method="POST",
-            path="sobjects/Contact",
-            payload=new_contact_payload,
-        )
-        response = json.loads(response_text)
-        created_record_ids.append(response["id"])
-        assert response["success"]
 
         # Remove created records.
         for record_id in created_record_ids:
@@ -523,7 +513,7 @@ class TestLightningRestApiHandler:
 
         # Modify a Contact that does not exist. Failure expected.
         new_contact_payload = {"FirstName": "NEWNAME"}
-        with pytest.raises(requests.exceptions.RequestException):
+        with pytest.raises(HTTPError):
             api_handler.do_request(
                 method="PATCH",
                 path="sobjects/Contact/WRONGID",
@@ -543,7 +533,7 @@ class TestLightningRestApiHandler:
         assert obtained_contacts.empty
 
         # Delete a Contact that does not exist. Failure expected.
-        with pytest.raises(requests.exceptions.RequestException):
+        with pytest.raises(HTTPError):
             api_handler.do_request(
                 method="DELETE",
                 path=f"sobjects/Contact/{contacts[0]}",
@@ -559,13 +549,6 @@ class TestLightningRestApiHandler:
             created_record_ids.append(response["id"])
             assert response["success"]
 
-        # Insert a Contact that already exist. Failure expected.
-        with pytest.raises(requests.exceptions.RequestException):
-            api_handler.insert_record(
-                sobject="Contact",
-                payload=contact_payloads[0],
-            )
-
         # Insert a Contact that already exist with a new email. Success expected.
         new_contact_payload = contact_payloads[0].copy()
         new_contact_payload["Email"] = "new.email@example.com"
@@ -574,10 +557,14 @@ class TestLightningRestApiHandler:
         created_record_ids.append(response["id"])
         assert response["success"]
 
-        # Insert a Contact that already exist. Failure expected.
-        with pytest.raises(requests.exceptions.RequestException):
-            response = api_handler.insert_record(sobject="Contact", payload=contact_payloads[0])
-            assert response
+        # Insert a Contact with an invalid email. Failure expected.
+        contact_with_invalid_email = contact_payloads[0].copy()
+        contact_with_invalid_email["Email"] = "invalid_email"
+        with pytest.raises(HTTPError):
+            api_handler.insert_record(
+                sobject="Contact",
+                payload=contact_with_invalid_email,
+            )
 
         # Remove created records.
         for record_id in created_record_ids:
@@ -619,7 +606,7 @@ class TestLightningRestApiHandler:
 
         # Modify a Contact that does not exist. Failure expected.
         new_contact_payload = {"FirstName": "NEWNAME"}
-        with pytest.raises(requests.exceptions.RequestException):
+        with pytest.raises(HTTPError):
             api_handler.modify_record(
                 sobject="Contact",
                 record_id="WRONGID",
@@ -641,7 +628,7 @@ class TestLightningRestApiHandler:
         assert len(obtained_contacts) == 1
 
         # Delete a Contact that does not exist. Failure expected.
-        with pytest.raises(requests.exceptions.RequestException):
+        with pytest.raises(HTTPError):
             api_handler.delete_record(sobject="Contact", record_id=contacts[0])
 
     def test_soql_response_to_dataframe(self, api_handler, response, reference):

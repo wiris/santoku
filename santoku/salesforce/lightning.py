@@ -24,6 +24,11 @@ class RequestMethodError(Exception):
         super().__init__(message)
 
 
+class AuthenticationError(Exception):
+    def __init__(self, message):
+        super().__init__(message)
+
+
 class LightningRestApiHandler:
     """
     Class to manage operations on Salesforce content.
@@ -203,7 +208,7 @@ class LightningRestApiHandler:
             )
             response.raise_for_status()
         except requests.exceptions.RequestException as err:
-            raise
+            raise AuthenticationError(err)
         else:
             self._is_authenticated = True
 
@@ -529,7 +534,7 @@ class LightningRestApiHandler:
 
         Raises
         ------
-        requests.exceptions.RequestException
+        HTTPError
             If the request fails, e.g. the requesting attribute does not exist for the Salesforce
             object class.
 
