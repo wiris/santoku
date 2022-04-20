@@ -30,7 +30,7 @@ def test_string_subdomain_is_processed_as_expected(input_subdomain, expected_sub
             ("https", ["sub2", "sub1"], "example", "com", "path"),
         ),
         (
-            "https://sub1.example.com/PATH/",
+            "https://SUB1.EXAMPLE.COM/PATH/",
             ("https", ["sub1"], "example", "com", "PATH"),
         ),
         ("http://sub2.sub1.example.es", ("http", ["sub2", "sub1"], "example", "es", None)),
@@ -59,6 +59,7 @@ def test_string_subdomain_is_processed_as_expected(input_subdomain, expected_sub
         ("https:///integration/ckeditor", ("https", [], None, None, "integration/ckeditor")),
         ("/quizzesproxy/quizzes/service", (None, [], None, None, "quizzesproxy/quizzes/service")),
         ("example.com/path", (None, [], "example", "com", "path")),
+        ("EXAMPLE.cOm/pAtH", (None, [], "example", "com", "pAtH")),
         ("https:///path", ("https", [], None, None, "path")),
         ("///path", (None, [], None, None, "path")),
     ],
