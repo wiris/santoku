@@ -58,6 +58,9 @@ def test_string_subdomain_is_processed_as_expected(input_subdomain, expected_sub
         ("", (None, [], None, None, None)),
         ("https:///integration/ckeditor", ("https", [], None, None, "integration/ckeditor")),
         ("/quizzesproxy/quizzes/service", (None, [], None, None, "quizzesproxy/quizzes/service")),
+        ("example.com/path", (None, [], "example", "com", "path")),
+        ("https:///path", ("https", [], None, None, "path")),
+        ("///path", (None, [], None, None, "path")),
     ],
     scope="function",
 )
@@ -78,6 +81,7 @@ def test_url_is_split_into_components_as_expected(input_url, expected_components
         # funcition would consider 'example' as subdomain, 'com' as domain, and 'uk' as suffix
         ("https://example.com.uk", True),
         ("www.example.com", True),
+        ("example.com/path", True),
         # Note that this URL is not usable because it doesn't contain suffix, so 'localhost' will be
         # be considered as subdomain, and 'example' as domain
         ("https://localhost.example", False),
@@ -279,6 +283,28 @@ def test_component_is_cleaned_properly_when_lowercase_is_set_to_false(
                 fragment="",
             ),
             "quizzesproxy/quizzes/service",
+        ),
+        (
+            ParseResult(
+                scheme="",
+                netloc="",
+                path="domain.com/test",
+                params="",
+                query="",
+                fragment="",
+            ),
+            "test",
+        ),
+        (
+            ParseResult(
+                scheme="",
+                netloc="",
+                path="///test",
+                params="",
+                query="",
+                fragment="",
+            ),
+            "test",
         ),
     ),
     scope="function",

@@ -1,4 +1,3 @@
-import enum
 import ipaddress
 import itertools
 from typing import List, Optional, Tuple
@@ -242,17 +241,27 @@ class URLHandler:
             Called to clean the path.
 
         """
+
         # When something like "fakedomain" is passed to urllib.parse.urlparse, "fakedomain" will be
         # parsed as path, which is not desired for us (we) prefer considering "fakedomain" as
         # basedomain
         # However, we still want to process the path for cases where only a path exists, such as
         # in "/quizzesproxy/quizzes/service"
-        if not (parsed_url.scheme or parsed_url.netloc) and not parsed_url.path.startswith("/"):
+        if not (parsed_url.scheme or parsed_url.netloc) and "/" not in parsed_url.path:
             return None
+
+        # If a URL does not contain scheme, i.e.: "example.com/path", urllib places the whole URL
+        # inside the `path` component: parsed_url.path="example.com/path". The following handles
+        # this by case.
+        if parsed_url.path and not parsed_url.path.startswith("/"):
+            path = "/".join(parsed_url.path.split("/")[1:])
+        else:
+            # Regular situation
+            path = parsed_url.path
 
         # Call to `clean_component` is required as `parsed_url.path` could contain a '/', which is
         # not desirable when dealing with paths
-        return cls.clean_component(component=parsed_url.path, lowercase=False)
+        return cls.clean_component(component=path, lowercase=False)
 
     @classmethod
     def prepend_slash(cls, component: Optional[str]) -> Optional[str]:
