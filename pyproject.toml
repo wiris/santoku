@@ -32,7 +32,7 @@ pandas-gbq = "^0.17.1"
 [tool.poetry.dev-dependencies]
 pytest = "^6.2.4"
 mypy = "^0.942"
-black = "^21.5b1"
+black = "^22.3.0"
 isort = "^5.8.0"
 moto = "^3.1.4"
 responses = "0.16.0"
