@@ -14,7 +14,7 @@ RUN curl -s "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscl
 	rm -rf aws*
 
 # Install Poetry
-RUN curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | \
+RUN curl -sSL https://install.python-poetry.org | \
 	POETRY_HOME=/opt/poetry python - && \
 	chmod -R 755 /opt/poetry
 
