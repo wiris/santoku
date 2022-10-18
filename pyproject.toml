@@ -20,7 +20,7 @@ classifiers=[
 
 [tool.poetry.dependencies]
 python = "~3.9"
-boto3 = "^1.16.50"
+boto3 = "^1.24.91"
 jsonschema = "^4.1.0"
 pandas = "^1.2.4"
 slackclient = "^2.5.0"
