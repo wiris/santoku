@@ -1,7 +1,7 @@
-import os
 import json
-import pytest
+import os
 
+import pytest
 from moto import mock_secretsmanager
 from santoku.aws.secretsmanager import SecretsManagerHandler
 from santoku.exceptions import MissingEnvironmentVariables
@@ -71,7 +71,7 @@ def secret_with_non_default_key(secrets_manager, secret_token, request):
 
 @pytest.fixture(scope="class")
 def channel_name():
-    return "bi-notifications-test"
+    return "data-notifications-test"
 
 
 class TestSlackBotHandler:
